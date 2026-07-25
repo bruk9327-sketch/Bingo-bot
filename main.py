@@ -1,37 +1,37 @@
+import os
 import logging
-from flask import Flask, send_from_file
+from flask import Flask, Response
 from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # --- 1. WEB SERVER FOR MINI APP ---
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__)
 
 @app.route('/')
 def serve_miniapp():
-    return send_from_file('.', 'index.html')
+    # index.html ገጹን በቀጥታ አንብቦ የሚያስተናግድ አስተማማኝ መንገድ
+    if os.path.exists('index.html'):
+        with open('index.html', 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(content, mimetype='text/html')
+    return "index.html file not found!", 404
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-keep_alive()
-
 # --- 2. BOT CONFIGURATION ---
-# ⚠️ ቦት ቶከንዎን እዚህ ጋር በትክክል ማስገባትዎን ያረጋግጡ
-BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM" # <--- ከBotFather የተቀበሉትን ሙሉ ቶከን በትክክል በ ጥቅስ ("...") መካከል ያስገቡ
+# ⚠️ ቦት ቶከንዎን እዚህ ጋር ያስገቡ
+BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"
 
-WEB_APP_URL = "https://bingo-bot-c90r.onrender.com" 
+WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# --- 3. MAIN MENU ---
+# --- 3. MAIN MENU KEYBOARD ---
 def main_menu_keyboard():
     web_app_btn = KeyboardButton(
         text="🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)",
@@ -60,9 +60,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- 5. MAIN FUNCTION ---
 def main():
+    # Flask ን በ background በ Thread ማስነሳት
+    t = Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+    
+    # Telegram Bot ን ማስነሳት
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
-    application.run_polling()
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
