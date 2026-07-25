@@ -7,8 +7,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #1a233a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
             color: white;
             margin: 0;
             padding: 10px;
@@ -17,60 +17,82 @@
         .header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         .card {
-            background: #283556;
-            padding: 8px 12px;
+            background: #1e293b;
+            padding: 6px 10px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
+            border: 1px solid #334155;
         }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
-            max-height: 350px;
+            gap: 4px;
+            max-height: 220px;
             overflow-y: auto;
-            background: #202b46;
-            padding: 10px;
-            border-radius: 12px;
+            background: #1e293b;
+            padding: 8px;
+            border-radius: 10px;
         }
         .grid-item {
             background: #ffffff;
-            color: #000;
-            padding: 10px 0;
-            border-radius: 6px;
+            color: #0f172a;
+            padding: 8px 0;
+            border-radius: 5px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
         }
-        .grid-item.selected {
-            background: #20bf6b;
-            color: white;
+        .grid-item.selected { background: #22c55e; color: white; }
+
+        /* Slots for Bingo Cards */
+        .slots-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
         }
-        .grid-item.taken {
-            background: #a5b1c2;
-            color: #778ca3;
-            cursor: not-allowed;
+        .slot-box {
+            flex: 1;
+            background: #1e293b;
+            border: 2px dashed #475569;
+            border-radius: 10px;
+            padding: 5px;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        .call-box {
-            margin-top: 15px;
-            background: #eb4d4b;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 22px;
-            font-weight: bold;
-        }
-        .bingo-btn {
-            margin-top: 15px;
+        
+        /* 5x5 Bingo Card Grid */
+        .bingo-card {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
             width: 100%;
-            padding: 15px;
-            background: #f7b731;
+        }
+        .bingo-cell {
+            background: #22c55e;
+            color: white;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 6px 0;
+            border-radius: 4px;
+        }
+        .bingo-cell.free { background: #f59e0b; }
+
+        .bingo-btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 12px;
+            background: #eab308;
             border: none;
             color: #000;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
         }
     </style>
@@ -78,27 +100,34 @@
 <body>
 
     <div class="header">
-        <div class="card" style="background:#f1c40f; color:#000;">ROOM<br><b>VIP 💰</b></div>
+        <div class="card" style="background:#eab308; color:#000;">ROOM<br><b id="room-title">VIP 💰</b></div>
         <div class="card">SOLD<br><b id="sold-count">0</b></div>
-        <div class="card">TIME<br><b id="timer">30s</b></div>
-        <div class="card" style="background:#2ecc71;">BALANCE<br><b>0.00 ETB</b></div>
+        <div class="card">TIME<br><b id="timer">25s</b></div>
+        <div class="card" style="background:#22c55e;">BALANCE<br><b id="user-balance">0.00 ETB</b></div>
     </div>
 
+    <!-- ቦርድ መምረጫ ግሪድ (1-100) -->
     <div class="grid-container" id="grid"></div>
 
-    <div class="call-box" id="caller-box">
-        የተጠራ ቁጥር: <span id="current-number">--</span>
+    <!-- SLOT 1 እና SLOT 2 (5x5 የቢንጎ ካርቴላዎች መያዣ) -->
+    <div class="slots-container">
+        <div class="slot-box" id="slot1">
+            <span style="color:#94a3b8; font-size:12px;">+<br>SLOT 1 EMPTY</span>
+        </div>
+        <div class="slot-box" id="slot2">
+            <span style="color:#94a3b8; font-size:12px;">+<br>SLOT 2 EMPTY</span>
+        </div>
     </div>
 
     <button class="bingo-btn" onclick="claimBingo()">🔥 BINGO!</button>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Mini App ሙሉ ስክሪን እንዲሆን
+        tg.expand();
 
-        let selectedBoard = null;
+        let slotsUsed = 0;
 
-        // 1 እስከ 100 ቦርዶችን ማመንጨት
+        // 1-100 ቁጥሮችን ለቦርድ መምረጫ መስራት
         const grid = document.getElementById('grid');
         for (let i = 1; i <= 100; i++) {
             let item = document.createElement('div');
@@ -108,20 +137,44 @@
             grid.appendChild(item);
         }
 
+        // 5x5 የቢንጎ ካርቴላ ቁጥሮች ማመንጨት
+        function generateBingoCard(boardNum) {
+            let cardHtml = `<b style="color:#eab308; font-size:11px; margin-bottom:4px;">CARD #${boardNum}</b><div class="bingo-card">`;
+            for (let r = 1; r <= 25; r++) {
+                if (r === 13) {
+                    cardHtml += `<div class="bingo-cell free">★</div>`; // መሃል ላይ FREE space
+                } else {
+                    let randomNum = Math.floor(Math.random() * 75) + 1;
+                    cardHtml += `<div class="bingo-cell">${randomNum}</div>`;
+                }
+            }
+            cardHtml += `</div>`;
+            return cardHtml;
+        }
+
         function selectBoard(num, element) {
-            if (selectedBoard) return;
-            selectedBoard = num;
-            element.classList.add('selected');
-            document.getElementById('sold-count').innerText = 1;
-            tg.sendData(JSON.stringify({ action: "board_selected", board: num }));
+            if (element.classList.contains('selected')) return;
+
+            if (slotsUsed === 0) {
+                document.getElementById('slot1').innerHTML = generateBingoCard(num);
+                element.classList.add('selected');
+                slotsUsed++;
+            } else if (slotsUsed === 1) {
+                document.getElementById('slot2').innerHTML = generateBingoCard(num);
+                element.classList.add('selected');
+                slotsUsed++;
+            } else {
+                alert("ከ 2 በላይ ካርቴላ መያዝ አይችሉም!");
+            }
+            document.getElementById('sold-count').innerText = slotsUsed;
         }
 
         function claimBingo() {
-            if (!selectedBoard) {
+            if (slotsUsed === 0) {
                 alert("እባክዎ በመጀመሪያ ቦርድ ይምረጡ!");
                 return;
             }
-            alert("ቢንጎ ብለዋል! ሰርቨሩ እያረጋገጠ ነው...");
+            alert("ቢንጎ ብለዋል! ሰርቨሩ እየፈተሸ ነው...");
         }
     </script>
 </body>
