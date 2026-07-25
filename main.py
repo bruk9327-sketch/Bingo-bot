@@ -4,7 +4,7 @@ from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# --- 1. WEB SERVER & MINI APP HOSTING ---
+# --- 1. WEB SERVER FOR MINI APP ---
 app = Flask(__name__, static_folder='.')
 
 @app.route('/')
@@ -21,10 +21,9 @@ def keep_alive():
 keep_alive()
 
 # --- 2. BOT CONFIGURATION ---
-# ⚠️ ቦት ቶከንዎን እዚህ ያስገቡ
-BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM" # <--- የእርስዎን ሙሉ ቦት ቶከን እዚህ ይጻፉ
+# ⚠️ ቦት ቶከንዎን እዚህ ጋር በትክክል ማስገባትዎን ያረጋግጡ
+BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM" # <--- ከBotFather የተቀበሉትን ሙሉ ቶከን በትክክል በ ጥቅስ ("...") መካከል ያስገቡ
 
-# Render አድራሻዎ
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com" 
 
 logging.basicConfig(
@@ -32,9 +31,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# --- 3. MAIN MENU WITH WEB APP BUTTON ---
+# --- 3. MAIN MENU ---
 def main_menu_keyboard():
-    # Mini App የሚከፍተው ቁልፍ
     web_app_btn = KeyboardButton(
         text="🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)",
         web_app=WebAppInfo(url=WEB_APP_URL)
