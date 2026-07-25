@@ -28,12 +28,12 @@
             border: 1px solid #334155;
         }
         
-        /* ቁጥሮች መምረጫ ቦርድ */
+        /* 1-100 ቦርድ */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
             gap: 3px;
-            max-height: 140px;
+            max-height: 130px;
             overflow-y: auto;
             background: #1e293b;
             padding: 5px;
@@ -52,7 +52,7 @@
         .grid-item.selected { background: #22c55e; color: white; }
         .grid-item.disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
 
-        /* የጥሪ ሳጥን እና የካርቴላዎች ቦታ (ጎን ለጎን) */
+        /* ጥሪ እና ካርቴላዎች */
         .game-layout {
             display: flex;
             gap: 6px;
@@ -103,7 +103,7 @@
             justify-content: center;
         }
 
-        /* 5x5 B-I-N-G-O Grid */
+        /* 5x5 Grid */
         .bingo-header {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -121,16 +121,26 @@
             width: 100%;
         }
         .bingo-cell {
-            background: #22c55e;
+            background: #334155;
             color: white;
             font-weight: bold;
             font-size: 10px;
-            padding: 5px 0;
+            padding: 6px 0;
             border-radius: 3px;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
-        .bingo-cell.marked { background: #f59e0b !important; }
-        .bingo-cell.free { background: #f59e0b; }
+        /* የወጡ ቁጥሮች በቀለም የሚለዩበት CSS */
+        .bingo-cell.called-match { 
+            background: #3b82f6 !important; /* ሰማያዊ ቀለም - የተጠራ ቁጥር */
+            box-shadow: 0 0 5px #3b82f6;
+        }
+        .bingo-cell.marked { 
+            background: #22c55e !important; /* አረንጓዴ - ተጫዋቹ የመረጠው */
+        }
+        .bingo-cell.free { 
+            background: #f59e0b; 
+        }
 
         .bingo-btn {
             margin-top: 8px;
@@ -155,10 +165,10 @@
         <div class="card-stat" style="background:#22c55e;">BALANCE<br><b>0.00 ETB</b></div>
     </div>
 
-    <!-- 1-100 የቦርድ ቁጥሮች -->
+    <!-- 1-100 ቦርድ -->
     <div class="grid-container" id="grid"></div>
 
-    <!-- የቁጥር ጥሪ እና የካርቴላዎች ዳሽቦርድ (ጎን ለጎን) -->
+    <!-- ዳሽቦርድ -->
     <div class="game-layout">
         <div class="caller-panel">
             <span style="font-size:10px; color:#94a3b8; margin-bottom:4px;">የተጠራ ቁጥር</span>
@@ -182,7 +192,7 @@
         tg.expand();
 
         let slotsUsed = 0;
-        let selectedCards = [];
+        let selectedCardsData = {}; // የካርቴላዎችን ቁጥር መረጃ መያዣ
         let calledNumbers = [];
         let timeLeft = 30;
         let gameStarted = false;
@@ -209,41 +219,41 @@
             }
         }, 1000);
 
-        // 2) B-I-N-G-O ህግ መሰረት ቁጥር ማመንጨት
         function getRandomInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        function generateStandardBingoCard(boardNum) {
+        // 5x5 Bingo Grid Generation
+        function generateStandardBingoCard(boardNum, slotId) {
+            let cardMatrix = Array(5).fill().map(() => Array(5).fill(0));
+            let columns = [[], [], [], [], []];
+
+            while (columns[0].length < 5) { let r = getRandomInt(1, 15); if (!columns[0].includes(r)) columns[0].push(r); }
+            while (columns[1].length < 5) { let r = getRandomInt(16, 30); if (!columns[1].includes(r)) columns[1].push(r); }
+            while (columns[2].length < 5) { let r = getRandomInt(31, 45); if (!columns[2].includes(r)) columns[2].push(r); }
+            while (columns[3].length < 5) { let r = getRandomInt(46, 60); if (!columns[3].includes(r)) columns[3].push(r); }
+            while (columns[4].length < 5) { let r = getRandomInt(61, 75); if (!columns[4].includes(r)) columns[4].push(r); }
+
             let cardHtml = `
                 <b style="color:#eab308; font-size:10px; margin-bottom:2px;">CARD #${boardNum}</b>
                 <div class="bingo-header"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div>
                 <div class="bingo-card">`;
 
-            // B (1-15), I (16-30), N (31-45), G (46-60), O (61-75)
-            let columns = [
-                [], [], [], [], []
-            ];
-
-            for (let i = 0; i < 5; i++) {
-                while (columns[0].length < 5) { let r = getRandomInt(1, 15); if (!columns[0].includes(r)) columns[0].push(r); }
-                while (columns[1].length < 5) { let r = getRandomInt(16, 30); if (!columns[1].includes(r)) columns[1].push(r); }
-                while (columns[2].length < 5) { let r = getRandomInt(31, 45); if (!columns[2].includes(r)) columns[2].push(r); }
-                while (columns[3].length < 5) { let r = getRandomInt(46, 60); if (!columns[3].includes(r)) columns[3].push(r); }
-                while (columns[4].length < 5) { let r = getRandomInt(61, 75); if (!columns[4].includes(r)) columns[4].push(r); }
-            }
-
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < 5; c++) {
                     if (r === 2 && c === 2) {
+                        cardMatrix[r][c] = "FREE";
                         cardHtml += `<div class="bingo-cell free">★</div>`;
                     } else {
-                        cardHtml += `<div class="bingo-cell" onclick="markCell(this)">${columns[c][r]}</div>`;
+                        let num = columns[c][r];
+                        cardMatrix[r][c] = num;
+                        cardHtml += `<div class="bingo-cell" id="cell-${slotId}-${r}-${c}" onclick="markCell(this)">${num}</div>`;
                     }
                 }
             }
-
             cardHtml += `</div>`;
+
+            selectedCardsData[slotId] = { boardNum: boardNum, matrix: cardMatrix };
             return cardHtml;
         }
 
@@ -253,9 +263,8 @@
 
             if (slotsUsed < 2) {
                 slotsUsed++;
-                selectedCards.push(num);
                 let slotId = 'slot' + slotsUsed;
-                document.getElementById(slotId).innerHTML = generateStandardBingoCard(num);
+                document.getElementById(slotId).innerHTML = generateStandardBingoCard(num, slotId);
                 element.classList.add('selected');
                 document.getElementById('sold-count').innerText = slotsUsed;
             } else {
@@ -267,10 +276,9 @@
             cell.classList.toggle('marked');
         }
 
-        // 3) 30sec ሲያልቅ ቦርዶቹን መዝጋት እና ጨዋታ መጀመር
+        // 2) ቦርዶችን መዝጋት እና በየ 5 ሰከንዱ ቁጥር መጥራት
         function closeBoardAndStartGame() {
             gameStarted = true;
-            // ቦርዶቹን መዝጋት (Disable ማድረግ)
             for (let i = 1; i <= 100; i++) {
                 let el = document.getElementById('board-' + i);
                 if (!el.classList.contains('selected')) {
@@ -278,17 +286,79 @@
                 }
             }
 
-            // በየ 3 ሰከንዱ ቁጥር መጥራት
+            // የጥሪ ጊዜ፡ በየ 5 ሰከንዱ (5000ms) እንዲሆን ተደርጓል
             callerInterval = setInterval(() => {
-                let nextNum = getRandomInt(1, 75);
+                let nextNum;
+                do {
+                    nextNum = getRandomInt(1, 75);
+                } while (calledNumbers.includes(nextNum) && calledNumbers.length < 75);
+
                 if (!calledNumbers.includes(nextNum)) {
                     calledNumbers.push(nextNum);
                     document.getElementById('current-num').innerText = nextNum;
+                    highlightCalledNumbers(nextNum); // የወጡ ቁጥሮችን በቀለም መለየት
                 }
-            }, 3000);
+            }, 5000); 
         }
 
-        // 4) BINGO ሲባል አሸናፊ ማወቅ
+        // የወጡ ቁጥሮችን በካርቴላው ላይ በሰማያዊ ማብራት
+        function highlightCalledNumbers(num) {
+            for (let slotId in selectedCardsData) {
+                let matrix = selectedCardsData[slotId].matrix;
+                for (let r = 0; r < 5; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        if (matrix[r][c] === num) {
+                            let cell = document.getElementById(`cell-${slotId}-${r}-${c}`);
+                            if (cell) cell.classList.add('called-match');
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3) BINGO VALIDATION (የቢንጎ ህግ ማረጋገጫ)
+        function checkBingoWinning(slotId) {
+            let card = selectedCardsData[slotId];
+            if (!card) return false;
+            let matrix = card.matrix;
+
+            // የተጠሩ ወይም FREE የሆኑ ቁጥሮችን በ 1 (true) እና 0 (false) መመደብ
+            let markedMatrix = Array(5).fill().map(() => Array(5).fill(false));
+
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    let val = matrix[r][c];
+                    if (val === "FREE" || calledNumbers.includes(val)) {
+                        markedMatrix[r][c] = true;
+                    }
+                }
+            }
+
+            // 1. በአግድም ማረጋገጥ (Horizontal Row Check)
+            for (let r = 0; r < 5; r++) {
+                if (markedMatrix[r].every(val => val === true)) return true;
+            }
+
+            // 2. በቁመት ማረጋገጥ (Vertical Column Check)
+            for (let c = 0; c < 5; c++) {
+                let colWin = true;
+                for (let r = 0; r < 5; r++) {
+                    if (!markedMatrix[r][c]) { colWin = false; break; }
+                }
+                if (colWin) return true;
+            }
+
+            // 3. በደቀስ ማረጋገጥ (Diagonal Check)
+            let diag1 = true, diag2 = true;
+            for (let i = 0; i < 5; i++) {
+                if (!markedMatrix[i][i]) diag1 = false;
+                if (!markedMatrix[i][4 - i]) diag2 = false;
+            }
+            if (diag1 || diag2) return true;
+
+            return false;
+        }
+
         function claimBingo() {
             if (slotsUsed === 0) {
                 alert("እባክዎ በመጀመሪያ ቦርድ ይምረጡ!");
@@ -299,10 +369,23 @@
                 return;
             }
 
-            let winCard = selectedCards[0];
-            clearInterval(callerInterval);
-            alert(`🎉 BINGO!!\n\n🏆 ካርቴላ ቁጥር #${winCard} አሸንፏል!`);
-            tg.close();
+            let winnerCardNum = null;
+
+            // ተጫዋቹ የያዛቸውን ካርቴላዎች ማረጋገጥ
+            for (let slotId in selectedCardsData) {
+                if (checkBingoWinning(slotId)) {
+                    winnerCardNum = selectedCardsData[slotId].boardNum;
+                    break;
+                }
+            }
+
+            if (winnerCardNum !== null) {
+                clearInterval(callerInterval);
+                alert(`🎉 BINGO!! \n\n🏆 ህጉን ባሟላ መልኩ ካርቴላ ቁጥር #${winnerCardNum} አሸንፏል!`);
+                tg.close();
+            } else {
+                alert("❌ ህጉን አላሟሉም! ካርቴላዎ ገና አልሞላም ወይም የተጠራ ቁጥር አልወጣም።");
+            }
         }
     </script>
 </body>
