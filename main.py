@@ -1,6 +1,4 @@
 import logging
-import random
-import asyncio
 from flask import Flask, send_from_file
 from threading import Thread
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
@@ -11,7 +9,6 @@ app = Flask(__name__, static_folder='.')
 
 @app.route('/')
 def serve_miniapp():
-    # index.html ገጻችንን ያስተናግዳል
     return send_from_file('.', 'index.html')
 
 def run():
@@ -24,8 +21,10 @@ def keep_alive():
 keep_alive()
 
 # --- 2. BOT CONFIGURATION ---
-BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <--- ቦት ቶከንዎን እዚህ ያስገቡ
-# የ Render ዌብሳይት ሊንክዎ (መጨረሻው ላይ / ሳይኖረው)
+# ⚠️ ቦት ቶከንዎን እዚህ ያስገቡ
+BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM" # <--- የእርስዎን ሙሉ ቦት ቶከን እዚህ ይጻፉ
+
+# Render አድራሻዎ
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com" 
 
 logging.basicConfig(
@@ -33,15 +32,11 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# የጨዋታ ሁኔታዎች
-called_numbers = []
-is_game_active = False
-
 # --- 3. MAIN MENU WITH WEB APP BUTTON ---
 def main_menu_keyboard():
     # Mini App የሚከፍተው ቁልፍ
     web_app_btn = KeyboardButton(
-        text="🎮 የቢንጎ ጨዋታ ይክፈቱ",
+        text="🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)",
         web_app=WebAppInfo(url=WEB_APP_URL)
     )
     
@@ -57,7 +52,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         f"ሰላም {user_name}! 👋\n\n"
         f"እንኳን ወደ **GoodBingo Mini App** በሰላም መጡ! 🎉\n\n"
-        f"ለመጫወት ከታች ያለውን **'🎮 የቢንጎ ጨዋታ ይክፈቱ'** የሚለውን ቁልፍ ይጫኑ።"
+        f"ለመጫወት ከታች ያለውን **'🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)'** የሚለውን ቁልፍ ይጫኑ።"
     )
     await update.message.reply_text(
         welcome_text, 
