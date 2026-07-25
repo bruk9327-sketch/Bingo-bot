@@ -24,7 +24,7 @@ def keep_alive():
 keep_alive()
 
 # --- 2. BOT CONFIGURATION ---
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # <--- ቦት ቶከንዎን እዚህ ያስገቡ
+BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <--- ቦት ቶከንዎን እዚህ ያስገቡ
 # የ Render ዌብሳይት ሊንክዎ (መጨረሻው ላይ / ሳይኖረው)
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com" 
 
