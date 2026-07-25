@@ -13,45 +13,55 @@
             margin: 0;
             padding: 10px;
             text-align: center;
+            user-select: none;
         }
         .header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
-        .card {
+        .card-stat {
             background: #1e293b;
             padding: 6px 10px;
             border-radius: 8px;
             font-size: 11px;
             border: 1px solid #334155;
         }
+        .called-box {
+            background: #ef4444;
+            color: white;
+            padding: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             gap: 4px;
-            max-height: 220px;
+            max-height: 180px;
             overflow-y: auto;
             background: #1e293b;
-            padding: 8px;
+            padding: 6px;
             border-radius: 10px;
         }
         .grid-item {
             background: #ffffff;
             color: #0f172a;
-            padding: 8px 0;
-            border-radius: 5px;
+            padding: 6px 0;
+            border-radius: 4px;
             font-weight: bold;
             font-size: 12px;
             cursor: pointer;
         }
         .grid-item.selected { background: #22c55e; color: white; }
 
-        /* Slots for Bingo Cards */
+        /* Slots Area */
         .slots-container {
             display: flex;
-            gap: 10px;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 8px;
         }
         .slot-box {
             flex: 1;
@@ -59,14 +69,13 @@
             border: 2px dashed #475569;
             border-radius: 10px;
             padding: 5px;
-            min-height: 180px;
+            min-height: 170px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
         
-        /* 5x5 Bingo Card Grid */
         .bingo-card {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -80,17 +89,19 @@
             font-size: 11px;
             padding: 6px 0;
             border-radius: 4px;
+            cursor: pointer;
         }
+        .bingo-cell.marked { background: #f59e0b !important; }
         .bingo-cell.free { background: #f59e0b; }
 
         .bingo-btn {
             margin-top: 10px;
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: #eab308;
             border: none;
             color: #000;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
@@ -100,16 +111,21 @@
 <body>
 
     <div class="header">
-        <div class="card" style="background:#eab308; color:#000;">ROOM<br><b id="room-title">VIP 💰</b></div>
-        <div class="card">SOLD<br><b id="sold-count">0</b></div>
-        <div class="card">TIME<br><b id="timer">25s</b></div>
-        <div class="card" style="background:#22c55e;">BALANCE<br><b id="user-balance">0.00 ETB</b></div>
+        <div class="card-stat" style="background:#eab308; color:#000;">ROOM<br><b>VIP 💰</b></div>
+        <div class="card-stat">SOLD<br><b id="sold-count">0</b></div>
+        <div class="card-stat">TIME<br><b id="timer" style="color:#ef4444;">30s</b></div>
+        <div class="card-stat" style="background:#22c55e;">BALANCE<br><b>0.00 ETB</b></div>
     </div>
 
-    <!-- ቦርድ መምረጫ ግሪድ (1-100) -->
+    <!-- የተጠራ ቁጥር ማሳያ -->
+    <div class="called-box" id="caller-display">
+        የተጠራ ቁጥር: <span id="current-num">--</span>
+    </div>
+
+    <!-- 1-100 ቁጥሮች -->
     <div class="grid-container" id="grid"></div>
 
-    <!-- SLOT 1 እና SLOT 2 (5x5 የቢንጎ ካርቴላዎች መያዣ) -->
+    <!-- Slot 1 & 2 Cards -->
     <div class="slots-container">
         <div class="slot-box" id="slot1">
             <span style="color:#94a3b8; font-size:12px;">+<br>SLOT 1 EMPTY</span>
@@ -126,8 +142,13 @@
         tg.expand();
 
         let slotsUsed = 0;
+        let selectedCards = []; // የተያዙ ካርቴላዎች
+        let calledNumbers = []; // የተጠሩ ቁጥሮች
+        let timeLeft = 30;
+        let gameStarted = false;
+        let timerInterval, callerInterval;
 
-        // 1-100 ቁጥሮችን ለቦርድ መምረጫ መስራት
+        // 1-100 ቦርዶችን ማዘጋጀት
         const grid = document.getElementById('grid');
         for (let i = 1; i <= 100; i++) {
             let item = document.createElement('div');
@@ -137,44 +158,87 @@
             grid.appendChild(item);
         }
 
-        // 5x5 የቢንጎ ካርቴላ ቁጥሮች ማመንጨት
+        // 1) 30 ሰከንድ የቆጠራ ታይመር
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft + "s";
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                startGame();
+            }
+        }, 1000);
+
+        function selectBoard(num, element) {
+            if (gameStarted) {
+                alert("ጨዋታው ስለተጀመረ አሁን ቁጥር መያዝ አይቻልም!");
+                return;
+            }
+            if (element.classList.contains('selected')) return;
+
+            if (slotsUsed < 2) {
+                slotsUsed++;
+                selectedCards.push(num);
+                let slotId = 'slot' + slotsUsed;
+                document.getElementById(slotId).innerHTML = generateBingoCard(num);
+                element.classList.add('selected');
+                document.getElementById('sold-count').innerText = slotsUsed;
+            } else {
+                alert("ከ 2 በላይ ካርቴላ መያዝ አይችሉም!");
+            }
+        }
+
+        // 5x5 ካርቴላ ማመንጫ
         function generateBingoCard(boardNum) {
             let cardHtml = `<b style="color:#eab308; font-size:11px; margin-bottom:4px;">CARD #${boardNum}</b><div class="bingo-card">`;
             for (let r = 1; r <= 25; r++) {
                 if (r === 13) {
-                    cardHtml += `<div class="bingo-cell free">★</div>`; // መሃል ላይ FREE space
+                    cardHtml += `<div class="bingo-cell free">★</div>`;
                 } else {
                     let randomNum = Math.floor(Math.random() * 75) + 1;
-                    cardHtml += `<div class="bingo-cell">${randomNum}</div>`;
+                    cardHtml += `<div class="bingo-cell" onclick="markCell(this)">${randomNum}</div>`;
                 }
             }
             cardHtml += `</div>`;
             return cardHtml;
         }
 
-        function selectBoard(num, element) {
-            if (element.classList.contains('selected')) return;
-
-            if (slotsUsed === 0) {
-                document.getElementById('slot1').innerHTML = generateBingoCard(num);
-                element.classList.add('selected');
-                slotsUsed++;
-            } else if (slotsUsed === 1) {
-                document.getElementById('slot2').innerHTML = generateBingoCard(num);
-                element.classList.add('selected');
-                slotsUsed++;
-            } else {
-                alert("ከ 2 በላይ ካርቴላ መያዝ አይችሉም!");
-            }
-            document.getElementById('sold-count').innerText = slotsUsed;
+        function markCell(cell) {
+            cell.classList.toggle('marked');
         }
 
+        // 2) 30sec ሲያልቅ ቁጥር መጥራት መጀመር
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('caller-display').style.background = '#22c55e';
+            document.getElementById('caller-display').innerText = "ጨዋታው ተጀምሯል! ቁጥሮች እየተጠሩ ነው...";
+
+            callerInterval = setInterval(() => {
+                let nextNum = Math.floor(Math.random() * 75) + 1;
+                if (!calledNumbers.includes(nextNum)) {
+                    calledNumbers.push(nextNum);
+                    document.getElementById('current-num').innerText = nextNum;
+                    document.getElementById('caller-display').innerHTML = `የተጠራ ቁጥር: <b style="font-size:24px;">${nextNum}</b>`;
+                }
+            }, 3000); // በየ 3 ሰከንዱ ቁጥር ይጠራል
+        }
+
+        // 3) BINGO ሲባል አሸናፊውን ማስታወቅ
         function claimBingo() {
             if (slotsUsed === 0) {
                 alert("እባክዎ በመጀመሪያ ቦርድ ይምረጡ!");
                 return;
             }
-            alert("ቢንጎ ብለዋል! ሰርቨሩ እየፈተሸ ነው...");
+            if (!gameStarted) {
+                alert("ጨዋታው ገና አልተጀመረም! ታይመሩ እስኪያልቅ ይቆዩ።");
+                return;
+            }
+
+            // አሸናፊውን ካርቴላ ማስታወቅ
+            let winningCard = selectedCards[0]; 
+            clearInterval(callerInterval);
+            
+            alert(`🎉 BINGO!! \n\n🏆 ካርቴላ ቁጥር #${winningCard} አሸንፏል! \nመልካም እድል!`);
+            tg.close(); // Mini app ን ይዘጋዋል
         }
     </script>
 </body>
