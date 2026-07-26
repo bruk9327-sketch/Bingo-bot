@@ -7,13 +7,12 @@ from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
-# --- 1. SQLITE DATABASE SETUP (ዳታ እንዳይጠፋ ማስተካከያ ተደርጓል) ---
+# --- 1. SQLITE DATABASE SETUP ---
 DB_FILE = "bingo_data.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    # ⚡ WAL journal mode ዳታ እንዳይበላሽና በድንገት እንዳይጠፋ ያደርጋል
     cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -453,14 +452,31 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logging.error(f"Error handling text message: {e}")
 
+# 🔒 ምስጢርነቱ የተጠበቀ የፋይል/ፎቶ ማስተናገጃ
 async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_type = update.effective_chat.type
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name
-    txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
     
+    # 1. በግሩፕ ውስጥ ከተላከ፦ ፎቶውን ከግሩፕ ወዲያው ያጠፋዋል (Delete ያደርጋል)
+    if chat_type in ['group', 'supergroup']:
+        try:
+            await update.message.delete()
+        except Exception as e:
+            logging.error(f"Failed to delete group message: {e}")
+
+        bot_username = (await context.bot.get_me()).username
+        await update.effective_chat.send_message(
+            f"⚠️ @{update.effective_user.username or user_name} ደረሰኝ በግሩፕ መላክ አይፈቀድም!\n\n"
+            f"🔒 ምስጢርነቱ እንዲጠበቅ ደረሰኝዎን ለቦቱ በፕራይቬት ይላኩ፦ t.me/{bot_username}"
+        )
+        return
+
+    # 2. በፕራይቬት (በቦቱ ውስጥ ብቻ) ከተላከ፦ ለአድሚኑ ብቻ በምስጢር አስተላልፎ ይልካል
+    txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
     pending_deposits[txn_id] = {'user_id': user_id, 'amount': 50.0}
 
-    await update.message.reply_text("⏳ **ደረሰኝዎ ለግምገማ ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።")
+    await update.message.reply_text("⏳ **ደረሰኝዎ በምስጢር ለአድሚን ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።", parse_mode='Markdown')
 
     admin_keyboard = InlineKeyboardMarkup([
         [
@@ -469,7 +485,7 @@ async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT
         ]
     ])
 
-    admin_msg = f"🚨 **አዲስ የደረሰኝ ፋይል ተልኳል!**\n👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)"
+    admin_msg = f"🚨 **አዲስ የደረሰኝ ፋይል/ፎቶ ተልኳል!**\n👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)"
 
     try:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg)
