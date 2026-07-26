@@ -15,7 +15,7 @@
         }
 
         body {
-            background-color: #0f172a;
+            background-color: #0b1329;
             color: #ffffff;
             padding: 10px;
             display: flex;
@@ -36,12 +36,12 @@
         }
 
         .stat-box {
-            background: #1e293b;
+            background: #172038;
             border-radius: 8px;
             padding: 6px 10px;
             text-align: center;
             flex: 1;
-            border: 1px solid #334155;
+            border: 1px solid #233054;
         }
 
         .stat-label {
@@ -78,11 +78,11 @@
         .board-container {
             width: 100%;
             max-width: 480px;
-            background: #1e293b;
+            background: #131c35;
             border-radius: 12px;
             padding: 8px;
             margin-bottom: 15px;
-            border: 1px solid #334155;
+            border: 1px solid #233054;
         }
 
         .board-grid {
@@ -92,8 +92,8 @@
         }
 
         .board-num {
-            background: #334155;
-            color: #94a3b8;
+            background: #1c294d;
+            color: #64748b;
             font-size: 11px;
             font-weight: bold;
             height: 28px;
@@ -125,9 +125,9 @@
             background: #ffffff;
             border-radius: 12px;
             padding: 8px;
-            min-width: 200px;
+            min-width: 210px;
             flex: 1;
-            border: 3px solid #10b981;
+            border: 2px solid #10b981;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
@@ -136,22 +136,24 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 6px;
+            padding: 0 4px;
         }
 
         .card-id {
             color: #1e40af;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .close-btn {
             background: #ef4444;
             color: white;
             border: none;
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             font-weight: bold;
+            font-size: 14px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -168,18 +170,19 @@
             background: #f8fafc;
             color: #0f172a;
             border: 1px solid #cbd5e1;
-            height: 32px;
+            height: 34px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 13px;
             border-radius: 4px;
         }
 
         .cell.star {
             color: #eab308;
-            font-size: 14px;
+            font-size: 16px;
+            background: #fff8e1;
         }
 
         .cell.matched {
@@ -197,13 +200,17 @@
 
         .btn {
             flex: 1;
-            padding: 12px;
+            padding: 14px;
             border: none;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 15px;
             cursor: pointer;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         .btn-add {
@@ -212,8 +219,8 @@
         }
 
         .btn-bingo {
-            background: #eab308;
-            color: black;
+            background: #f59e0b;
+            color: #0f172a;
         }
     </style>
 </head>
@@ -234,7 +241,7 @@
             <div class="stat-label">CALL</div>
             <div class="stat-value" id="callCount">0</div>
         </div>
-        <div class="balance-tag" id="balDisplay">0.00 ETB</div>
+        <div class="balance-tag" id="balDisplay">300.00 ETB</div>
     </div>
 
     <!-- Called Numbers Board (1 to 88 Grid) -->
@@ -255,9 +262,9 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
 
-        // Get URL parameters passed from Telegram Bot
+        // URL Params
         const urlParams = new URLSearchParams(window.location.search);
-        const userBal = parseFloat(urlParams.get('bal')) || 260.00;
+        const userBal = parseFloat(urlParams.get('bal')) || 300.00;
         const roomType = urlParams.get('room') || "10";
 
         document.getElementById('balDisplay').innerText = userBal.toFixed(2) + " ETB";
@@ -273,56 +280,56 @@
             mainBoard.appendChild(div);
         }
 
-        // --- UNIQUE BINGO CARD GENERATOR ---
-        // ለእያንዳንዱ ካርቴላ ሙሉ በሙሉ የተለዩና ያልተደጋገሙ ቁጥሮችን የማመንጨት ዘዴ
-        function generateUniqueBingoGrid() {
-            function getRandomNumbers(min, max, count) {
-                let nums = [];
-                while (nums.length < count) {
-                    let r = Math.floor(Math.random() * (max - min + 1)) + min;
-                    if (!nums.includes(r)) nums.push(r);
-                }
-                return nums;
+        // --- RANDOM & UNIQUE BINGO CARD GENERATOR ---
+        function generateRandomBingoGrid() {
+            let usedNumbers = new Set();
+            let grid = [];
+
+            function getUniqueRandomNum(min, max) {
+                let num;
+                do {
+                    num = Math.floor(Math.random() * (max - min + 1)) + min;
+                } while (usedNumbers.has(num));
+                usedNumbers.add(num);
+                return num;
             }
 
-            // Standard Bingo Range per column
-            let col1 = getRandomNumbers(1, 15, 5);
-            let col2 = getRandomNumbers(16, 30, 5);
-            let col3 = getRandomNumbers(31, 45, 5);
-            let col4 = getRandomNumbers(46, 60, 5);
-            let col5 = getRandomNumbers(61, 75, 5);
-
-            let grid = [];
+            // 5x5 Grid በዘፈቀደ ቁጥሮች መሙላት (1-88 ክልል)
             for (let row = 0; row < 5; row++) {
-                grid.push([
-                    col1[row],
-                    col2[row],
-                    (row === 2) ? "⭐" : col3[row], // Row 3 Middle is STAR
-                    col4[row],
-                    col5[row]
-                ]);
+                let rowNums = [];
+                for (let col = 0; col < 5; col++) {
+                    if (row === 2 && col === 2) {
+                        rowNums.push("⭐"); // መሃል ላይ ነፃ ቦታ (Free Star)
+                    } else {
+                        // ለእያንዳንዱ ኮለምን የራሱ የቁጥር ክልል (Range) እንዲኖረው ይደረጋል
+                        let min = (col * 17) + 1;
+                        let max = (col + 1) * 17;
+                        rowNums.push(getUniqueRandomNum(min, max));
+                    }
+                }
+                grid.push(rowNums);
             }
             return grid;
         }
 
         let playerCards = [];
 
-        // Add New Card Function
-        function addNewCard() {
+        // አዲስ ካርቴላ ለመጨመር
+        function addNewCard(specificCardId = null) {
             if (playerCards.length >= 4) {
                 alert("ከ 4 በላይ ካርቴላ መግዛት አይችሉም!");
                 return;
             }
 
-            // Generate Random Card Number/ID (e.g., #64, #36, #89...)
-            let cardId = Math.floor(Math.random() * 90) + 1;
-            let cardNumbers = generateUniqueBingoGrid();
+            // ካርቴላ ID (የተያዘው የካርቴላ ቁጥር)
+            let cardId = specificCardId || Math.floor(Math.random() * 88) + 1;
+            let cardNumbers = generateRandomBingoGrid();
 
             playerCards.push({ id: cardId, grid: cardNumbers });
             renderCards();
         }
 
-        // Render Player Cards on Screen
+        // ካርቴላዎችን በስክሪን ላይ ማሳያ
         function renderCards() {
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
@@ -362,9 +369,9 @@
             alert("ቢንጎ ፍተሻ በመደረግ ላይ ነው...");
         }
 
-        // Create 2 Default Cards on First Load (like in your screenshot)
-        addNewCard();
-        addNewCard();
+        // በምስሉ ላይ እንደነበረው #12 እና #15 ካርቴላዎችን በዲፎልት መክፈት
+        addNewCard(12);
+        addNewCard(15);
     </script>
 </body>
 </html>
