@@ -1,12 +1,101 @@
 import os
 import re
+import sqlite3
 import logging
 from flask import Flask, Response, request, jsonify
 from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
-# --- 1. FLASK WEB SERVER ---
+# --- 1. SQLITE DATABASE SETUP (ቋሚ የባላንስ ማከማቻ) ---
+DB_FILE = "bingo_data.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    # Users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            balance REAL DEFAULT 0.0,
+            referrals INTEGER DEFAULT 0,
+            referred_by INTEGER
+        )
+    ''')
+    # Used Txns table (የውሸት ደረሰኝ/ድግግሞሽ መከላከያ)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS used_txns (
+            txn_id TEXT PRIMARY KEY
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def db_get_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT balance, referrals FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
+        conn.commit()
+        conn.close()
+        return 0.0, 0
+    conn.close()
+    return row[0], row[1]
+
+def db_update_balance(user_id, amount):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
+    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    new_bal = cursor.fetchone()[0]
+    conn.commit()
+    conn.close()
+    return new_bal
+
+def db_add_referral(referrer_id, new_user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # Check if already referred
+    cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (new_user_id,))
+    row = cursor.fetchone()
+    
+    if not row or row[0] is None:
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (new_user_id,))
+        cursor.execute("UPDATE users SET referred_by = ? WHERE user_id = ?", (referrer_id, new_user_id))
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (referrer_id,))
+        cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id = ?", (referrer_id,))
+        
+        cursor.execute("SELECT referrals FROM users WHERE user_id = ?", (referrer_id,))
+        ref_count = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return True, ref_count
+    
+    conn.close()
+    return False, 0
+
+def db_is_txn_used(txn_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT txn_id FROM used_txns WHERE txn_id = ?", (txn_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
+
+def db_mark_txn_used(txn_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO used_txns (txn_id) VALUES (?)", (txn_id,))
+    conn.commit()
+    conn.close()
+
+# --- 2. FLASK WEB SERVER ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -24,73 +113,57 @@ def sync_balance():
     
     if user_id and new_balance is not None:
         try:
-            user_balances[int(user_id)] = float(new_balance)
-        except:
-            user_balances[str(user_id)] = float(new_balance)
-        return jsonify({"status": "success", "balance": new_balance})
+            uid = int(user_id)
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (float(new_balance), uid))
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success", "balance": new_balance})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
     return jsonify({"status": "error"}), 400
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-# --- 2. CONFIG & DATABASE ---
+# --- 3. CONFIG ---
 BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"          # <-- የቦት ቶከንዎን ያስገቡ
-BOT_USERNAME = "BKBingoHousebot"           # <-- የቦት Username (@ ሳይጨምሩ)
+BOT_USERNAME = "BKBingoHousebot"           # <-- የቦት Username
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"
-ADMIN_CHAT_ID = 855985673                  # ⚠️ ⚠️ እዚህ ላይ ከ @userinfobot ያገኙትን ቁጥር ያስገቡ!
+ADMIN_CHAT_ID = 855985673                  # <-- ⚠️ የራስዎን Telegram User ID ያስገቡ
 
 logging.basicConfig(level=logging.INFO)
+pending_deposits = {}   # In-memory storage for pending button actions
 
-user_balances = {}      # {user_id: balance} (Default 0.00)
-user_referrals = {}     # {user_id: count}
-referred_by = {}
-pending_deposits = {}   # {txn_id: {'user_id': uid, 'amount': amt}}
-used_txns = set()
-
-def get_balance(user_id):
-    return user_balances.get(user_id, 0.0)
-
-def get_ref_count(user_id):
-    return user_referrals.get(user_id, 0)
-
-def update_balance(user_id, amount):
-    curr = get_balance(user_id)
-    user_balances[user_id] = max(0.0, curr + amount)
-    return user_balances[user_id]
-
-# --- 3. BOT COMMANDS ---
+# --- 4. BOT COMMANDS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
 
-    if user_id not in user_balances:
-        user_balances[user_id] = 0.0
-    if user_id not in user_referrals:
-        user_referrals[user_id] = 0
+    bal, ref_count = db_get_user(user_id)
 
     if args and len(args) > 0:
         ref_payload = args[0]
         if ref_payload.startswith("ref_"):
             try:
                 referrer_id = int(ref_payload.replace("ref_", ""))
-                if user_id != referrer_id and user_id not in referred_by:
-                    referred_by[user_id] = referrer_id
-                    user_referrals[referrer_id] = user_referrals.get(referrer_id, 0) + 1
-                    
-                    invited_count = user_referrals[referrer_id]
-                    try:
-                        if invited_count >= 10:
-                            await context.bot.send_message(
-                                chat_id=referrer_id,
-                                text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ ጨዋታው ተከፍቶልዎታል። 🎮"
-                            )
-                        else:
-                            await context.bot.send_message(
-                                chat_id=referrer_id,
-                                text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{invited_count}/10`"
-                            )
-                    except Exception as e:
-                        logging.error(f"Failed to notify referrer: {e}")
+                if user_id != referrer_id:
+                    success, count = db_add_referral(referrer_id, user_id)
+                    if success:
+                        try:
+                            if count >= 10:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ ጨዋታው ተከፍቶልዎታል። 🎮"
+                                )
+                            else:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}/10`"
+                                )
+                        except Exception as e:
+                            logging.error(f"Failed referrer notify: {e}")
             except ValueError:
                 pass
 
@@ -115,8 +188,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(caption, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(inline_keyboard))
     await update.message.reply_text("👇 ከታች ያሉትን በተኖች ይጠቀሙ፦", reply_markup=reply_markup)
 
+# 👑 ለአድሚን ብቻ፡ በእጅ ብር መጨምሪያ Command (/addbalance USER_ID AMOUNT)
+async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_CHAT_ID:
+        return
+    
+    try:
+        target_uid = int(context.args[0])
+        amt = float(context.args[1])
+        new_bal = db_update_balance(target_uid, amt)
+        await update.message.reply_text(f"✅ ለ ተጫዋች `{target_uid}` የ `{amt} ETB` ሂሳብ ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+        
+        try:
+            await context.bot.send_message(
+                chat_id=target_uid,
+                text=f"🎉 **የሂሳብ ማስተካከያ!**\n\n➕ የተጨመረ፦ `{amt:.2f} ETB`\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`",
+                parse_mode='Markdown'
+            )
+        except:
+            pass
+    except Exception as e:
+        await update.message.reply_text("❌ አጠቃቀም፦ `/addbalance <USER_ID> <AMOUNT>`\nምሳሌ፦ `/addbalance 987654321 200`", parse_mode='Markdown')
+
 async def send_invite_info(update_or_query, user_id):
-    ref_count = get_ref_count(user_id)
+    _, ref_count = db_get_user(user_id)
     ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
     status_icon = "✅" if ref_count >= 10 else "⏳"
     
@@ -136,7 +231,7 @@ async def send_invite_info(update_or_query, user_id):
         await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=share_button)
 
 async def play_cmd(update_or_query, user_id):
-    ref_count = get_ref_count(user_id)
+    bal, ref_count = db_get_user(user_id)
     
     if ref_count < 10:
         error_text = (
@@ -151,7 +246,6 @@ async def play_cmd(update_or_query, user_id):
             await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
         return
 
-    bal = get_balance(user_id)
     keyboard = [
         [InlineKeyboardButton("🎮 PLAY | 10 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=10&bal={bal}&uid={user_id}"))],
         [InlineKeyboardButton("🚀 ሳምንታዊ እድል | 50 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=50&bal={bal}&uid={user_id}"))],
@@ -164,7 +258,7 @@ async def play_cmd(update_or_query, user_id):
     else:
         await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
-# --- 4. HANDLERS ---
+# --- 5. HANDLERS ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -182,36 +276,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "dep_tele":
         await query.message.reply_text("📲 **የ Telebirr ቁጥር፦** `0991983522`\nብር ገቢ ካደረጉ በኋላ የደረሰኝ SMS Copy አድርገው እዚሁ ይላኩት።", parse_mode='Markdown')
 
-    # 👨‍ገቢዎች አድሚን ማጽደቂያ (Admin Approval Logic)
+    # 👨‍ገቢዎች አድሚን ማጽደቂያ (Admin Approval)
     elif data.startswith("app_") or data.startswith("rej_"):
         if query.from_user.id != ADMIN_CHAT_ID:
             await query.answer("❌ ለእርሶ የተፈቀደ አይደለም!", show_alert=True)
             return
 
-        parts = data.split("_", 2)
+        parts = data.split("_")
         action = parts[0]
         txn_id = parts[1]
         target_uid = int(parts[2]) if len(parts) > 2 else None
 
         dep_info = pending_deposits.get(txn_id, {})
-        amount = dep_info.get('amount', 0.0)
+        amount = dep_info.get('amount', 200.0) # Default 200 if not detected
 
         if action == "app":
-            if not target_uid and dep_info:
-                target_uid = dep_info.get('user_id')
-            
             if target_uid:
-                new_bal = update_balance(target_uid, amount if amount > 0 else 200.0)
-                used_txns.add(txn_id)
+                new_bal = db_update_balance(target_uid, amount)
+                db_mark_txn_used(txn_id)
                 if txn_id in pending_deposits:
                     del pending_deposits[txn_id]
 
-                await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` ሂሳብ ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+                await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` የ `{amount:.2f} ETB` ሂሳብ በቋሚነት ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
                 
                 try:
                     await context.bot.send_message(
                         chat_id=target_uid,
-                        text=f"🎉 **ክፍያዎ ጸድቋል!**\n\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`",
+                        text=f"🎉 **ክፍያዎ ጸድቋል!**\n\n➕ የተጨመረ፦ `{amount:.2f} ETB`\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`",
                         parse_mode='Markdown'
                     )
                 except Exception as e:
@@ -220,7 +311,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif action == "rej":
             if txn_id in pending_deposits:
                 del pending_deposits[txn_id]
-            await query.edit_message_text(f"❌ **ውድቅ ተደርጓል!**\n\nየ ክፍያ ጥያቄው ውድቅ ተደርጓል።", parse_mode='Markdown')
+            await query.edit_message_text(f"❌ **ውድቅ ተደርጓል!**", parse_mode='Markdown')
 
             if target_uid:
                 try:
@@ -237,8 +328,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     text = update.message.text.strip() if update.message.text else ""
     
     if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
-        bal = get_balance(user_id)
-        ref_count = get_ref_count(user_id)
+        bal, ref_count = db_get_user(user_id)
         await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}/10`", parse_mode='Markdown')
         return
 
@@ -260,28 +350,21 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await play_cmd(update, user_id)
         return
 
-    # 📩 የ Txn ID እና Amount ፍለጋ (ለሁሉም የኢትዮጵያ ባንኮች እና ቴሌብር እንዲሰራ ተደርጓል)
+    # SMS Regex Detection
     txn_match = re.search(r'Txn\s*ID\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
     amt_match = re.search(r'([\d\.]+)\s*(?:Br|ETB)', text, re.IGNORECASE)
 
     txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
-    amount = float(amt_match.group(1)) if amt_match else 0.0
+    amount = float(amt_match.group(1)) if amt_match else 200.0
 
-    if txn_id in used_txns:
+    if db_is_txn_used(txn_id):
         await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
         return
 
-    # ጥያቄውን በይዝ መመዝገብ
     pending_deposits[txn_id] = {'user_id': user_id, 'amount': amount}
 
-    # ለተጫዋቹ የሚላክ
-    await update.message.reply_text(
-        f"⏳ **ክፍያዎ ለግምገማ ተልኳል!**\n\n"
-        f"አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።",
-        parse_mode='Markdown'
-    )
+    await update.message.reply_text("⏳ **ክፍያዎ ለግምገማ ተልኳል!** አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።", parse_mode='Markdown')
 
-    # ለአድሚኑ የሚላክ መልእክት + Approval Buttons
     admin_keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}_{user_id}"),
@@ -303,11 +386,12 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logging.error(f"Failed to alert admin: {e}")
 
-# ፋይል (PDF/Photo) ሲላክ ወደ አድሚን እንዲላክ ማድረግ
 async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name
     txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
+    
+    pending_deposits[txn_id] = {'user_id': user_id, 'amount': 200.0}
 
     await update.message.reply_text("⏳ **ደረሰኝዎ ለግምገማ ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
@@ -333,6 +417,7 @@ def main():
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("addbalance", add_balance_cmd)) # Admin Add Balance Command
     bot_app.add_handler(CallbackQueryHandler(button_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     bot_app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_document_messages))
