@@ -167,16 +167,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     text="🎉 **እንኳን ደስ አለዎት!** 100 ሰዎችን ስለጋበዙ የ **500 ETB Bonus** ተጨምሮልዎታል! 🎁💰",
                                     parse_mode='Markdown'
                                 )
-                            elif count == 10:
-                                await context.bot.send_message(
-                                    chat_id=referrer_id,
-                                    text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ የመጋበዝ መስፈርቱን አሟልተዋል።\n⚠️ **ማስታወሻ፦** መጫወት ለመጀመር አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት ማድረግ ይኖርብዎታል።",
-                                    parse_mode='Markdown'
-                                )
                             else:
                                 await context.bot.send_message(
                                     chat_id=referrer_id,
-                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}/10`",
+                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}`",
                                     parse_mode='Markdown'
                                 )
                         except Exception as e:
@@ -186,9 +180,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     caption = (
         "🎉 **Ethio Bingo For All** 🎉\n\n"
-        "🔓 **ጨዋታ ለመጫወት መስፈርቶች፦**\n"
-        "1️⃣ ቢያንስ 10 ሰዎችን መጋበዝ\n"
-        "2️⃣ አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር\n\n"
+        "🔓 **ጨዋታ ለመጫወት መስፈርት፦**\n"
+        "• አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት\n\n"
         "🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** በነፃ ያግኙ!\n\n"
         "📞 Support: @EthioBingoSupport"
     )
@@ -233,16 +226,12 @@ async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_invite_info(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
     ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
-    ref_status = "✅ ተጠናቋል" if ref_count >= 10 else f"⏳ ይቀራል (`{ref_count}/10`)"
-    bal_status = "✅ ተጠናቋል" if bal > 20 else f"⏳ ይቀራል (`{bal:.2f}/20 ETB`)"
     
     text = (
         f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
         f"`{ref_link}`\n\n"
-        f"📊 **የእርሶ መስፈርቶች ሁኔታ፦**\n"
-        f"• የጋበዟቸው ሰዎች፦ {ref_status}\n"
-        f"• የዲፖዚት ሂሳብ፦ {bal_status}\n\n"
-        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** ያገኛሉ!"
+        f"📊 **የጋበዟቸው ተጫዋቾች፦** `{ref_count}` ሰዎች\n\n"
+        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** በነፃ ያገኛሉ!"
     )
     
     share_button = InlineKeyboardMarkup([
@@ -256,26 +245,12 @@ async def send_invite_info(update_or_query, user_id):
 
 async def play_cmd(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
-    
-    # Check 1: 10 referrals requirement
-    if ref_count < 10:
-        error_text = (
-            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
-            f"1️⃣ **የመጀመሪያ መስፈርት፦** ቢያንስ 10 ሰዎችን መጋበዝ አለብዎት።\n"
-            f"እስካሁን የጋበዟቸው፦ `{ref_count}/10`"
-        )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 አሁኑኑ ጋብዝ", callback_data="btn_invite")]])
-        if hasattr(update_or_query, 'message'):
-            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
-        else:
-            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
-        return
 
-    # Check 2: Minimum balance requirement (> 20 ETB)
+    # Minimum balance requirement (> 20 ETB)
     if bal <= 20:
         error_text = (
             f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
-            f"2️⃣ **ሁለተኛ መስፈርት፦** ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ማድረግ አለብዎት።\n\n"
+            f"⚠️ ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ማድረግ አለብዎት።\n\n"
             f"💳 **የእርስዎ ቀሪ ሂሳብ፦** `{bal:.2f} ETB`"
         )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("💳 ብር አስገባ (Deposit)", callback_data="btn_deposit")]])
@@ -377,10 +352,9 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if text in ["📋 ደንቦች", "ደንቦች"]:
         rules_text = (
             "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
-            "1. ጨዋታ ለመጫወት ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
-            "2. በተጨማሪም አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
-            "3. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
-            "4. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
+            "1. ጨዋታ ለመጫወት አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
+            "2. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
+            "3. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
         )
         await update.message.reply_text(rules_text, parse_mode='Markdown')
         return
