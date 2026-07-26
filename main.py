@@ -16,7 +16,7 @@ def serve_miniapp():
             return Response(f.read(), mimetype='text/html')
     return "index.html file not found!", 404
 
-# API to sync balance from WebApp to Telegram Bot
+# API to sync balance
 @app.route('/api/sync-balance', methods=['POST'])
 def sync_balance():
     data = request.json
@@ -36,16 +36,22 @@ def run_flask():
 
 # --- 2. CONFIG & DATABASE ---
 BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <-- የቦት ቶከንዎን እዚህ ያስገቡ
+BOT_USERNAME = "EthioBingoBot"      # <-- የቦትዎን Telegram Username (@ ሳይጨምሩ) ያስገቡ
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"  # <-- የ Render URLዎን ያስገቡ
 
 logging.basicConfig(level=logging.INFO)
 
-user_balances = {}
+user_balances = {}      # {user_id: balance} (Default 0.00)
+user_referrals = {}     # {user_id: count_of_invited_friends}
+referred_by = {}        # {user_id: referrer_id} (እንዳይደጋገም)
 user_states = {}
 used_txns = set()
 
 def get_balance(user_id):
-    return user_balances.get(user_id, 80.0)
+    return user_balances.get(user_id, 0.0)
+
+def get_ref_count(user_id):
+    return user_referrals.get(user_id, 0)
 
 def update_balance(user_id, amount):
     curr = get_balance(user_id)
@@ -55,13 +61,48 @@ def update_balance(user_id, amount):
 # --- 3. BOT COMMANDS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    args = context.args
+
+    # 1. አዲስ ተጫዋች ሲመዘገብ ባላንሱን 0.00 ማድረግ
     if user_id not in user_balances:
-        user_balances[user_id] = 80.0
+        user_balances[user_id] = 0.0
+    if user_id not in user_referrals:
+        user_referrals[user_id] = 0
+
+    # 2. የ Referral Check (በሌላ ሰው ሊንክ ገብቶ ከሆነ)
+    if args and len(args) > 0:
+        ref_payload = args[0]
+        if ref_payload.startswith("ref_"):
+            try:
+                referrer_id = int(ref_payload.replace("ref_", ""))
+                # አዲስ ተጠቃሚ ከሆነ እና እራሱን የጋበዘ ካልሆነ
+                if user_id != referrer_id and user_id not in referred_by:
+                    referred_by[user_id] = referrer_id
+                    user_referrals[referrer_id] = user_referrals.get(referrer_id, 0) + 1
+                    
+                    # የጋበዘውን ሰው ማሳወቅ
+                    invited_count = user_referrals[referrer_id]
+                    try:
+                        if invited_count >= 10:
+                            await context.bot.send_message(
+                                chat_id=referrer_id,
+                                text=f"🎉 **እንኳን ደስ አለዎት!**\n\n10 ሰዎችን በስኬት ጋብዘዋል። አሁን ጨዋታ መጫወት ይችላሉ! 🎮"
+                            )
+                        else:
+                            await context.bot.send_message(
+                                chat_id=referrer_id,
+                                text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nእስካሁን የጋበዟቸው ተጫዋቾች፦ `{invited_count}/10`\nእባክዎ ጨዋታውን ለመክፈት ቀሪ {10 - invited_count} ሰዎችን ይጋብዙ።"
+                            )
+                    except Exception as e:
+                        logging.error(f"Failed to send ref update: {e}")
+            except ValueError:
+                pass
 
     caption = (
         "🎉 **Ethio Bingo For All** : 💰 **36 ሺህ** 🎉\n\n"
         "📅 ዘወትር ቅዳሜ እና እሁድ ⏰ 10 ሰዓት\n"
         "🎫 ካርቴላ ሳይልቅ ⏳ ቀድመው ይያዙ 🏃\n\n"
+        "⚠️ **ማሳሰቢያ፦** ጨዋታ ለመጫወት ቢያንስ **10 ሰዎችን** መጋበዝ አለብዎት!\n\n"
         "❓ ማንኛውም ጥያቄ ካለ፦\n"
         "📞 **0914657021**\n"
         "👉 @EthioBingoSupport"
@@ -69,19 +110,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     inline_keyboard = [
         [InlineKeyboardButton("🎮 PLAY | ጨዋታ ጀምር", callback_data="btn_play")],
+        [InlineKeyboardButton("🔗 10 ሰው ጋብዝ (Invite)", callback_data="btn_invite")],
         [InlineKeyboardButton("💳 DEPOSIT | ብር አስገባ", callback_data="btn_deposit")]
     ]
     
     reply_keyboard = [
         ["🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)"],
-        ["💰 ባላንስ", "📋 ደንቦች"]
+        ["💰 ባላንስ", "🔗 የኔ መጋበዣ ሊንክ", "📋 ደንቦች"]
     ]
     reply_markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
 
     await update.message.reply_text(caption, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(inline_keyboard))
     await update.message.reply_text("👇 ከታች ያሉትን በተኖች በመጠቀም መንቀሳቀስ ይችላሉ፦", reply_markup=reply_markup)
 
+async def send_invite_info(update_or_query, user_id):
+    ref_count = get_ref_count(user_id)
+    ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+    
+    status_icon = "✅" if ref_count >= 10 else "⏳"
+    
+    text = (
+        f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
+        f"ይህንን ሊንክ ኮፒ በማድረግ ለ 10 ጓደኞችዎ ይላኩ፦\n"
+        f"`{ref_link}`\n\n"
+        f"📊 **የእርሶ የግብዣ ሁኔታ፦**\n"
+        f"👥 የተጋበዙ፦ `{ref_count}/10` {status_icon}\n\n"
+    )
+    
+    if ref_count < 10:
+        text += f"⚠️ ጨዋታ ለመጀመር እባክዎ ተጨማሪ `{10 - ref_count}` ሰዎችን ይጋብዙ!"
+    else:
+        text += "🎉 **እንኳን ደስ አለዎት!** የ 10 ሰው ግብዣ አጠናቀዋል፤ አሁን መጫወት ይችላሉ!"
+
+    share_button = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📤 ለጓደኞች ሼር አድርግ (Share)", url=f"https://t.me/share/url?url={ref_link}&text=ና%20በቴሌግራም%20ቢንጎ%20ተጫውተን%20እንሸልም!")]
+    ])
+
+    if hasattr(update_or_query, 'message'):
+        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=share_button)
+    else:
+        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=share_button)
+
 async def play_cmd(update_or_query, user_id):
+    ref_count = get_ref_count(user_id)
+    
+    # 🔴 የ 10 ሰው ግብዣ ካላጠናቀቀ ጨዋታ እንዳይጀምር መከልከል
+    if ref_count < 10:
+        error_text = (
+            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
+            f"ጨዋታ ለመጫወት 10 ሰዎችን መጋበዝ አለብዎት።\n"
+            f"እስካሁን የጋበዟቸው፦ `{ref_count}/10`\n\n"
+            f"እባክዎ ቀሪ `{10 - ref_count}` ሰዎችን ለመጋበዝ ከታች ያለውን በተን ይጫኑ።"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 አሁኑኑ ጋብዝ (Invite)", callback_data="btn_invite")]
+        ])
+        
+        if hasattr(update_or_query, 'message'):
+            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        else:
+            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        return
+
+    # 🟢 10 ሰው ከጋበዘ ጨዋታው ይከፈታል
     bal = get_balance(user_id)
     keyboard = [
         [InlineKeyboardButton("🎮 PLAY | 10 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=10&bal={bal}&uid={user_id}"))],
@@ -95,18 +186,6 @@ async def play_cmd(update_or_query, user_id):
     else:
         await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await play_cmd(update, update.effective_user.id)
-
-async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_states[user_id] = "AWAITING_WITHDRAWAL_AMOUNT"
-    text = (
-        "📥 *ገንዘብ ያውጡ (Withdraw Funds)*\n"
-        "እባክዎ የሚያወጡትን የገንዘብ መጠን ያስገቡ:"
-    )
-    await update.message.reply_text(text, parse_mode='Markdown')
-
 # --- 4. HANDLERS ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -114,6 +193,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if query.data == "btn_play":
         await play_cmd(query, query.from_user.id)
+    elif query.data == "btn_invite":
+        await send_invite_info(query, query.from_user.id)
     elif query.data == "btn_deposit":
         keyboard = [
             [InlineKeyboardButton("CBE BIRR", callback_data="dep_cbe"), InlineKeyboardButton("TELE BIRR", callback_data="dep_tele")]
@@ -131,18 +212,24 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
         bal = get_balance(user_id)
+        ref_count = get_ref_count(user_id)
         await update.message.reply_text(
-            f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦**\n\n💰 `{bal:.2f} ETB`", 
+            f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n"
+            f"👥 **የተጋበዙ ሰዎች፦** `{ref_count}/10`", 
             parse_mode='Markdown'
         )
+        return
+
+    if text in ["🔗 የኔ መጋበዣ ሊንክ", "መጋበዣ ሊንክ", "/invite"]:
+        await send_invite_info(update, user_id)
         return
 
     if text in ["📋 ደንቦች", "ደንቦች"]:
         rules_text = (
             "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
-            "1. እስከ 2 ካርቴላ መምረጥ ይችላሉ።\n"
-            "2. ጨዋታው ሲጀምር የካርቴላ ዋጋ ከባላንስ ይቆረጣል።\n"
-            "3. አሸናፊው የሁሉም ተጫዋቾች የተሰበሰበ ገንዘብ (Pool Prize) ያሸንፋል!"
+            "1. ጨዋታ ለመጀመር ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
+            "2. የመጀመሪያ ባላንስዎ 0.00 ETB ነው። ለመጫወት በቴሌብር/CBE ብር ማስገባት አለብዎት።\n"
+            "3. አሸናፊው የሁሉም ተጫዋቾች የተሰበሰበ ገንዘብ (Pool) ያሸንፋል!"
         )
         await update.message.reply_text(rules_text, parse_mode='Markdown')
         return
@@ -150,21 +237,6 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if "የቢንጎ ጨዋታ" in text:
         await play_cmd(update, user_id)
         return
-
-    if user_states.get(user_id) == "AWAITING_WITHDRAWAL_AMOUNT":
-        if text.isdigit():
-            amt = float(text)
-            if amt < 100:
-                await update.message.reply_text("❌ **ከፍተኛ/ዝቅተኛ ገደብ፦** አነስተኛው የማውጫ መጠን 100 ብር ነው።", parse_mode='Markdown')
-            else:
-                bal = get_balance(user_id)
-                if amt > bal:
-                    await update.message.reply_text("❌ **በቂ ያልሆነ ሂሳብ!**", parse_mode='Markdown')
-                else:
-                    update_balance(user_id, -amt)
-                    user_states[user_id] = None
-                    await update.message.reply_text(f"✅ የ {amt:.2f} ETB ማውጣት ጥያቄዎ ተልኳል! ቀሪ ሂሳብ፦ {get_balance(user_id):.2f} ETB", parse_mode='Markdown')
-            return
 
     # Auto-Deposit Logic
     txn_match = re.search(r'Txn ID\s+([A-Z0-9]+)', text, re.IGNORECASE)
@@ -193,8 +265,6 @@ def main():
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("play", play))
-    bot_app.add_handler(CommandHandler("withdraw", withdraw))
     bot_app.add_handler(CallbackQueryHandler(button_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     
