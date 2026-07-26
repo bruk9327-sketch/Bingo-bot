@@ -16,7 +16,7 @@ def serve_miniapp():
             return Response(f.read(), mimetype='text/html')
     return "index.html file not found!", 404
 
-# API to sync balance from WebApp to Bot
+# API to sync balance from WebApp to Telegram Bot
 @app.route('/api/sync-balance', methods=['POST'])
 def sync_balance():
     data = request.json
@@ -35,8 +35,8 @@ def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 # --- 2. CONFIG & DATABASE ---
-BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <--- ቦት ቶከንዎን እዚህ ያስገቡ
-WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"  # <--- የ Render URLዎን ያስገቡ
+BOT_TOKEN ="8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <-- የቦት ቶከንዎን እዚህ ያስገቡ
+WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"  # <-- የ Render URLዎን ያስገቡ
 
 logging.basicConfig(level=logging.INFO)
 
@@ -45,7 +45,7 @@ user_states = {}
 used_txns = set()
 
 def get_balance(user_id):
-    return user_balances.get(user_id, 30.0) # Initial test balance
+    return user_balances.get(user_id, 30.0)
 
 def update_balance(user_id, amount):
     curr = get_balance(user_id)
@@ -95,11 +95,11 @@ async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[user_id] = "AWAITING_WITHDRAWAL_AMOUNT"
     text = (
         "📥 *ገንዘብ ያውጡ (Withdraw Funds)*\n"
-        "እባክዎ የሚያወጡትን የገንዘብ መጠን ያስገቡ (Enter amount to withdraw):"
+        "እባክዎ የሚያወጡትን የገንዘብ መጠን ያስገቡ:"
     )
     await update.message.reply_text(text, parse_mode='Markdown')
 
-# --- 4. CALLBACK & MESSAGE HANDLERS ---
+# --- 4. HANDLERS ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -133,7 +133,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
                     await update.message.reply_text(f"✅ የ {amt:.2f} ETB ማውጣት ጥያቄዎ ተልኳል! ቀሪ ሂሳብ፦ {get_balance(user_id):.2f} ETB", parse_mode='Markdown')
             return
 
-    # SMS Auto-Deposit Logic
+    # Auto-Deposit Logic
     txn_match = re.search(r'Txn ID\s+([A-Z0-9]+)', text, re.IGNORECASE)
     amt_match = re.search(r'paid\s+([\d\.]+)\s*Br', text, re.IGNORECASE)
 
