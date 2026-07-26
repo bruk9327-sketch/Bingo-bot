@@ -7,22 +7,21 @@ from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
-# --- 1. SQLITE DATABASE SETUP (ቋሚ የባላንስ ማከማቻ) ---
+# --- 1. SQLITE DATABASE SETUP ---
 DB_FILE = "bingo_data.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    # Users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             balance REAL DEFAULT 0.0,
             referrals INTEGER DEFAULT 0,
-            referred_by INTEGER
+            referred_by INTEGER,
+            got_100_bonus INTEGER DEFAULT 0
         )
     ''')
-    # Used Txns table (የውሸት ደረሰኝ/ድግግሞሽ መከላከያ)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS used_txns (
             txn_id TEXT PRIMARY KEY
@@ -61,24 +60,34 @@ def db_add_referral(referrer_id, new_user_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Check if already referred
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (new_user_id,))
     row = cursor.fetchone()
     
+    bonus_given = False
+    ref_count = 0
+
     if not row or row[0] is None:
         cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (new_user_id,))
         cursor.execute("UPDATE users SET referred_by = ? WHERE user_id = ?", (referrer_id, new_user_id))
         cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (referrer_id,))
         cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id = ?", (referrer_id,))
         
-        cursor.execute("SELECT referrals FROM users WHERE user_id = ?", (referrer_id,))
-        ref_count = cursor.fetchone()[0]
+        cursor.execute("SELECT referrals, got_100_bonus FROM users WHERE user_id = ?", (referrer_id,))
+        ref_data = cursor.fetchone()
+        ref_count = ref_data[0]
+        got_bonus = ref_data[1]
+
+        # 🎁 የ 100 ሰው Bonus (500 ETB) Check
+        if ref_count >= 100 and got_bonus == 0:
+            cursor.execute("UPDATE users SET balance = balance + 500, got_100_bonus = 1 WHERE user_id = ?", (referrer_id,))
+            bonus_given = True
+
         conn.commit()
         conn.close()
-        return True, ref_count
+        return True, ref_count, bonus_given
     
     conn.close()
-    return False, 0
+    return False, 0, False
 
 def db_is_txn_used(txn_id):
     conn = sqlite3.connect(DB_FILE)
@@ -134,7 +143,7 @@ WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"
 ADMIN_CHAT_ID = 855985673                  # <-- ⚠️ የራስዎን Telegram User ID ያስገቡ
 
 logging.basicConfig(level=logging.INFO)
-pending_deposits = {}   # In-memory storage for pending button actions
+pending_deposits = {}
 
 # --- 4. BOT COMMANDS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -149,18 +158,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 referrer_id = int(ref_payload.replace("ref_", ""))
                 if user_id != referrer_id:
-                    success, count = db_add_referral(referrer_id, user_id)
+                    success, count, bonus_given = db_add_referral(referrer_id, user_id)
                     if success:
                         try:
-                            if count >= 10:
+                            if bonus_given:
                                 await context.bot.send_message(
                                     chat_id=referrer_id,
-                                    text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ ጨዋታው ተከፍቶልዎታል። 🎮"
+                                    text="🎉 **እንኳን ደስ አለዎት!** 100 ሰዎችን ስለጋበዙ የ **500 ETB Bonus** ተጨምሮልዎታል! 🎁💰",
+                                    parse_mode='Markdown'
+                                )
+                            elif count == 10:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ የመጋበዝ መስፈርቱን አሟልተዋል።\n⚠️ **ማስታወሻ፦** መጫወት ለመጀመር አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት ማድረግ ይኖርብዎታል።",
+                                    parse_mode='Markdown'
                                 )
                             else:
                                 await context.bot.send_message(
                                     chat_id=referrer_id,
-                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}/10`"
+                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}/10`",
+                                    parse_mode='Markdown'
                                 )
                         except Exception as e:
                             logging.error(f"Failed referrer notify: {e}")
@@ -169,13 +186,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     caption = (
         "🎉 **Ethio Bingo For All** 🎉\n\n"
-        "⚠️ **ማሳሰቢያ፦** ጨዋታ ለመጫወት ቢያንስ **10 ሰዎችን** መጋበዝ አለብዎት!\n\n"
+        "🔓 **ጨዋታ ለመጫወት መስፈርቶች፦**\n"
+        "1️⃣ ቢያንስ 10 ሰዎችን መጋበዝ\n"
+        "2️⃣ አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር\n\n"
+        "🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** በነፃ ያግኙ!\n\n"
         "📞 Support: @EthioBingoSupport"
     )
     
     inline_keyboard = [
         [InlineKeyboardButton("🎮 PLAY | ጨዋታ ጀምር", callback_data="btn_play")],
-        [InlineKeyboardButton("🔗 10 ሰው ጋብዝ (Invite)", callback_data="btn_invite")],
+        [InlineKeyboardButton("🔗 ሰው ጋብዝ (Invite)", callback_data="btn_invite")],
         [InlineKeyboardButton("💳 DEPOSIT | ብር አስገባ", callback_data="btn_deposit")]
     ]
     
@@ -188,7 +208,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(caption, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(inline_keyboard))
     await update.message.reply_text("👇 ከታች ያሉትን በተኖች ይጠቀሙ፦", reply_markup=reply_markup)
 
-# 👑 ለአድሚን ብቻ፡ በእጅ ብር መጨምሪያ Command (/addbalance USER_ID AMOUNT)
+# Admin Add Balance
 async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_CHAT_ID:
         return
@@ -211,14 +231,18 @@ async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ አጠቃቀም፦ `/addbalance <USER_ID> <AMOUNT>`\nምሳሌ፦ `/addbalance 987654321 200`", parse_mode='Markdown')
 
 async def send_invite_info(update_or_query, user_id):
-    _, ref_count = db_get_user(user_id)
+    bal, ref_count = db_get_user(user_id)
     ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
-    status_icon = "✅" if ref_count >= 10 else "⏳"
+    ref_status = "✅ ተጠናቋል" if ref_count >= 10 else f"⏳ ይቀራል (`{ref_count}/10`)"
+    bal_status = "✅ ተጠናቋል" if bal > 20 else f"⏳ ይቀራል (`{bal:.2f}/20 ETB`)"
     
     text = (
         f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
         f"`{ref_link}`\n\n"
-        f"📊 **የእርሶ የግብዣ ሁኔታ፦** `{ref_count}/10` {status_icon}\n"
+        f"📊 **የእርሶ መስፈርቶች ሁኔታ፦**\n"
+        f"• የጋበዟቸው ሰዎች፦ {ref_status}\n"
+        f"• የዲፖዚት ሂሳብ፦ {bal_status}\n\n"
+        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** ያገኛሉ!"
     )
     
     share_button = InlineKeyboardMarkup([
@@ -233,13 +257,28 @@ async def send_invite_info(update_or_query, user_id):
 async def play_cmd(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
     
+    # Check 1: 10 referrals requirement
     if ref_count < 10:
         error_text = (
             f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
-            f"ጨዋታ ለመጫወት 10 ሰዎችን መጋበዝ አለብዎት።\n"
+            f"1️⃣ **የመጀመሪያ መስፈርት፦** ቢያንስ 10 ሰዎችን መጋበዝ አለብዎት።\n"
             f"እስካሁን የጋበዟቸው፦ `{ref_count}/10`"
         )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 አሁኑኑ ጋብዝ", callback_data="btn_invite")]])
+        if hasattr(update_or_query, 'message'):
+            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        else:
+            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        return
+
+    # Check 2: Minimum balance requirement (> 20 ETB)
+    if bal <= 20:
+        error_text = (
+            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
+            f"2️⃣ **ሁለተኛ መስፈርት፦** ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ማድረግ አለብዎት።\n\n"
+            f"💳 **የእርስዎ ቀሪ ሂሳብ፦** `{bal:.2f} ETB`"
+        )
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("💳 ብር አስገባ (Deposit)", callback_data="btn_deposit")]])
         if hasattr(update_or_query, 'message'):
             await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
         else:
@@ -276,7 +315,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "dep_tele":
         await query.message.reply_text("📲 **የ Telebirr ቁጥር፦** `0991983522`\nብር ገቢ ካደረጉ በኋላ የደረሰኝ SMS Copy አድርገው እዚሁ ይላኩት።", parse_mode='Markdown')
 
-    # 👨‍ገቢዎች አድሚን ማጽደቂያ (Admin Approval)
     elif data.startswith("app_") or data.startswith("rej_"):
         if query.from_user.id != ADMIN_CHAT_ID:
             await query.answer("❌ ለእርሶ የተፈቀደ አይደለም!", show_alert=True)
@@ -288,7 +326,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_uid = int(parts[2]) if len(parts) > 2 else None
 
         dep_info = pending_deposits.get(txn_id, {})
-        amount = dep_info.get('amount', 200.0) # Default 200 if not detected
+        amount = dep_info.get('amount', 200.0)
 
         if action == "app":
             if target_uid:
@@ -297,7 +335,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if txn_id in pending_deposits:
                     del pending_deposits[txn_id]
 
-                await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` የ `{amount:.2f} ETB` ሂሳብ በቋሚነት ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+                await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` የ `{amount:.2f} ETB` ሂሳብ ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
                 
                 try:
                     await context.bot.send_message(
@@ -329,7 +367,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
         bal, ref_count = db_get_user(user_id)
-        await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}/10`", parse_mode='Markdown')
+        await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}`", parse_mode='Markdown')
         return
 
     if text in ["🔗 የኔ መጋበዣ ሊንክ", "መጋበዣ ሊንክ", "/invite"]:
@@ -339,9 +377,10 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if text in ["📋 ደንቦች", "ደንቦች"]:
         rules_text = (
             "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
-            "1. ጨዋታ ለመጀመር ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
-            "2. የመጀመሪያ ባላንስዎ 0.00 ETB ነው።\n"
-            "3. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
+            "1. ጨዋታ ለመጫወት ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
+            "2. በተጨማሪም አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
+            "3. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
+            "4. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
         )
         await update.message.reply_text(rules_text, parse_mode='Markdown')
         return
@@ -350,7 +389,6 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await play_cmd(update, user_id)
         return
 
-    # SMS Regex Detection
     txn_match = re.search(r'Txn\s*ID\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
     amt_match = re.search(r'([\d\.]+)\s*(?:Br|ETB)', text, re.IGNORECASE)
 
@@ -417,7 +455,7 @@ def main():
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("addbalance", add_balance_cmd)) # Admin Add Balance Command
+    bot_app.add_handler(CommandHandler("addbalance", add_balance_cmd))
     bot_app.add_handler(CallbackQueryHandler(button_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     bot_app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_document_messages))
