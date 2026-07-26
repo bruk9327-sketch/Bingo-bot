@@ -18,11 +18,12 @@
     body { background-color: var(--bg-dark); color: #fff; overflow-x: hidden; }
 
     /* Top Navigation Bar */
-    .header-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #151c28; }
-    .status-badge { background: #2c3e50; padding: 6px 12px; border-radius: 8px; text-align: center; font-size: 11px; }
-    .status-badge strong { display: block; font-size: 14px; color: #fff; }
-    .room-badge { background: var(--accent-yellow); color: #000; font-weight: bold; border-radius: 8px; padding: 8px 12px; }
-    .balance-badge { background: var(--accent-green); color: #fff; font-weight: bold; border-radius: 8px; padding: 8px 12px; text-align: right; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #151c28; }
+    .status-badge { background: #2c3e50; padding: 4px 8px; border-radius: 8px; text-align: center; font-size: 10px; }
+    .status-badge strong { display: block; font-size: 13px; color: #fff; }
+    .room-badge { background: var(--accent-yellow); color: #000; font-weight: bold; border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+    .balance-badge { background: var(--accent-green); color: #fff; font-weight: bold; border-radius: 8px; padding: 6px 10px; text-align: right; font-size: 10px; }
+    .balance-badge span { font-size: 12px; }
 
     /* SELECTION VIEW (1-104 Grid) */
     #selection-view { padding: 10px; }
@@ -37,7 +38,7 @@
     .slot-box.active { border: solid 2px var(--accent-green); background: #fff; }
     .delete-btn { position: absolute; top: -8px; right: -8px; background: var(--danger-red); color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; cursor: pointer; border: 2px solid #fff; }
 
-    /* Card Mini Render inside Slots */
+    /* Mini Card Table */
     .mini-card-table { width: 100%; border-collapse: collapse; font-size: 10px; color: #333; text-align: center; margin: 4px; }
     .mini-card-table td { border: 1px solid #e2e8f0; padding: 2px; }
     .mini-card-table td.star { color: #f39c12; font-size: 12px; }
@@ -65,11 +66,11 @@
     .c-cell.dabbed { background: var(--accent-green); color: white; }
     .c-cell.star-cell { background: var(--accent-green); color: white; }
 
-    /* WINNER POPUP MODAL */
+    /* WINNER MODAL */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
     .modal-card { background: #fff; color: #333; width: 88%; border-radius: 20px; border: 4px solid var(--accent-yellow); padding: 15px; text-align: center; }
     .winner-title { color: #e74c3c; font-size: 22px; font-weight: bold; }
-    .prize-pool-box { background: #f8fafc; border-radius: 12px; padding: 8px; margin: 10px 0; border: 1fr solid #e2e8f0; }
+    .prize-pool-box { background: #f8fafc; border-radius: 12px; padding: 8px; margin: 10px 0; border: 1px solid #e2e8f0; }
     .progress-bar-container { background: #e2e8f0; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 10px; }
     .progress-fill { background: var(--accent-yellow); height: 100%; width: 100%; transition: width 1s linear; }
   </style>
@@ -81,6 +82,7 @@
     <div class="room-badge" id="ui-room">ROOM VIP 💰</div>
     <div class="status-badge">SOLD<strong id="ui-sold">228</strong></div>
     <div class="status-badge">TIME<strong id="ui-timer">18s</strong></div>
+    <div class="status-badge">CALL<strong id="ui-call-count">0ኛ</strong></div>
     <div class="balance-badge">BALANCE<br><span id="ui-balance">30.00 ETB</span></div>
   </div>
 
@@ -101,7 +103,6 @@
   <!-- VIEW 2: LIVE GAMEPLAY -->
   <div id="gameplay-view">
     <div class="game-layout">
-      <!-- Master Board 1-75 -->
       <div class="master-board">
         <div class="bingo-col-header">
           <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
@@ -109,7 +110,6 @@
         <div class="board-grid" id="master-board-grid"></div>
       </div>
 
-      <!-- Live Cards & Ball Header -->
       <div class="live-cards-area">
         <div class="ball-display-header">
           <div>
@@ -124,7 +124,7 @@
     </div>
   </div>
 
-  <!-- VIEW 3: WINNER ANNOUNCEMENT MODAL -->
+  <!-- VIEW 3: WINNER MODAL -->
   <div class="modal-overlay" id="winner-modal">
     <div class="modal-card">
       <h2 class="winner-title"><span id="win-count">1</span> አሸናፊ</h2>
@@ -153,7 +153,7 @@
 
     document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
 
-    // 🔊 Speech Synthesis (ድምፅ ጥሪ)
+    // 🔊 Voice Call Function
     function speakCall(text) {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -165,7 +165,7 @@
       }
     }
 
-    // Backend Balance Sync
+    // Backend Sync
     function syncBalanceToBackend() {
       fetch('/api/sync-balance', {
         method: 'POST',
@@ -174,7 +174,7 @@
       }).catch(err => console.log(err));
     }
 
-    // Grid Render
+    // Grid 1-104
     const gridEl = document.getElementById('numbers-grid');
     for (let i = 1; i <= 104; i++) {
       const cell = document.createElement('div');
@@ -189,12 +189,12 @@
       gridEl.appendChild(cell);
     }
 
-    // Select Card & Deduct Balance Logic
+    // Select Card + Deduct Balance
     function selectCardNumber(num, element) {
       if (selectedCards.includes(num)) {
         selectedCards = selectedCards.filter(n => n !== num);
         element.classList.remove('selected');
-        userBalance += roomPrice; // Refunds back
+        userBalance += roomPrice;
       } else {
         if (selectedCards.length >= 2) {
           alert("ከ 2 በላይ ካርቴላ መምረጥ አይችሉም!");
@@ -206,7 +206,7 @@
         }
         selectedCards.push(num);
         element.classList.add('selected');
-        userBalance -= roomPrice; // Deducts card fee
+        userBalance -= roomPrice;
       }
       
       document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
@@ -261,7 +261,6 @@
       }
     }, 1000);
 
-    // Live Gameplay Start
     function startLiveGame() {
       if (selectedCards.length === 0) selectedCards = [80]; 
       document.getElementById('selection-view').style.display = 'none';
@@ -306,7 +305,7 @@
       });
     }
 
-    // Ball Caller Engine + Voice Calls
+    // 🎙️ Ball Caller Engine (1ኛ, 2ኛ... ጥሪዎች)
     function startBallCaller() {
       const ballsToCall = [70, 15, 37, 68, 11, 61, 57, 36, 3, 46, 69];
       let idx = 0;
@@ -321,6 +320,10 @@
         const ballNum = ballsToCall[idx];
         calledNumbers.push(ballNum);
 
+        // 1ኛ፣ 2ኛ... መቁጠሪያ
+        const callOrder = (idx + 1) + "ኛ";
+        document.getElementById('ui-call-count').innerText = callOrder;
+
         let letter = ballNum <= 15 ? 'B' : ballNum <= 30 ? 'I' : ballNum <= 45 ? 'N' : ballNum <= 60 ? 'G' : 'O';
         document.getElementById('current-ball-display').innerText = `${letter}-${ballNum}`;
 
@@ -332,18 +335,14 @@
           if (cardCell) cardCell.classList.add('dabbed');
         });
 
-        // 🎙️ Voice Logic (1ኛ ጥሪ / 2ኛ ጥሪ)
-        if (idx % 2 === 0) {
-          speakCall(`First call... ${letter}... ${ballNum}`);
-        } else {
-          speakCall(`Second call... ${letter}... ${ballNum}`);
-        }
+        // ድምፅ ጥሪ
+        speakCall(`${callOrder} call... ${letter}... ${ballNum}`);
 
         idx++;
       }, 3000);
     }
 
-    // Reward Logic (ሲያሸንፍ ባላንስ መደመር)
+    // ሲያሸንፉ ባላንስ መደመር
     function rewardWinnerAndShowModal() {
       const prizePool = 1824.00;
       userBalance += prizePool;
