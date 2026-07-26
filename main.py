@@ -56,19 +56,32 @@ def db_update_balance(user_id, amount):
     conn.close()
     return new_bal
 
+def db_set_referral_count(user_id, count):
+    """አድሚን በእጅ የተጋበዙ ሰዎችን ቁጥር ለማስተካከል"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
+    cursor.execute("UPDATE users SET referrals = ? WHERE user_id = ?", (count, user_id))
+    conn.commit()
+    conn.close()
+
 def db_add_referral(referrer_id, new_user_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
+    # 1. አዲሱ ተጫዋች በዲቢ መኖሩን ማረጋገጥ
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (new_user_id,))
     row = cursor.fetchone()
     
     bonus_given = False
     ref_count = 0
 
+    # ተጫዋቹ አዲስ ከሆነ ወይም ከዚህ ቀደም በሰው ካልተጋበዘ
     if not row or row[0] is None:
         cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (new_user_id,))
         cursor.execute("UPDATE users SET referred_by = ? WHERE user_id = ?", (referrer_id, new_user_id))
+        
+        # ጋባዡን ዲቢ ውስጥ ማረጋገጥ እና +1 ማድረግ
         cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (referrer_id,))
         cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id = ?", (referrer_id,))
         
@@ -77,7 +90,7 @@ def db_add_referral(referrer_id, new_user_id):
         ref_count = ref_data[0]
         got_bonus = ref_data[1]
 
-        # 🎁 የ 100 ሰው Bonus (500 ETB) Check
+        # 🎁 የ 100 ሰው Bonus (500 ETB)
         if ref_count >= 100 and got_bonus == 0:
             cursor.execute("UPDATE users SET balance = balance + 500, got_100_bonus = 1 WHERE user_id = ?", (referrer_id,))
             bonus_given = True
@@ -230,6 +243,28 @@ async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("❌ አጠቃቀም፦ `/addbalance <USER_ID> <AMOUNT>`\nምሳሌ፦ `/addbalance 987654321 200`", parse_mode='Markdown')
 
+# Admin Set Referral Count
+async def set_ref_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_CHAT_ID:
+        return
+    
+    try:
+        target_uid = int(context.args[0])
+        ref_count = int(context.args[1])
+        db_set_referral_count(target_uid, ref_count)
+        await update.message.reply_text(f"✅ ለ ተጫዋች `{target_uid}` የተጋበዙ ሰዎች ቁጥር ወደ `{ref_count}` ተቀይሯል።", parse_mode='Markdown')
+        
+        try:
+            await context.bot.send_message(
+                chat_id=target_uid,
+                text=f"🎉 **የሪፈራል ማስተካከያ!**\n\n👥 የእርስዎ የተጋበዙ ሰዎች ቁጥር፦ `{ref_count}` ሆኗል።",
+                parse_mode='Markdown'
+            )
+        except:
+            pass
+    except Exception as e:
+        await update.message.reply_text("❌ አጠቃቀም፦ `/setref <USER_ID> <COUNT>`\nምሳሌ፦ `/setref 987654321 10`", parse_mode='Markdown')
+
 async def send_invite_info(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
     ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
@@ -257,7 +292,6 @@ async def send_invite_info(update_or_query, user_id):
 async def play_cmd(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
     
-    # Check 1: 10 referrals requirement
     if ref_count < 10:
         error_text = (
             f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
@@ -271,7 +305,6 @@ async def play_cmd(update_or_query, user_id):
             await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
         return
 
-    # Check 2: Minimum balance requirement (> 20 ETB)
     if bal <= 20:
         error_text = (
             f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
@@ -326,7 +359,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_uid = int(parts[2]) if len(parts) > 2 else None
 
         dep_info = pending_deposits.get(txn_id, {})
-        # ⚠️ ከደረሰኙ ላይ የወጣውን እውነተኛ መጠን ይወስዳል
         amount = dep_info.get('amount', 50.0)
 
         if action == "app":
@@ -363,82 +395,77 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logging.error(f"Failed user notify: {e}")
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    text = update.message.text.strip() if update.message.text else ""
-    
-    if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
-        bal, ref_count = db_get_user(user_id)
-        await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}`", parse_mode='Markdown')
-        return
-
-    if text in ["🔗 የኔ መጋበዣ ሊንክ", "መጋበዣ ሊንክ", "/invite"]:
-        await send_invite_info(update, user_id)
-        return
-
-    if text in ["📋 ደንቦች", "ደንቦች"]:
-        rules_text = (
-            "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
-            "1. ጨዋታ ለመጫወት ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
-            "2. በተጨማሪም አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
-            "3. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
-            "4. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
-        )
-        await update.message.reply_text(rules_text, parse_mode='Markdown')
-        return
-
-    if "የቢንጎ ጨዋታ" in text:
-        await play_cmd(update, user_id)
-        return
-
-    # 🔍 1. የ Txn ID (ወይም የደረሰኝ ሊንክ Code) ፍለጋ
-    txn_match = re.search(r'(?:Txn\s*ID|v2\-)\s*[:\-]?\s*([A-Z0-9\-]+)', text, re.IGNORECASE)
-    txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
-
-    # 🔍 2. የብር መጠን ፍለጋ (CBE፣ Telebirr እና መደበኛ አጻጻፎችን ይለያል)
-    # ምሳሌ፦ ETB300.00, ETB 300, 300.00 ETB, 300 Birr, 300Br
-    amt_match = re.search(r'(?:ETB|Br|Birr)?\s*([\d]+(?:\.[\d]{1,2})?)\s*(?:ETB|Br|Birr)?', text, re.IGNORECASE)
-    
-    amount = 50.0  # Default 
-    
-    # የ CBE መልእክት ከላከ (transferred ETB300.00 የሚለውን ለይቶ ማውጣት)
-    cbe_match = re.search(r'transferred\s+ETB\s*([\d\.]+)', text, re.IGNORECASE)
-    if cbe_match:
-        amount = float(cbe_match.group(1))
-    elif amt_match:
-        # ለሌሎች አጻጻፎች የመጀመሪያውን የብር መጠን ቁጥር ይወስዳል
-        all_amounts = re.findall(r'ETB\s*([\d\.]+)|([\d\.]+)\s*(?:ETB|Br|Birr)', text, re.IGNORECASE)
-        found_amounts = [float(a[0] or a[1]) for a in all_amounts if (a[0] or a[1])]
-        if found_amounts:
-            amount = found_amounts[0]
-
-    if db_is_txn_used(txn_id):
-        await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
-        return
-
-    pending_deposits[txn_id] = {'user_id': user_id, 'amount': amount}
-
-    await update.message.reply_text("⏳ **ክፍያዎ ለግምገማ ተልኳል!** አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።", parse_mode='Markdown')
-
-    admin_keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}_{user_id}"),
-            InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"rej_{txn_id}_{user_id}")
-        ]
-    ])
-    
-    user_name = update.effective_user.full_name
-    admin_msg = (
-        f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
-        f"👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)\n"
-        f"💰 **የተለየው መጠን (Amount):** `{amount:.2f} ETB`\n"
-        f"🧾 **Txn ID:** `{txn_id}`\n\n"
-        f"📝 **የላከው መልእክት:**\n_{text}_"
-    )
-    
     try:
+        user_id = update.effective_user.id
+        text = update.message.text.strip() if update.message.text else ""
+        
+        if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
+            bal, ref_count = db_get_user(user_id)
+            await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}`", parse_mode='Markdown')
+            return
+
+        if text in ["🔗 የኔ መጋበዣ ሊንክ", "መጋበዣ ሊንክ", "/invite"]:
+            await send_invite_info(update, user_id)
+            return
+
+        if text in ["📋 ደንቦች", "ደንቦች"]:
+            rules_text = (
+                "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
+                "1. ጨዋታ ለመጫወት ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
+                "2. በተጨማሪም አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
+                "3. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
+                "4. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
+            )
+            await update.message.reply_text(rules_text, parse_mode='Markdown')
+            return
+
+        if "የቢንጎ ጨዋታ" in text:
+            await play_cmd(update, user_id)
+            return
+
+        txn_match = re.search(r'(?:v2\-|\/v2\-)([A-Za-z0-9]+)', text)
+        if not txn_match:
+            txn_match = re.search(r'(?:Txn\s*ID|Transaction\s*ID)\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
+
+        txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
+
+        amount = 50.0
+        cbe_match = re.search(r'(?:received|transferred)\s+ETB\s*([\d\.]+)', text, re.IGNORECASE)
+        if cbe_match:
+            amount = float(cbe_match.group(1))
+        else:
+            amt_match = re.search(r'([\d\.]+)\s*(?:ETB|Br|Birr)', text, re.IGNORECASE)
+            if amt_match:
+                amount = float(amt_match.group(1))
+
+        if db_is_txn_used(txn_id):
+            await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
+            return
+
+        pending_deposits[txn_id] = {'user_id': user_id, 'amount': amount}
+
+        await update.message.reply_text("⏳ **ክፍያዎ ለግምገማ ተልኳል!** አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።", parse_mode='Markdown')
+
+        admin_keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}_{user_id}"),
+                InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"rej_{txn_id}_{user_id}")
+            ]
+        ])
+        
+        user_name = update.effective_user.full_name
+        admin_msg = (
+            f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
+            f"👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)\n"
+            f"💰 **የተለየው መጠን:** `{amount:.2f} ETB`\n"
+            f"🧾 **Txn ID:** `{txn_id}`\n\n"
+            f"📝 **የላከው መልእክት:**\n_{text}_"
+        )
+        
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg, parse_mode='Markdown', reply_markup=admin_keyboard)
+
     except Exception as e:
-        logging.error(f"Failed to alert admin: {e}")
+        logging.error(f"Error handling text message: {e}")
 
 async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -472,6 +499,7 @@ def main():
     
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("addbalance", add_balance_cmd))
+    bot_app.add_handler(CommandHandler("setref", set_ref_cmd)) # <-- አዲስ ትእዛዝ
     bot_app.add_handler(CallbackQueryHandler(button_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
     bot_app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_document_messages))
