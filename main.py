@@ -35,7 +35,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 # --- 2. CONFIG & DATABASE ---
-BOT_TOKEN ="8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <-- የቦት ቶከንዎን እዚህ ያስገቡ
+BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # <-- የቦት ቶከንዎን እዚህ ያስገቡ
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"  # <-- የ Render URLዎን ያስገቡ
 
 logging.basicConfig(level=logging.INFO)
@@ -59,12 +59,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_balances[user_id] = 30.0
 
     caption = (
-        "🎉 **ሱፐር ቢንጎ** : 💰 **36 ሺህ** 🎉\n\n"
+        "🎉 **Ethio Bingo For All** : 💰 **36 ሺህ** 🎉\n\n"
         "📅 ዘወትር ቅዳሜ እና እሁድ ⏰ 10 ሰዓት\n"
         "🎫 ካርቴላ ሳይልቅ ⏳ ቀድመው ይያዙ 🏃\n\n"
         "❓ ማንኛውም ጥያቄ ካለ፦\n"
-        "📞 0900906969\n"
-        "👉 @GoodBingoSupport"
+        "📞 **0914657021**\n"
+        "👉 @EthioBingoSupport"
     )
     
     keyboard = [
@@ -77,8 +77,8 @@ async def play_cmd(update_or_query, user_id):
     bal = get_balance(user_id)
     keyboard = [
         [InlineKeyboardButton("🎮 PLAY | 10 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=10&bal={bal}&uid={user_id}"))],
-        [InlineKeyboardButton("🚀 SuperBingo | 50 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=50&bal={bal}&uid={user_id}"))],
-        [InlineKeyboardButton("⚽ GoodBingo Bonus", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=100&bal={bal}&uid={user_id}"))]
+        [InlineKeyboardButton("🚀 ሳምንታዊ እድል | 50 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=50&bal={bal}&uid={user_id}"))],
+        [InlineKeyboardButton("⚽ Ethio Bingo Bonus | 100 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=100&bal={bal}&uid={user_id}"))]
     ]
     text = f"Choose a room to join the game:\n\n💰 **ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`"
     
@@ -111,8 +111,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("CBE BIRR", callback_data="dep_cbe"), InlineKeyboardButton("TELE BIRR", callback_data="dep_tele")]
         ]
         await query.message.reply_text("💳 **የማስገቢያ መንገድ ይምረጡ፦**", parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    
     elif query.data == "dep_cbe":
-        await query.message.reply_text("📍 **የ CBE-Birr Merchant:** `896713`\nየደረሰኝ SMS Copy አድርገው እዚሁ ይላኩት።", parse_mode='Markdown')
+        await query.message.reply_text("📍 **የ CBE-Birr / ባንክ ቁጥር፦** `0991983522`\nብር ገቢ ካደረጉ በኋላ የደረሰኝ SMS ወይም Txn ID እዚሁ ይላኩት።", parse_mode='Markdown')
+    elif query.data == "dep_tele":
+        await query.message.reply_text("📲 **የ Telebirr ቁጥር፦** `0991983522`\nብር ገቢ ካደረጉ በኋላ የደረሰኝ SMS Copy አድርገው እዚሁ ይላኩት።", parse_mode='Markdown')
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
