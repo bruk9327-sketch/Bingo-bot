@@ -153,7 +153,69 @@ ADMIN_CHAT_ID = 855985673                  # <-- ⚠️ የራስዎን Telegram
 logging.basicConfig(level=logging.INFO)
 pending_deposits = {}
 
-# --- 4. BOT COMMANDS ---
+# --- 4. BOT COMMANDS & HELPER FUNCTIONS ---
+async def send_deposit_options(update_or_query):
+    keyboard = [
+        [InlineKeyboardButton("CBE BIRR", callback_data="dep_cbe"), InlineKeyboardButton("TELE BIRR", callback_data="dep_tele")]
+    ]
+    text = "💳 **የማስገቢያ መንገድ ይምረጡ፦**"
+    
+    if hasattr(update_or_query, 'message') and update_or_query.message:
+        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    elif hasattr(update_or_query, 'edit_message_text'):
+        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def send_invite_info(update_or_query, user_id):
+    bal, ref_count = db_get_user(user_id)
+    ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+    bal_status = "✅ ተጠናቋል" if bal > 20 else f"⏳ ይቀራል (`{bal:.2f}/20 ETB`)"
+    
+    text = (
+        f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
+        f"`{ref_link}`\n\n"
+        f"📊 **የእርሶ መረጃ፦**\n"
+        f"• የጋበዟቸው ሰዎች፦ `{ref_count}`\n"
+        f"• የዲፖዚት ሂሳብ፦ {bal_status}\n\n"
+        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** ያገኛሉ!"
+    )
+    
+    share_button = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📤 ለጓደኞች ሼር አድርግ", url=f"https://t.me/share/url?url={ref_link}&text=ና%20በቴሌግራም%20ቢንጎ%20ተጫውተን%20እንሸልም!")]
+    ])
+
+    if hasattr(update_or_query, 'message') and update_or_query.message:
+        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=share_button)
+    elif hasattr(update_or_query, 'edit_message_text'):
+        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=share_button)
+
+async def play_cmd(update_or_query, user_id):
+    bal, ref_count = db_get_user(user_id)
+
+    if bal <= 20:
+        error_text = (
+            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
+            f"እባክዎን ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ያድርጉ።\n\n"
+            f"💳 **የእርስዎ ቀሪ ሂሳብ፦** `{bal:.2f} ETB`"
+        )
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("💳 ብር አስገባ (Deposit)", callback_data="btn_deposit")]])
+        if hasattr(update_or_query, 'message') and update_or_query.message:
+            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        elif hasattr(update_or_query, 'edit_message_text'):
+            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("🎮 PLAY | 10 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=10&bal={bal}&uid={user_id}"))],
+        [InlineKeyboardButton("🚀 ሳምንታዊ እድል | 50 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=50&bal={bal}&uid={user_id}"))],
+        [InlineKeyboardButton("⚽ Ethio Bingo Bonus | 100 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=100&bal={bal}&uid={user_id}"))]
+    ]
+    text = f"የሚፈልጉትን የጨዋታ ክፍል ይምረጡ፦\n\n💰 **ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`"
+    
+    if hasattr(update_or_query, 'message') and update_or_query.message:
+        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    elif hasattr(update_or_query, 'edit_message_text'):
+        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
@@ -200,9 +262,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💳 DEPOSIT | ብር አስገባ", callback_data="btn_deposit")]
     ]
     
+    # 📱 የተስተካከለው ዋና Menu Bar አዝራሮች
     reply_keyboard = [
         ["🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)"],
-        ["💰 ባላንስ", "🔗 የኔ መጋበዣ ሊንክ", "📋 ደንቦች"]
+        ["💰 ባላንስ", "💳 ብር አስገባ (Deposit)"],
+        ["🔗 የኔ መጋበዣ ሊንክ", "📋 ደንቦች"]
     ]
     reply_markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
 
@@ -244,58 +308,6 @@ async def set_ref_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("❌ አጠቃቀም፦ `/setref <USER_ID> <COUNT>`", parse_mode='Markdown')
 
-async def send_invite_info(update_or_query, user_id):
-    bal, ref_count = db_get_user(user_id)
-    ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
-    bal_status = "✅ ተጠናቋል" if bal > 20 else f"⏳ ይቀራል (`{bal:.2f}/20 ETB`)"
-    
-    text = (
-        f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
-        f"`{ref_link}`\n\n"
-        f"📊 **የእርሶ መረጃ፦**\n"
-        f"• የጋበዟቸው ሰዎች፦ `{ref_count}`\n"
-        f"• የዲፖዚት ሂሳብ፦ {bal_status}\n\n"
-        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** ያገኛሉ!"
-    )
-    
-    share_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📤 ለጓደኞች ሼር አድርግ", url=f"https://t.me/share/url?url={ref_link}&text=ና%20በቴሌግራም%20ቢንጎ%20ተጫውተን%20እንሸልም!")]
-    ])
-
-    if hasattr(update_or_query, 'message'):
-        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=share_button)
-    else:
-        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=share_button)
-
-# 🚀 ተስተካክሏል፦ የመጋበዝ ቅድመ ሁነታ ሙሉ በሙሉ ተነስቷል!
-async def play_cmd(update_or_query, user_id):
-    bal, ref_count = db_get_user(user_id)
-
-    if bal <= 20:
-        error_text = (
-            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
-            f"እባክዎን ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ያድርጉ።\n\n"
-            f"💳 **የእርስዎ ቀሪ ሂሳብ፦** `{bal:.2f} ETB`"
-        )
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("💳 ብር አስገባ (Deposit)", callback_data="btn_deposit")]])
-        if hasattr(update_or_query, 'message'):
-            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
-        else:
-            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
-        return
-
-    keyboard = [
-        [InlineKeyboardButton("🎮 PLAY | 10 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=10&bal={bal}&uid={user_id}"))],
-        [InlineKeyboardButton("🚀 ሳምንታዊ እድል | 50 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=50&bal={bal}&uid={user_id}"))],
-        [InlineKeyboardButton("⚽ Ethio Bingo Bonus | 100 ብር", web_app=WebAppInfo(url=f"{WEB_APP_URL}?room=100&bal={bal}&uid={user_id}"))]
-    ]
-    text = f"የሚፈልጉትን የጨዋታ ክፍል ይምረጡ፦\n\n💰 **ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`"
-    
-    if hasattr(update_or_query, 'message'):
-        await update_or_query.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await update_or_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
-
 # --- 5. HANDLERS ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -307,8 +319,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "btn_invite":
         await send_invite_info(query, query.from_user.id)
     elif data == "btn_deposit":
-        keyboard = [[InlineKeyboardButton("CBE BIRR", callback_data="dep_cbe"), InlineKeyboardButton("TELE BIRR", callback_data="dep_tele")]]
-        await query.message.reply_text("💳 **የማስገቢያ መንገድ ይምረጡ፦**", parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+        await send_deposit_options(query)
     elif data == "dep_cbe":
         await query.message.reply_text("📍 **የ CBE-Birr / ባንክ ቁጥር፦** `0991983522`\nብር ገቢ ካደረጉ በኋላ የደረሰኝ SMS ወይም Txn ID እዚሁ ይላኩት።", parse_mode='Markdown')
     elif data == "dep_tele":
@@ -365,16 +376,24 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         user_id = update.effective_user.id
         text = update.message.text.strip() if update.message.text else ""
         
+        # 1. 💰 ባላንስ
         if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
             bal, ref_count = db_get_user(user_id)
             await update.message.reply_text(f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦** `{bal:.2f} ETB`\n👥 **የተጋበዙ ሰዎች፦** `{ref_count}`", parse_mode='Markdown')
             return
 
+        # 2. 💳 ብር አስገባ (Deposit)
+        if text in ["💳 ብር አስገባ (Deposit)", "ብር አስገባ", "ዲፖዚት", "/deposit"]:
+            await send_deposit_options(update)
+            return
+
+        # 3. 🔗 የኔ መጋበዣ ሊንክ
         if text in ["🔗 የኔ መጋበዣ ሊንክ", "መጋበዣ ሊንክ", "/invite"]:
             await send_invite_info(update, user_id)
             return
 
-        if text in ["📋 ደንቦች", "ደንቦች"]:
+        # 4. 📋 ደንቦች
+        if text in ["📋 ደንቦች", "ደንቦች", "/rules"]:
             rules_text = (
                 "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
                 "1. አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
@@ -384,10 +403,12 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(rules_text, parse_mode='Markdown')
             return
 
-        if "የቢንጎ ጨዋታ" in text:
+        # 5. 🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App / Play)
+        if "የቢንጎ ጨዋታ" in text or text == "/play":
             await play_cmd(update, user_id)
             return
 
+        # 🔍 የደረሰኝ / SMS ማጣሪያ
         txn_match = re.search(r'(?:v2\-|\/v2\-)([A-Za-z0-9]+)', text)
         if not txn_match:
             txn_match = re.search(r'(?:Txn\s*ID|Transaction\s*ID)\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
