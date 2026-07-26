@@ -326,7 +326,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_uid = int(parts[2]) if len(parts) > 2 else None
 
         dep_info = pending_deposits.get(txn_id, {})
-        # ⚠️ በደፋልት 50 ETB እንዲሆን ተደርጓል
+        # ⚠️ ከደረሰኙ ላይ የወጣውን እውነተኛ መጠን ይወስዳል
         amount = dep_info.get('amount', 50.0)
 
         if action == "app":
@@ -390,13 +390,26 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await play_cmd(update, user_id)
         return
 
-    # 🔍 የ Txn ID እና የብር መጠን ፍለጋ
-    txn_match = re.search(r'Txn\s*ID\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
-    amt_match = re.search(r'([\d\.]+)\s*(?:Br|ETB)', text, re.IGNORECASE)
-
+    # 🔍 1. የ Txn ID (ወይም የደረሰኝ ሊንክ Code) ፍለጋ
+    txn_match = re.search(r'(?:Txn\s*ID|v2\-)\s*[:\-]?\s*([A-Z0-9\-]+)', text, re.IGNORECASE)
     txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
-    # ⚠️ ከዚህ በፊት 200.0 የነበረው አሁን ወደ 50.0 ተቀይሯል
-    amount = float(amt_match.group(1)) if amt_match else 50.0
+
+    # 🔍 2. የብር መጠን ፍለጋ (CBE፣ Telebirr እና መደበኛ አጻጻፎችን ይለያል)
+    # ምሳሌ፦ ETB300.00, ETB 300, 300.00 ETB, 300 Birr, 300Br
+    amt_match = re.search(r'(?:ETB|Br|Birr)?\s*([\d]+(?:\.[\d]{1,2})?)\s*(?:ETB|Br|Birr)?', text, re.IGNORECASE)
+    
+    amount = 50.0  # Default 
+    
+    # የ CBE መልእክት ከላከ (transferred ETB300.00 የሚለውን ለይቶ ማውጣት)
+    cbe_match = re.search(r'transferred\s+ETB\s*([\d\.]+)', text, re.IGNORECASE)
+    if cbe_match:
+        amount = float(cbe_match.group(1))
+    elif amt_match:
+        # ለሌሎች አጻጻፎች የመጀመሪያውን የብር መጠን ቁጥር ይወስዳል
+        all_amounts = re.findall(r'ETB\s*([\d\.]+)|([\d\.]+)\s*(?:ETB|Br|Birr)', text, re.IGNORECASE)
+        found_amounts = [float(a[0] or a[1]) for a in all_amounts if (a[0] or a[1])]
+        if found_amounts:
+            amount = found_amounts[0]
 
     if db_is_txn_used(txn_id):
         await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
@@ -417,7 +430,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     admin_msg = (
         f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
         f"👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)\n"
-        f"💰 **የተገመተ መጠን:** `{amount:.2f} ETB`\n"
+        f"💰 **የተለየው መጠን (Amount):** `{amount:.2f} ETB`\n"
         f"🧾 **Txn ID:** `{txn_id}`\n\n"
         f"📝 **የላከው መልእክት:**\n_{text}_"
     )
@@ -432,7 +445,6 @@ async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT
     user_name = update.effective_user.full_name
     txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
     
-    # ⚠️ በደፋልት 50.0 ETB እንዲሆን ተደርጓል
     pending_deposits[txn_id] = {'user_id': user_id, 'amount': 50.0}
 
     await update.message.reply_text("⏳ **ደረሰኝዎ ለግምገማ ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።")
