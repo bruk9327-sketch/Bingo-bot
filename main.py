@@ -7,11 +7,16 @@ from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
-# --- 1. SQLITE DATABASE SETUP ---
+# --- 1. SQLITE DATABASE SETUP (የባላንስ ማጠፋት ችግር የተስተካከለበት) ---
 DB_FILE = "bingo_data.db"
 
+def get_db_connection():
+    # timeout=10 ዳታቤዙ እንዳይቆልፍና ዳታ እንዳይጠፋ ይረዳል
+    conn = sqlite3.connect(DB_FILE, timeout=10)
+    return conn
+
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute('''
@@ -34,31 +39,37 @@ def init_db():
 init_db()
 
 def db_get_user(user_id):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT balance, referrals FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
-    if not row:
+    
+    if row is None:
+        # አዲስ ተጫዋች ከሆነ ብቻ 0.0 ያደርገዋል
         cursor.execute("INSERT INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
         conn.commit()
         conn.close()
         return 0.0, 0
+    
     conn.close()
-    return row[0], row[1]
+    return float(row[0]), int(row[1])
 
 def db_update_balance(user_id, amount):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
+    # ተጫዋቹ ከሌለ መጀመሪያ ይመዘግባል
     cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
+    # ቀሪ ሂሳቡ ላይ አዲሱን ብር ይጨምራል
     cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+    conn.commit()
+    
     cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
     new_bal = cursor.fetchone()[0]
-    conn.commit()
     conn.close()
-    return new_bal
+    return float(new_bal)
 
 def db_set_referral_count(user_id, count):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id, balance, referrals) VALUES (?, 0.0, 0)", (user_id,))
     cursor.execute("UPDATE users SET referrals = ? WHERE user_id = ?", (count, user_id))
@@ -66,7 +77,7 @@ def db_set_referral_count(user_id, count):
     conn.close()
 
 def db_add_referral(referrer_id, new_user_id):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (new_user_id,))
@@ -99,7 +110,7 @@ def db_add_referral(referrer_id, new_user_id):
     return False, 0, False
 
 def db_is_txn_used(txn_id):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT txn_id FROM used_txns WHERE txn_id = ?", (txn_id,))
     row = cursor.fetchone()
@@ -107,7 +118,7 @@ def db_is_txn_used(txn_id):
     return row is not None
 
 def db_mark_txn_used(txn_id):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO used_txns (txn_id) VALUES (?)", (txn_id,))
     conn.commit()
@@ -132,7 +143,7 @@ def sync_balance():
     if user_id and new_balance is not None:
         try:
             uid = int(user_id)
-            conn = sqlite3.connect(DB_FILE)
+            conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (float(new_balance), uid))
             conn.commit()
