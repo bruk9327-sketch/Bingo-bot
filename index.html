@@ -102,8 +102,14 @@
             border-radius: 4px;
             border: 1px solid #e2e8f0;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
+        .board-num:active {
+            transform: scale(0.95);
+        }
+
+        /* ተጫዋቹ የመረጠው ቁጥር በቦርዱ ላይ በአረንጓዴ ይደምቃል */
         .board-num.selected-card {
             background: #10b981 !important;
             color: #ffffff !important;
@@ -192,7 +198,7 @@
         <div class="room-tag">ROOM VIP 💰</div>
         <div class="stat-box">
             <div class="stat-label">SOLD</div>
-            <div class="stat-value" id="soldCount">12</div>
+            <div class="stat-value" id="soldCount">0</div>
         </div>
         <div class="stat-box">
             <div class="stat-label">TIME</div>
@@ -210,30 +216,39 @@
         <div class="board-grid" id="mainBoard"></div>
     </div>
 
-    <!-- Cards Container (Side-by-side) -->
+    <!-- Selected Cards Container -->
     <div class="cards-container" id="cardsContainer"></div>
 
     <script>
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
 
-        // 1. Render 1-88 Grid
+        // ተጫዋቹ የመረጣቸው ካርቴላዎች ዝርዝር (በመጀመሪያ ባዶ ነው)
+        let playerCards = []; 
+
+        // 1. 1-88 የቦርድ ቁጥሮችን መፍጠር እና Click Event መጨመር
         const mainBoard = document.getElementById('mainBoard');
         for (let i = 1; i <= 88; i++) {
             let div = document.createElement('div');
             div.className = 'board-num';
             div.id = 'num-' + i;
             div.innerText = i;
+            
+            // ቁጥር ሲነካ መምረጥ ወይም አለመምረጥ
+            div.onclick = function() {
+                toggleCardSelection(i);
+            };
+
             mainBoard.appendChild(div);
         }
 
-        // Pseudo-random algorithm to guarantee exact unique numbers per card ID
+        // Random generator without repeating numbers within the same column
         function seededRandom(seed) {
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         }
 
-        // B-I-N-G-O Standard Unique Generator
+        // ለተመረጠው የካርቴላ ቁጥር (Card ID) የተለየ BINGO Grid ማዘጋጀት
         function generateUniqueGridForCard(cardId) {
             let ranges = [
                 { min: 1, max: 15 },   // B
@@ -244,9 +259,8 @@
             ];
 
             let columns = [];
-            let currentSeed = cardId * 1000;
+            let currentSeed = cardId * 997; // Seed based on chosen Card ID
 
-            // Generate 5 unique numbers for each B-I-N-G-O column
             ranges.forEach((range) => {
                 let colNums = [];
                 while (colNums.length < 5) {
@@ -260,7 +274,6 @@
                 columns.push(colNums);
             });
 
-            // Convert columns into 5x5 grid
             let grid = [];
             for (let r = 0; r < 5; r++) {
                 let row = [];
@@ -276,21 +289,38 @@
             return grid;
         }
 
-        // Selected active cards
-        let playerCards = [72, 56]; 
+        // ካርቴላ መምረጫ / ማንሻ ፈንክሽን
+        function toggleCardSelection(cardId) {
+            let index = playerCards.indexOf(cardId);
+            if (index === -1) {
+                // እስከ 4 ካርቴላ ብቻ መምረጥ እንዲቻል
+                if (playerCards.length >= 4) {
+                    alert("ከ 4 በላይ ካርቴላ መምረጥ አይችሉም!");
+                    return;
+                }
+                playerCards.push(cardId);
+            } else {
+                playerCards.splice(index, 1);
+            }
+            renderGame();
+        }
 
+        // 3. UI የማደስ ፈንክሽን
         function renderGame() {
+            // በቦርዱ ላይ አረንጓዴ የነበሩትን ማጽዳት
             document.querySelectorAll('.board-num').forEach(el => el.classList.remove('selected-card'));
 
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
 
             playerCards.forEach((cardId) => {
+                // በቦርዱ ላይ የመረጠውን ቁጥር በአረንጓዴ ማድመቅ
                 let boardCell = document.getElementById('num-' + cardId);
                 if (boardCell) {
                     boardCell.classList.add('selected-card');
                 }
 
+                // ለተመረጠው ቁጥር ካርቴላ መፍጠር
                 let cardNumbers = generateUniqueGridForCard(cardId);
 
                 let cardWrapper = document.createElement('div');
@@ -299,7 +329,7 @@
                 let cardHeader = `
                     <div class="card-header">
                         <span class="card-id">#${cardId}</span>
-                        <button class="close-btn" onclick="removeCard(${cardId})">✕</button>
+                        <button class="close-btn" onclick="toggleCardSelection(${cardId})">✕</button>
                     </div>
                 `;
 
@@ -317,14 +347,11 @@
                 container.appendChild(cardWrapper);
             });
 
+            // የ SOLD ቁጥርን ማደስ
             document.getElementById('soldCount').innerText = playerCards.length;
         }
 
-        function removeCard(cardId) {
-            playerCards = playerCards.filter(id => id !== cardId);
-            renderGame();
-        }
-
+        // የመጀመሪያ Render (ባዶ ሆኖ ይጀምራል)
         renderGame();
     </script>
 </body>
