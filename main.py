@@ -3,7 +3,7 @@ import re
 import logging
 from flask import Flask, Response, request, jsonify
 from threading import Thread
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
 # --- 1. FLASK WEB SERVER ---
@@ -45,7 +45,7 @@ user_states = {}
 used_txns = set()
 
 def get_balance(user_id):
-    return user_balances.get(user_id, 30.0)
+    return user_balances.get(user_id, 80.0)
 
 def update_balance(user_id, amount):
     curr = get_balance(user_id)
@@ -56,7 +56,7 @@ def update_balance(user_id, amount):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_balances:
-        user_balances[user_id] = 30.0
+        user_balances[user_id] = 80.0
 
     caption = (
         "🎉 **Ethio Bingo For All** : 💰 **36 ሺህ** 🎉\n\n"
@@ -67,11 +67,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👉 @EthioBingoSupport"
     )
     
-    keyboard = [
+    inline_keyboard = [
         [InlineKeyboardButton("🎮 PLAY | ጨዋታ ጀምር", callback_data="btn_play")],
         [InlineKeyboardButton("💳 DEPOSIT | ብር አስገባ", callback_data="btn_deposit")]
     ]
-    await update.message.reply_text(caption, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    
+    reply_keyboard = [
+        ["🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)"],
+        ["💰 ባላንስ", "📋 ደንቦች"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(caption, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    await update.message.reply_text("👇 ከታች ያሉትን በተኖች በመጠቀም መንቀሳቀስ ይችላሉ፦", reply_markup=reply_markup)
 
 async def play_cmd(update_or_query, user_id):
     bal = get_balance(user_id)
@@ -121,6 +129,28 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = update.effective_user.id
     text = update.message.text.strip()
     
+    if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
+        bal = get_balance(user_id)
+        await update.message.reply_text(
+            f"💳 **የአሁኑ ቀሪ ሂሳብዎ፦**\n\n💰 `{bal:.2f} ETB`", 
+            parse_mode='Markdown'
+        )
+        return
+
+    if text in ["📋 ደንቦች", "ደንቦች"]:
+        rules_text = (
+            "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
+            "1. እስከ 2 ካርቴላ መምረጥ ይችላሉ።\n"
+            "2. ጨዋታው ሲጀምር የካርቴላ ዋጋ ከባላንስ ይቆረጣል።\n"
+            "3. አሸናፊው የሁሉም ተጫዋቾች የተሰበሰበ ገንዘብ (Pool Prize) ያሸንፋል!"
+        )
+        await update.message.reply_text(rules_text, parse_mode='Markdown')
+        return
+
+    if "የቢንጎ ጨዋታ" in text:
+        await play_cmd(update, user_id)
+        return
+
     if user_states.get(user_id) == "AWAITING_WITHDRAWAL_AMOUNT":
         if text.isdigit():
             amt = float(text)
@@ -150,7 +180,12 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
         used_txns.add(txn_id)
         new_bal = update_balance(user_id, amount)
-        await update.message.reply_text(f"✅ **ክፍያዎ ተረጋግጧል!**\n\n➕ የተጨመረ፦ `{amount:.2f} ETB`\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+        await update.message.reply_text(
+            f"✅ **ክፍያዎ ተረጋግጧል!**\n\n"
+            f"➕ የተጨመረ፦ `{amount:.2f} ETB`\n"
+            f"💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`", 
+            parse_mode='Markdown'
+        )
 
 # --- MAIN ENGINE ---
 def main():
