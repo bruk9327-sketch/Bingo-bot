@@ -35,9 +35,9 @@ def run_flask():
 
 # --- 2. CONFIG & DATABASE ---
 BOT_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"          # <-- የቦት ቶከንዎን ያስገቡ
-BOT_USERNAME = "EthioBingoBot"              # <-- የቦት Username (@ ሳይጨምሩ)
+BOT_USERNAME = "BKBingoHousebot"           # <-- የቦት Username (@ ሳይጨምሩ)
 WEB_APP_URL = "https://bingo-bot-c90r.onrender.com"
-ADMIN_CHAT_ID = 855985673                  # <-- ⚠️ የራስዎን Telegram User ID እዚህ ያስገቡ
+ADMIN_CHAT_ID = 855985673                  # ⚠️ ⚠️ እዚህ ላይ ከ @userinfobot ያገኙትን ቁጥር ያስገቡ!
 
 logging.basicConfig(level=logging.INFO)
 
@@ -188,52 +188,53 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("❌ ለእርሶ የተፈቀደ አይደለም!", show_alert=True)
             return
 
-        action, txn_id = data.split("_", 1)
-        dep_info = pending_deposits.get(txn_id)
+        parts = data.split("_", 2)
+        action = parts[0]
+        txn_id = parts[1]
+        target_uid = int(parts[2]) if len(parts) > 2 else None
 
-        if not dep_info:
-            await query.edit_message_text("❌ ይህ ጥያቄ ከዚህ ቀደም ተስተናግዷል ወይም አልተገኘም!")
-            return
-
-        target_uid = dep_info['user_id']
-        amount = dep_info['amount']
+        dep_info = pending_deposits.get(txn_id, {})
+        amount = dep_info.get('amount', 0.0)
 
         if action == "app":
-            # አድሚኑ ሲያጸድቀው (Approve)
-            new_bal = update_balance(target_uid, amount)
-            used_txns.add(txn_id)
-            del pending_deposits[txn_id]
-
-            await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` የ `{amount:.2f} ETB` ሂሳብ ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+            if not target_uid and dep_info:
+                target_uid = dep_info.get('user_id')
             
-            # ለተጫዋቹ ማሳወቅ
-            try:
-                await context.bot.send_message(
-                    chat_id=target_uid,
-                    text=f"🎉 **ክፍያዎ ጸድቋል!**\n\n➕ የተጨመረ፦ `{amount:.2f} ETB`\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`",
-                    parse_mode='Markdown'
-                )
-            except Exception as e:
-                logging.error(f"Failed user notify: {e}")
+            if target_uid:
+                new_bal = update_balance(target_uid, amount if amount > 0 else 200.0)
+                used_txns.add(txn_id)
+                if txn_id in pending_deposits:
+                    del pending_deposits[txn_id]
+
+                await query.edit_message_text(f"✅ **ጽድቋል!**\n\nለ User `{target_uid}` ሂሳብ ተጨምሯል።\nአዲስ ባላንስ፦ `{new_bal:.2f} ETB`", parse_mode='Markdown')
+                
+                try:
+                    await context.bot.send_message(
+                        chat_id=target_uid,
+                        text=f"🎉 **ክፍያዎ ጸድቋል!**\n\n💰 አዲስ ባላንስ፦ `{new_bal:.2f} ETB`",
+                        parse_mode='Markdown'
+                    )
+                except Exception as e:
+                    logging.error(f"Failed user notify: {e}")
 
         elif action == "rej":
-            # አድሚኑ ውድቅ ሲያደርገው (Reject)
-            del pending_deposits[txn_id]
-            await query.edit_message_text(f"❌ **ውድቅ ተደርጓል!**\n\nየ Txn ID `{txn_id}` ክፍያ ውድቅ ተደርጓል።", parse_mode='Markdown')
+            if txn_id in pending_deposits:
+                del pending_deposits[txn_id]
+            await query.edit_message_text(f"❌ **ውድቅ ተደርጓል!**\n\nየ ክፍያ ጥያቄው ውድቅ ተደርጓል።", parse_mode='Markdown')
 
-            # ለተጫዋቹ ማሳወቅ
-            try:
-                await context.bot.send_message(
-                    chat_id=target_uid,
-                    text=f"❌ **ክፍያዎ ውድቅ ተደርጓል!**\n\nየላኩት ደረሰኝ/Txn ID አልተረጋገጠም። እባክዎ ትክክለኛ ደረሰኝ መላክዎን ያረጋግጡ።",
-                    parse_mode='Markdown'
-                )
-            except Exception as e:
-                logging.error(f"Failed user notify: {e}")
+            if target_uid:
+                try:
+                    await context.bot.send_message(
+                        chat_id=target_uid,
+                        text=f"❌ **ክፍያዎ ውድቅ ተደርጓል!**\n\nየላኩት ደረሰኝ/Txn ID አልተረጋገጠም።",
+                        parse_mode='Markdown'
+                    )
+                except Exception as e:
+                    logging.error(f"Failed user notify: {e}")
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    text = update.message.text.strip()
+    text = update.message.text.strip() if update.message.text else ""
     
     if text in ["💰 ባላንስ", "ባላንስ", "/balance"]:
         bal = get_balance(user_id)
@@ -259,55 +260,72 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await play_cmd(update, user_id)
         return
 
-    # 📩 ተጫዋቹ የክፍያ ደረሰኝ ሲልክ
-    txn_match = re.search(r'Txn ID\s+([A-Z0-9]+)', text, re.IGNORECASE)
-    amt_match = re.search(r'paid\s+([\d\.]+)\s*Br', text, re.IGNORECASE)
+    # 📩 የ Txn ID እና Amount ፍለጋ (ለሁሉም የኢትዮጵያ ባንኮች እና ቴሌብር እንዲሰራ ተደርጓል)
+    txn_match = re.search(r'Txn\s*ID\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
+    amt_match = re.search(r'([\d\.]+)\s*(?:Br|ETB)', text, re.IGNORECASE)
 
-    if txn_match and amt_match:
-        txn_id = txn_match.group(1)
-        amount = float(amt_match.group(1))
+    txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
+    amount = float(amt_match.group(1)) if amt_match else 0.0
 
-        if txn_id in used_txns:
-            await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
-            return
+    if txn_id in used_txns:
+        await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
+        return
 
-        if txn_id in pending_deposits:
-            await update.message.reply_text("⏳ ይህ ክፍያ ቀደም ብሎ ተልኮ በአድሚን ማረጋገጫ ላይ ይገኛል!")
-            return
+    # ጥያቄውን በይዝ መመዝገብ
+    pending_deposits[txn_id] = {'user_id': user_id, 'amount': amount}
 
-        # ጥያቄውን በይ기ዜ መመዝገብ
-        pending_deposits[txn_id] = {'user_id': user_id, 'amount': amount}
+    # ለተጫዋቹ የሚላክ
+    await update.message.reply_text(
+        f"⏳ **ክፍያዎ ለግምገማ ተልኳል!**\n\n"
+        f"አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።",
+        parse_mode='Markdown'
+    )
 
-        # ለተጫዋቹ የሚላክ
-        await update.message.reply_text(
-            f"⏳ **ክፍያዎ ለግምገማ ተልኳል!**\n\n"
-            f"🔹 Txn ID: `{txn_id}`\n"
-            f"🔹 መጠን: `{amount:.2f} ETB`\n\n"
-            f"አድሚኑ ደረሰኙን አጣርቶ እንደጨረሰ ባላንስዎ ላይ ይጨመራል።",
-            parse_mode='Markdown'
-        )
+    # ለአድሚኑ የሚላክ መልእክት + Approval Buttons
+    admin_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}_{user_id}"),
+            InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"rej_{txn_id}_{user_id}")
+        ]
+    ])
+    
+    user_name = update.effective_user.full_name
+    admin_msg = (
+        f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
+        f"👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)\n"
+        f"💰 **የተገመተ መጠን:** `{amount:.2f} ETB`\n"
+        f"🧾 **Txn ID:** `{txn_id}`\n\n"
+        f"📝 **የላከው መልእክት:**\n_{text}_"
+    )
+    
+    try:
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg, parse_mode='Markdown', reply_markup=admin_keyboard)
+    except Exception as e:
+        logging.error(f"Failed to alert admin: {e}")
 
-        # ለአድሚኑ የሚላክ መልእክት + Approval Buttons
-        admin_keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}"),
-                InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"rej_{txn_id}")
-            ]
-        ])
-        
-        user_name = update.effective_user.full_name
-        admin_msg = (
-            f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
-            f"👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)\n"
-            f"💰 **መጠን:** `{amount:.2f} ETB`\n"
-            f"🧾 **Txn ID:** `{txn_id}`\n\n"
-            f"📝 **የላከው መልእክት:**\n_{text}_"
-        )
-        
-        try:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg, parse_mode='Markdown', reply_markup=admin_keyboard)
-        except Exception as e:
-            logging.error(f"Failed to alert admin: {e}")
+# ፋይል (PDF/Photo) ሲላክ ወደ አድሚን እንዲላክ ማድረግ
+async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_name = update.effective_user.full_name
+    txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
+
+    await update.message.reply_text("⏳ **ደረሰኝዎ ለግምገማ ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።")
+
+    admin_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ አጽድቅ (Approve)", callback_data=f"app_{txn_id}_{user_id}"),
+            InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"rej_{txn_id}_{user_id}")
+        ]
+    ])
+
+    admin_msg = f"🚨 **አዲስ የደረሰኝ ፋይል ተልኳል!**\n👤 **ተጫዋች:** {user_name} (ID: `{user_id}`)"
+
+    try:
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg)
+        await update.message.forward(chat_id=ADMIN_CHAT_ID)
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="👇 ማጽደቂያ በተኖች፦", reply_markup=admin_keyboard)
+    except Exception as e:
+        logging.error(f"Failed to forward doc: {e}")
 
 # --- MAIN ENGINE ---
 def main():
@@ -317,6 +335,7 @@ def main():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+    bot_app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_document_messages))
     
     bot_app.run_polling(drop_pending_updates=True)
 
