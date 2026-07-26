@@ -7,12 +7,14 @@ from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
-# --- 1. SQLITE DATABASE SETUP ---
+# --- 1. SQLITE DATABASE SETUP (ዳታ እንዳይጠፋ ማስተካከያ ተደርጓል) ---
 DB_FILE = "bingo_data.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
+    # ⚡ WAL journal mode ዳታ እንዳይበላሽና በድንገት እንዳይጠፋ ያደርጋል
+    cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -262,7 +264,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💳 DEPOSIT | ብር አስገባ", callback_data="btn_deposit")]
     ]
     
-    # 📱 የተስተካከለው ዋና Menu Bar አዝራሮች
     reply_keyboard = [
         ["🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App)"],
         ["💰 ባላንስ", "💳 ብር አስገባ (Deposit)"],
@@ -403,12 +404,11 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(rules_text, parse_mode='Markdown')
             return
 
-        # 5. 🎮 የቢንጎ ጨዋታ ይክፈቱ (Mini App / Play)
+        # 5. 🎮 የቢንጎ ጨዋታ ይክፈቱ
         if "የቢንጎ ጨዋታ" in text or text == "/play":
             await play_cmd(update, user_id)
             return
 
-        # 🔍 የደረሰኝ / SMS ማጣሪያ
         txn_match = re.search(r'(?:v2\-|\/v2\-)([A-Za-z0-9]+)', text)
         if not txn_match:
             txn_match = re.search(r'(?:Txn\s*ID|Transaction\s*ID)\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
