@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoodBingo Mini App</title>
+    <title>BK Bingo House Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -15,465 +15,348 @@
         }
 
         body {
-            background-color: #dbe4ee;
-            color: #0f172a;
-            padding: 0;
+            background-color: #172131;
+            color: #ffffff;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
 
-        /* Top Header Stats Bar */
-        .top-bar {
-            width: 100%;
-            background: #1e293b;
-            color: #ffffff;
-            padding: 10px 16px;
+        /* Top Header Stats */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-
-        .stat-group {
-            text-align: center;
-        }
-
-        .stat-title {
-            font-size: 9px;
-            color: #94a3b8;
-            font-weight: bold;
-        }
-
-        .stat-val {
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .val-green { color: #22c55e; }
-        .val-yellow { color: #eab308; }
-
-        /* Main Game Layout */
-        .game-container {
-            display: flex;
             width: 100%;
             max-width: 480px;
-            flex: 1;
-            padding: 8px;
-            gap: 8px;
-        }
-
-        /* Left Side Board (B-I-N-G-O Vertical Table) */
-        .side-board {
-            width: 135px;
-            background: #ffffff;
-            border-radius: 8px;
-            padding: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .bingo-header-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
-            margin-bottom: 4px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 13px;
-            color: white;
-        }
-
-        .bg-b { background: #3b82f6; }
-        .bg-i { background: #ef4444; }
-        .bg-n { background: #eab308; }
-        .bg-g { background: #22c55e; }
-        .bg-o { background: #a855f7; }
-
-        .board-numbers {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
-            font-size: 11px;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        .num-cell {
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f1f5f9;
-            border-radius: 2px;
-        }
-
-        .num-cell.called-yellow {
-            background: #f59e0b;
-            color: #ffffff;
-        }
-
-        .num-cell.called-green {
-            background: #22c55e;
-            color: #ffffff;
-        }
-
-        /* Right Play Area */
-        .play-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        /* Called Ball Display Circle */
-        .ball-display-container {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
+            margin-bottom: 12px;
             gap: 6px;
         }
 
-        .recent-ball {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            color: white;
+        .stat-box {
+            background: #233044;
+            border-radius: 8px;
+            padding: 6px 10px;
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-label {
             font-size: 10px;
+            color: #899fb8;
             font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .room-tag {
+            background: #facc15;
+            color: #000000;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+
+        .balance-tag {
+            background: #10b981;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        /* Called Numbers Board (1-88 Grid) */
+        .board-container {
+            width: 100%;
+            max-width: 480px;
+            background: #233044;
+            border-radius: 12px;
+            padding: 8px;
+            margin-bottom: 15px;
+        }
+
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+        }
+
+        .board-num {
+            background: #1e293b;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: bold;
+            height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 4px;
         }
 
-        .current-ball {
-            width: 65px;
-            height: 65px;
-            border-radius: 50%;
-            background: #7e22ce;
-            color: white;
-            font-size: 20px;
-            font-weight: bold;
+        .board-num.called {
+            background: #cbd5e1;
+            color: #0f172a;
+        }
+
+        .board-num.current {
+            background: #10b981;
+            color: #ffffff;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        /* Selected Player Cards */
+        .cards-container {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 3px solid #ffffff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            gap: 10px;
+            width: 100%;
+            max-width: 480px;
+            overflow-x: auto;
+            padding-bottom: 10px;
         }
 
-        /* Player Bingo Card */
-        .bingo-card {
+        .card-wrapper {
+            position: relative;
             background: #ffffff;
             border-radius: 12px;
             padding: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            min-width: 200px;
+            flex: 1;
+            border: 2px solid #10b981;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .card-id {
+            color: #2563eb;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .close-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .card-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 4px;
-            margin-top: 4px;
+            gap: 3px;
         }
 
-        .card-cell {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            height: 38px;
+        .cell {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .cell.star {
+            color: #f59e0b;
             font-size: 14px;
-            border-radius: 6px;
         }
 
-        .card-cell.star {
-            background: #3b82f6;
-            color: #ffffff;
-            font-size: 16px;
-        }
-
-        .card-cell.matched {
-            background: #22c55e !important;
+        .cell.matched {
+            background: #10b981 !important;
             color: #ffffff !important;
         }
 
-        .card-footer-btn {
-            margin-top: 8px;
-            background: #2563eb;
-            color: white;
-            text-align: center;
-            padding: 10px;
+        .controls {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 18px;
-            font-style: italic;
+            font-size: 14px;
             cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-left: 20px;
-            padding-right: 15px;
-        }
-
-        .card-id-tag {
-            font-size: 10px;
-            opacity: 0.8;
-            font-style: normal;
-        }
-
-        /* WINNER POPUP MODAL */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(15, 23, 42, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            padding: 15px;
-        }
-
-        .modal-card {
-            background: #ffffff;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 360px;
-            padding: 20px;
             text-align: center;
-            border: 4px solid #facc15;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            animation: popIn 0.3s ease;
         }
 
-        @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+        .btn-add {
+            background: #3b82f6;
+            color: white;
         }
 
-        .win-title {
-            font-size: 22px;
-            font-weight: 900;
-            color: #ef4444;
-        }
-
-        .win-amount {
-            font-size: 24px;
-            font-weight: 900;
-            color: #ef4444;
-            margin-bottom: 4px;
-        }
-
-        .win-sub {
-            font-size: 16px;
-            font-weight: bold;
-            color: #15803d;
-            font-style: italic;
-            margin-bottom: 12px;
-        }
-
-        .prize-box {
-            background: #f1f5f9;
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .prize-label { font-size: 10px; color: #64748b; font-weight: bold; }
-        .prize-val { font-size: 20px; color: #16a34a; font-weight: 900; }
-
-        .next-round-bar {
-            background: #facc15;
-            padding: 8px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-            color: #0f172a;
+        .btn-bingo {
+            background: #eab308;
+            color: black;
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Stats -->
-    <div class="top-bar">
-        <div class="stat-group">
-            <div class="stat-title">DERASH</div>
-            <div class="stat-val val-green" id="derashVal">1824 ETB</div>
+    <!-- Top Stats Bar -->
+    <div class="header">
+        <div class="room-tag" id="roomName">ROOM VIP 💰</div>
+        <div class="stat-box">
+            <div class="stat-label">SOLD</div>
+            <div class="stat-value" id="soldCount">12</div>
         </div>
-        <div class="stat-group">
-            <div class="stat-title">BALLS</div>
-            <div class="stat-val" id="ballsVal">13/75</div>
+        <div class="stat-box">
+            <div class="stat-label">TIME</div>
+            <div class="stat-value" id="timeCount">7s</div>
         </div>
-        <div class="stat-group">
-            <div class="stat-title">PLAYERS</div>
-            <div class="stat-val val-yellow" id="playersVal">224</div>
+        <div class="stat-box">
+            <div class="stat-label">CALL</div>
+            <div class="stat-value" id="callCount">0</div>
         </div>
+        <div class="balance-tag" id="balDisplay">260.00 ETB</div>
     </div>
 
-    <!-- Main Content -->
-    <div class="game-container">
-        
-        <!-- Left Side Vertical Board (1 to 75) -->
-        <div class="side-board">
-            <div class="bingo-header-grid">
-                <div class="bg-b">B</div>
-                <div class="bg-i">I</div>
-                <div class="bg-n">N</div>
-                <div class="bg-g">G</div>
-                <div class="bg-o">O</div>
-            </div>
-            <div class="board-numbers" id="sideBoardGrid"></div>
-        </div>
-
-        <!-- Right Side Player Area -->
-        <div class="play-area">
-            
-            <!-- Called Balls Bar -->
-            <div class="ball-display-container">
-                <div class="recent-ball bg-b">B3</div>
-                <div class="recent-ball bg-g">G46</div>
-                <div class="recent-ball bg-o">O71</div>
-                <div class="current-ball" id="currentBallVal">O-73</div>
-            </div>
-
-            <!-- Player Bingo Card -->
-            <div class="bingo-card">
-                <div class="bingo-header-grid">
-                    <div class="bg-b">B</div>
-                    <div class="bg-i">I</div>
-                    <div class="bg-n">N</div>
-                    <div class="bg-g">G</div>
-                    <div class="bg-o">O</div>
-                </div>
-                <div class="card-grid" id="playerCardGrid"></div>
-                <div class="card-footer-btn" onclick="triggerBingo()">
-                    <span>BINGO!</span>
-                    <span class="card-id-tag">#30</span>
-                </div>
-            </div>
-
-        </div>
+    <!-- Main Board 1-88 -->
+    <div class="board-container">
+        <div class="board-grid" id="mainBoard"></div>
     </div>
 
-    <!-- WINNER POPUP MODAL (ለሙከራ እንዲታይ ተደርጓል) -->
-    <div class="modal-overlay" id="winnerModal" style="display: flex;">
-        <div class="modal-card">
-            <div class="win-title">2 <span style="font-size: 14px; color: #0f172a;">አሸናፊዎች</span> <span class="win-amount">896 ETB</span></div>
-            <div class="win-sub">S Man and 1 other have won!</div>
+    <!-- Cards Container -->
+    <div class="cards-container" id="cardsContainer"></div>
 
-            <div class="prize-box">
-                <div class="prize-label">TOTAL PRIZE POOL</div>
-                <div class="prize-val">1792 ETB</div>
-            </div>
-
-            <!-- Winner Card Preview -->
-            <div style="background: #f8fafc; border-radius: 12px; padding: 10px; margin-bottom: 12px; border: 1px solid #e2e8f0;">
-                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #2563eb; font-size: 14px; margin-bottom: 6px;">
-                    <span>CARD #276</span>
-                    <span style="color: #86efac; font-size: 12px;">S Man</span>
-                </div>
-                <div class="card-grid" id="modalCardGrid"></div>
-            </div>
-
-            <div class="next-round-bar">
-                NEXT ROUND: <span id="timerVal">8S</span>
-            </div>
-        </div>
+    <!-- Controls -->
+    <div class="controls">
+        <button class="btn btn-add" onclick="addNewCard()">➕ አዲስ ካርቴላ ጨምር</button>
+        <button class="btn btn-bingo" onclick="checkBingo()">🎉 BINGO!</button>
     </div>
 
     <script>
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
 
-        // 1. Render Side Vertical Board (1 to 75 B-I-N-G-O)
-        const sideBoardGrid = document.getElementById('sideBoardGrid');
-        for (let row = 1; row <= 15; row++) {
-            for (let col = 0; col < 5; col++) {
-                let num = row + (col * 15);
-                let cell = document.createElement('div');
-                cell.className = 'num-cell';
-                cell.innerText = num;
-                cell.id = 'side-num-' + num;
+        const urlParams = new URLSearchParams(window.location.search);
+        const userBal = parseFloat(urlParams.get('bal')) || 260.00;
+        document.getElementById('balDisplay').innerText = userBal.toFixed(2) + " ETB";
 
-                // ለምሳሌ ያህል የተወሰኑ ቁጥሮችን የጠሩ ማስሰል (ከስክሪንሾቱ ጋር ለማመሳሰል)
-                if ([3, 22, 23, 11, 33, 34, 37, 38, 46, 69, 71, 72].includes(num)) {
-                    cell.classList.add('called-yellow');
-                } else if (num === 73) {
-                    cell.classList.add('called-green');
-                }
-
-                sideBoardGrid.appendChild(cell);
-            }
+        // Render 1-88 Main Grid
+        const mainBoard = document.getElementById('mainBoard');
+        for (let i = 1; i <= 88; i++) {
+            let div = document.createElement('div');
+            div.className = 'board-num';
+            div.id = 'num-' + i;
+            div.innerText = i;
+            mainBoard.appendChild(div);
         }
 
-        // 2. Standard Bingo Card Generator (1-75)
-        function generateBingoCard() {
-            function getCol(min, max) {
-                let nums = [];
-                while(nums.length < 5) {
-                    let r = Math.floor(Math.random() * (max - min + 1)) + min;
-                    if(!nums.includes(r)) nums.push(r);
-                }
-                return nums;
+        // Generate Unique Numbers for Each Card
+        function generateUniqueGrid() {
+            let used = new Set();
+            let grid = [];
+
+            function getUniqueNum(min, max) {
+                let n;
+                do {
+                    n = Math.floor(Math.random() * (max - min + 1)) + min;
+                } while (used.has(n));
+                used.add(n);
+                return n;
             }
 
-            let b = getCol(1, 15);
-            let i = getCol(16, 30);
-            let n = getCol(31, 45);
-            let g = getCol(46, 60);
-            let o = getCol(61, 75);
-
-            let grid = [];
-            for(let r=0; r<5; r++) {
-                grid.push([b[r], i[r], (r===2)? "⭐" : n[r], g[r], o[r]]);
+            for (let r = 0; r < 5; r++) {
+                let row = [];
+                for (let c = 0; c < 5; c++) {
+                    if (r === 2 && c === 2) {
+                        row.push("⭐");
+                    } else {
+                        let min = (c * 17) + 1;
+                        let max = (c + 1) * 17;
+                        row.push(getUniqueNum(min, max));
+                    }
+                }
+                grid.push(row);
             }
             return grid;
         }
 
-        // 3. Render Player Main Card
-        const playerGrid = document.getElementById('playerCardGrid');
-        const cardData = generateBingoCard();
-        cardData.forEach((row, rIdx) => {
-            row.forEach((val, cIdx) => {
-                let div = document.createElement('div');
-                div.className = 'card-cell';
-                if(val === "⭐") div.className += ' star';
-                if([37, 69, 71].includes(val)) div.className += ' matched';
-                div.innerText = val;
-                playerGrid.appendChild(div);
-            });
-        });
+        let playerCards = [];
 
-        // 4. Render Winner Modal Card Preview
-        const modalCardGrid = document.getElementById('modalCardGrid');
-        const winCardData = generateBingoCard();
-        winCardData.forEach((row, rIdx) => {
-            row.forEach((val, cIdx) => {
-                let div = document.createElement('div');
-                div.className = 'card-cell';
-                div.style.height = '26px';
-                div.style.fontSize = '11px';
-                if(val === "⭐") {
-                    div.style.background = '#facc15';
-                    div.innerText = "★";
-                } else {
-                    if([3, 11, 68, 69].includes(val)) div.className += ' matched';
-                    div.innerText = val;
-                }
-                modalCardGrid.appendChild(div);
-            });
-        });
-
-        // Toggle Modal (ለሙከራ ለመዝጋት)
-        document.getElementById('winnerModal').onclick = function(e) {
-            if(e.target === this) {
-                this.style.display = 'none';
+        function addNewCard(specificId = null) {
+            if (playerCards.length >= 4) {
+                alert("ከ 4 በላይ ካርቴላ መግዛት አይችሉም!");
+                return;
             }
-        };
+            let cardId = specificId || Math.floor(Math.random() * 88) + 1;
+            let cardNumbers = generateUniqueGrid();
 
-        function triggerBingo() {
-            alert("🎉 BINGO! ጥያቄዎ ለአገልጋዩ ተልኳል!");
+            playerCards.push({ id: cardId, grid: cardNumbers });
+            renderCards();
         }
+
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            playerCards.forEach((card, cardIndex) => {
+                let cardWrapper = document.createElement('div');
+                cardWrapper.className = 'card-wrapper';
+
+                let cardHeader = `
+                    <div class="card-header">
+                        <span class="card-id">#${card.id}</span>
+                        <button class="close-btn" onclick="removeCard(${cardIndex})">✕</button>
+                    </div>
+                `;
+
+                let gridHtml = '<div class="card-grid">';
+                for (let r = 0; r < 5; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        let val = card.grid[r][c];
+                        let isStar = (val === "⭐") ? "star" : "";
+                        gridHtml += `<div class="cell ${isStar}">${val}</div>`;
+                    }
+                }
+                gridHtml += '</div>';
+
+                cardWrapper.innerHTML = cardHeader + gridHtml;
+                container.appendChild(cardWrapper);
+            });
+        }
+
+        function removeCard(index) {
+            playerCards.splice(index, 1);
+            renderCards();
+        }
+
+        function checkBingo() {
+            alert("ቢንጎ ፍተሻ በመደረግ ላይ ነው...");
+        }
+
+        // Default 2 Cards
+        addNewCard(64);
+        addNewCard(36);
     </script>
 </body>
 </html>
