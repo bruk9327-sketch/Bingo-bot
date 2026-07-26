@@ -167,10 +167,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     text="🎉 **እንኳን ደስ አለዎት!** 100 ሰዎችን ስለጋበዙ የ **500 ETB Bonus** ተጨምሮልዎታል! 🎁💰",
                                     parse_mode='Markdown'
                                 )
+                            elif count == 10:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text="🎉 **እንኳን ደስ አለዎት!** 10 ሰዎችን ስለጋበዙ የመጋበዝ መስፈርቱን አሟልተዋል።\n⚠️ **ማስታወሻ፦** መጫወት ለመጀመር አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት ማድረግ ይኖርብዎታል።",
+                                    parse_mode='Markdown'
+                                )
                             else:
                                 await context.bot.send_message(
                                     chat_id=referrer_id,
-                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}`",
+                                    text=f"👤 **አዲስ ሰው ተቀላቅሏል!**\n\nየጋበዟቸው ተጫዋቾች፦ `{count}/10`",
                                     parse_mode='Markdown'
                                 )
                         except Exception as e:
@@ -180,8 +186,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     caption = (
         "🎉 **Ethio Bingo For All** 🎉\n\n"
-        "🔓 **ጨዋታ ለመጫወት መስፈርት፦**\n"
-        "• አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት\n\n"
+        "🔓 **ጨዋታ ለመጫወት መስፈርቶች፦**\n"
+        "1️⃣ ቢያንስ 10 ሰዎችን መጋበዝ\n"
+        "2️⃣ አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር\n\n"
         "🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** በነፃ ያግኙ!\n\n"
         "📞 Support: @EthioBingoSupport"
     )
@@ -226,12 +233,16 @@ async def add_balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_invite_info(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
     ref_link = f"https://t.me/{BOT_USERNAME}?start=ref_{user_id}"
+    ref_status = "✅ ተጠናቋል" if ref_count >= 10 else f"⏳ ይቀራል (`{ref_count}/10`)"
+    bal_status = "✅ ተጠናቋል" if bal > 20 else f"⏳ ይቀራል (`{bal:.2f}/20 ETB`)"
     
     text = (
         f"🔗 **የመጋበዣ ሊንክዎ (Referral Link)**\n\n"
         f"`{ref_link}`\n\n"
-        f"📊 **የጋበዟቸው ተጫዋቾች፦** `{ref_count}` ሰዎች\n\n"
-        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** በነፃ ያገኛሉ!"
+        f"📊 **የእርሶ መስፈርቶች ሁኔታ፦**\n"
+        f"• የጋበዟቸው ሰዎች፦ {ref_status}\n"
+        f"• የዲፖዚት ሂሳብ፦ {bal_status}\n\n"
+        f"🎁 **ታላቅ ቦነስ፦** 100 ሰው ሲጋብዙ የ **500 ETB ቦነስ** ያገኛሉ!"
     )
     
     share_button = InlineKeyboardMarkup([
@@ -245,12 +256,26 @@ async def send_invite_info(update_or_query, user_id):
 
 async def play_cmd(update_or_query, user_id):
     bal, ref_count = db_get_user(user_id)
+    
+    # Check 1: 10 referrals requirement
+    if ref_count < 10:
+        error_text = (
+            f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
+            f"1️⃣ **የመጀመሪያ መስፈርት፦** ቢያንስ 10 ሰዎችን መጋበዝ አለብዎት።\n"
+            f"እስካሁን የጋበዟቸው፦ `{ref_count}/10`"
+        )
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 አሁኑኑ ጋብዝ", callback_data="btn_invite")]])
+        if hasattr(update_or_query, 'message'):
+            await update_or_query.message.reply_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        else:
+            await update_or_query.edit_message_text(error_text, parse_mode='Markdown', reply_markup=keyboard)
+        return
 
-    # Minimum balance requirement (> 20 ETB)
+    # Check 2: Minimum balance requirement (> 20 ETB)
     if bal <= 20:
         error_text = (
             f"🔒 **ጨዋታው አልተከፈተም!**\n\n"
-            f"⚠️ ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ማድረግ አለብዎት።\n\n"
+            f"2️⃣ **ሁለተኛ መስፈርት፦** ጨዋታ ለመጫወት አካውንትዎ ላይ **ከ 20 ብር በላይ** ዲፖዚት ማድረግ አለብዎት።\n\n"
             f"💳 **የእርስዎ ቀሪ ሂሳብ፦** `{bal:.2f} ETB`"
         )
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("💳 ብር አስገባ (Deposit)", callback_data="btn_deposit")]])
@@ -301,7 +326,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_uid = int(parts[2]) if len(parts) > 2 else None
 
         dep_info = pending_deposits.get(txn_id, {})
-        amount = dep_info.get('amount', 200.0)
+        # ⚠️ በደፋልት 50 ETB እንዲሆን ተደርጓል
+        amount = dep_info.get('amount', 50.0)
 
         if action == "app":
             if target_uid:
@@ -352,9 +378,10 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if text in ["📋 ደንቦች", "ደንቦች"]:
         rules_text = (
             "📋 **የ Ethio Bingo ደንቦች፦**\n\n"
-            "1. ጨዋታ ለመጫወት አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
-            "2. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
-            "3. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
+            "1. ጨዋታ ለመጫወት ቢያንስ 10 አዳዲስ ተጫዋቾችን መጋበዝ አለብዎት።\n"
+            "2. በተጨማሪም አካውንትዎ ላይ ከ 20 ብር በላይ ዲፖዚት የተደረገ ሂሳብ መኖር አለበት።\n"
+            "3. 100 ሰው ሲጋብዙ የ **500 ETB** ቦነስ በነፃ ያገኛሉ።\n"
+            "4. የሚያስገቡት ክፍያ በአድሚን ከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።"
         )
         await update.message.reply_text(rules_text, parse_mode='Markdown')
         return
@@ -363,11 +390,13 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         await play_cmd(update, user_id)
         return
 
+    # 🔍 የ Txn ID እና የብር መጠን ፍለጋ
     txn_match = re.search(r'Txn\s*ID\s*[:\-]?\s*([A-Z0-9]+)', text, re.IGNORECASE)
     amt_match = re.search(r'([\d\.]+)\s*(?:Br|ETB)', text, re.IGNORECASE)
 
     txn_id = txn_match.group(1) if txn_match else f"TXN_{user_id}_{int(update.message.date.timestamp())}"
-    amount = float(amt_match.group(1)) if amt_match else 200.0
+    # ⚠️ ከዚህ በፊት 200.0 የነበረው አሁን ወደ 50.0 ተቀይሯል
+    amount = float(amt_match.group(1)) if amt_match else 50.0
 
     if db_is_txn_used(txn_id):
         await update.message.reply_text("❌ ይህ ደረሰኝ/Txn ID ቀደም ብሎ ጥቅም ላይ ውሏል!")
@@ -403,7 +432,8 @@ async def handle_document_messages(update: Update, context: ContextTypes.DEFAULT
     user_name = update.effective_user.full_name
     txn_id = f"DOC_{user_id}_{int(update.message.date.timestamp())}"
     
-    pending_deposits[txn_id] = {'user_id': user_id, 'amount': 200.0}
+    # ⚠️ በደፋልት 50.0 ETB እንዲሆን ተደርጓል
+    pending_deposits[txn_id] = {'user_id': user_id, 'amount': 50.0}
 
     await update.message.reply_text("⏳ **ደረሰኝዎ ለግምገማ ተልኳል!** አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
