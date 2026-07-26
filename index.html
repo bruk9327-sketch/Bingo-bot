@@ -105,11 +105,6 @@
             transition: all 0.2s ease;
         }
 
-        .board-num:active {
-            transform: scale(0.95);
-        }
-
-        /* ተጫዋቹ የመረጠው ቁጥር በቦርዱ ላይ በአረንጓዴ ይደምቃል */
         .board-num.selected-card {
             background: #10b981 !important;
             color: #ffffff !important;
@@ -117,7 +112,7 @@
             font-weight: 900;
         }
 
-        /* Player Cards Layout (Side by Side) */
+        /* Player Cards Layout */
         .cards-container {
             display: flex;
             gap: 10px;
@@ -189,6 +184,13 @@
             color: #f59e0b;
             font-size: 12px;
         }
+
+        /* ጥሪ የወጣላቸው ቁጥሮች በአረንጓዴ የሚደመቁበት */
+        .cell.called-matched {
+            background: #10b981 !important;
+            color: #ffffff !important;
+            font-weight: 900;
+        }
     </style>
 </head>
 <body>
@@ -223,43 +225,42 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
 
-        // ተጫዋቹ የመረጣቸው ካርቴላዎች ዝርዝር (በመጀመሪያ ባዶ ነው)
         let playerCards = []; 
+        let calledNumbers = new Set(); // የወጡ ቁጥሮች ማከማቻ
+        let gameStarted = false;
+        let timeLeft = 13;
 
-        // 1. 1-88 የቦርድ ቁጥሮችን መፍጠር እና Click Event መጨመር
+        // 1. Render 1-88 Grid
         const mainBoard = document.getElementById('mainBoard');
         for (let i = 1; i <= 88; i++) {
             let div = document.createElement('div');
             div.className = 'board-num';
             div.id = 'num-' + i;
             div.innerText = i;
-            
-            // ቁጥር ሲነካ መምረጥ ወይም አለመምረጥ
             div.onclick = function() {
-                toggleCardSelection(i);
+                if (!gameStarted) { // ጨዋታው ከተጀመረ በኋላ መምረጥ አይቻልም
+                    toggleCardSelection(i);
+                }
             };
-
             mainBoard.appendChild(div);
         }
 
-        // Random generator without repeating numbers within the same column
         function seededRandom(seed) {
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         }
 
-        // ለተመረጠው የካርቴላ ቁጥር (Card ID) የተለየ BINGO Grid ማዘጋጀት
         function generateUniqueGridForCard(cardId) {
             let ranges = [
-                { min: 1, max: 15 },   // B
-                { min: 16, max: 30 },  // I
-                { min: 31, max: 45 },  // N
-                { min: 46, max: 60 },  // G
-                { min: 61, max: 75 }   // O
+                { min: 1, max: 15 },
+                { min: 16, max: 30 },
+                { min: 31, max: 45 },
+                { min: 46, max: 60 },
+                { min: 61, max: 75 }
             ];
 
             let columns = [];
-            let currentSeed = cardId * 997; // Seed based on chosen Card ID
+            let currentSeed = cardId * 997;
 
             ranges.forEach((range) => {
                 let colNums = [];
@@ -289,11 +290,9 @@
             return grid;
         }
 
-        // ካርቴላ መምረጫ / ማንሻ ፈንክሽን
         function toggleCardSelection(cardId) {
             let index = playerCards.indexOf(cardId);
             if (index === -1) {
-                // እስከ 4 ካርቴላ ብቻ መምረጥ እንዲቻል
                 if (playerCards.length >= 4) {
                     alert("ከ 4 በላይ ካርቴላ መምረጥ አይችሉም!");
                     return;
@@ -305,31 +304,26 @@
             renderGame();
         }
 
-        // 3. UI የማደስ ፈንክሽን
         function renderGame() {
-            // በቦርዱ ላይ አረንጓዴ የነበሩትን ማጽዳት
             document.querySelectorAll('.board-num').forEach(el => el.classList.remove('selected-card'));
 
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
 
             playerCards.forEach((cardId) => {
-                // በቦርዱ ላይ የመረጠውን ቁጥር በአረንጓዴ ማድመቅ
                 let boardCell = document.getElementById('num-' + cardId);
                 if (boardCell) {
                     boardCell.classList.add('selected-card');
                 }
 
-                // ለተመረጠው ቁጥር ካርቴላ መፍጠር
                 let cardNumbers = generateUniqueGridForCard(cardId);
-
                 let cardWrapper = document.createElement('div');
                 cardWrapper.className = 'card-wrapper';
 
                 let cardHeader = `
                     <div class="card-header">
                         <span class="card-id">#${cardId}</span>
-                        <button class="close-btn" onclick="toggleCardSelection(${cardId})">✕</button>
+                        ${!gameStarted ? `<button class="close-btn" onclick="toggleCardSelection(${cardId})">✕</button>` : ''}
                     </div>
                 `;
 
@@ -338,7 +332,10 @@
                     for (let c = 0; c < 5; c++) {
                         let val = cardNumbers[r][c];
                         let isStar = (val === "★") ? "star" : "";
-                        gridHtml += `<div class="cell ${isStar}">${val}</div>`;
+                        // የወጣ ቁጥር ከሆነ አረንጓዴ ማድረግ
+                        let isCalled = calledNumbers.has(val) ? "called-matched" : "";
+                        
+                        gridHtml += `<div class="cell ${isStar} ${isCalled}">${val}</div>`;
                     }
                 }
                 gridHtml += '</div>';
@@ -347,11 +344,48 @@
                 container.appendChild(cardWrapper);
             });
 
-            // የ SOLD ቁጥርን ማደስ
             document.getElementById('soldCount').innerText = playerCards.length;
         }
 
-        // የመጀመሪያ Render (ባዶ ሆኖ ይጀምራል)
+        // ⏱️ 2. የታይመር መቁጠሪያ (Countdown Timer)
+        let timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timeCount').innerText = timeLeft + 's';
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                startGameCall(); // ታይመሩ 0 ሲደርስ ጥሪ ይጀምራል
+            }
+        }, 1000);
+
+        // 🎲 3. የቁጥሮች ጥሪ ማስጀመሪያ (Calling System)
+        function startGameCall() {
+            gameStarted = true;
+            renderGame(); // Close buttons ለማጥፋት
+
+            let callInterval = setInterval(() => {
+                if (calledNumbers.size >= 75) {
+                    clearInterval(callInterval);
+                    return;
+                }
+
+                // ከ 1 እስከ 75 በዘፈቀደ ያልወጣ ቁጥር መምረጥ
+                let nextCall;
+                do {
+                    nextCall = Math.floor(Math.random() * 75) + 1;
+                } while (calledNumbers.has(nextCall));
+
+                calledNumbers.add(nextCall);
+
+                // 'CALL' ቦታ ላይ አዲሱን ቁጥር ማሳየት
+                document.getElementById('callCount').innerText = nextCall;
+
+                // ካርቴላዎችን አድሶ የወጣውን ቁጥር በአረንጓዴ ማድመቅ
+                renderGame();
+
+            }, 3000); // በየ 3 ሰከንዱ አዲስ ቁጥር ይጠራል
+        }
+
         renderGame();
     </script>
 </body>
