@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>GoodBingo Mini App</title>
+  <title>Ethio Bingo Mini App</title>
   <style>
     :root {
       --bg-dark: #1e2638;
@@ -25,7 +25,7 @@
     .balance-badge { background: var(--accent-green); color: #fff; font-weight: bold; border-radius: 8px; padding: 6px 10px; text-align: right; font-size: 10px; }
     .balance-badge span { font-size: 12px; }
 
-    /* SELECTION VIEW (1-104 Grid) */
+    /* SELECTION VIEW */
     #selection-view { padding: 10px; }
     .grid-104 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; background: #e2e8f0; padding: 8px; border-radius: 12px; max-height: 55vh; overflow-y: auto; }
     .num-cell { background: #fff; color: #333; text-align: center; padding: 8px 0; font-weight: bold; font-size: 13px; border-radius: 6px; cursor: pointer; }
@@ -80,10 +80,10 @@
   <!-- TOP HEADER BAR -->
   <div class="header-bar">
     <div class="room-badge" id="ui-room">ROOM VIP 💰</div>
-    <div class="status-badge">SOLD<strong id="ui-sold">228</strong></div>
+    <div class="status-badge">SOLD<strong id="ui-sold">12</strong></div>
     <div class="status-badge">TIME<strong id="ui-timer">18s</strong></div>
     <div class="status-badge">CALL<strong id="ui-call-count">0ኛ</strong></div>
-    <div class="balance-badge">BALANCE<br><span id="ui-balance">30.00 ETB</span></div>
+    <div class="balance-badge">BALANCE<br><span id="ui-balance">0.00 ETB</span></div>
   </div>
 
   <!-- VIEW 1: CARD SELECTION -->
@@ -113,8 +113,8 @@
       <div class="live-cards-area">
         <div class="ball-display-header">
           <div>
-            <span style="font-size:10px; color:#94a3b8;">DERASH</span><br>
-            <strong style="color:var(--accent-green)" id="live-derash">1824 ETB</strong>
+            <span style="font-size:10px; color:#94a3b8;">DERASH (POOL)</span><br>
+            <strong style="color:var(--accent-green)" id="live-derash">0 ETB</strong>
           </div>
           <div class="current-ball" id="current-ball-display">--</div>
         </div>
@@ -127,12 +127,12 @@
   <!-- VIEW 3: WINNER MODAL -->
   <div class="modal-overlay" id="winner-modal">
     <div class="modal-card">
-      <h2 class="winner-title"><span id="win-count">1</span> አሸናፊ</h2>
+      <h2 class="winner-title" id="winner-status-text">አሸናፊ!</h2>
       <h3 style="color:var(--accent-green); margin:5px 0;" id="winner-name">Congratulations!</h3>
       
       <div class="prize-pool-box">
         <p style="font-size:11px; color:#64748b;">TOTAL PRIZE POOL</p>
-        <h2 style="color:var(--accent-green);" id="win-total-prize">1824 ETB</h2>
+        <h2 style="color:var(--accent-green);" id="win-total-prize">0 ETB</h2>
       </div>
 
       <div class="progress-bar-container">
@@ -145,13 +145,20 @@
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     let userId = urlParams.get('uid') || 'demo';
-    let userBalance = parseFloat(urlParams.get('bal')) || 30.0;
+    let userBalance = parseFloat(urlParams.get('bal')) || 80.0;
     let roomPrice = parseFloat(urlParams.get('room')) || 10.0;
+    
+    // ኦንላይን ያሉ ተጫዋቾችና የተሸጡ ካርቴላዎች ብዛት
+    let totalSoldCards = 12; // በክፍሉ የተሸጡ አጠቃላይ ካርቴላዎች
+    let totalPrizePool = totalSoldCards * roomPrice; // አጠቃላይ ደራሽ/የሽልማት ገንዘብ
+
     let selectedCards = [];
     let calledNumbers = [];
     let timerSeconds = 18;
 
     document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
+    document.getElementById('ui-sold').innerText = totalSoldCards;
+    document.getElementById('live-derash').innerText = totalPrizePool.toFixed(2) + " ETB";
 
     // 🔊 Voice Call Function
     function speakCall(text) {
@@ -159,7 +166,6 @@
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.85;
-        utterance.pitch = 1.0;
         utterance.lang = 'en-US';
         window.speechSynthesis.speak(utterance);
       }
@@ -189,24 +195,24 @@
       gridEl.appendChild(cell);
     }
 
-    // Select Card + Deduct Balance
+    // ካርቴላ ሲመረጥ የካርቴላውን ዋጋ ከባላንስ መቀነስ
     function selectCardNumber(num, element) {
       if (selectedCards.includes(num)) {
         selectedCards = selectedCards.filter(n => n !== num);
         element.classList.remove('selected');
-        userBalance += roomPrice;
+        userBalance += roomPrice; // ከተሰረዘ ብሩ ይመለሳል
       } else {
         if (selectedCards.length >= 2) {
           alert("ከ 2 በላይ ካርቴላ መምረጥ አይችሉም!");
           return;
         }
         if (userBalance < roomPrice) {
-          alert("በቂ ባላንስ የለዎትም! እባክዎ አስቀድመው ብር ያስገቡ።");
+          alert("በቂ ያልሆነ ባላንስ! እባክዎ አስቀድመው ብር ያስገቡ።");
           return;
         }
         selectedCards.push(num);
         element.classList.add('selected');
-        userBalance -= roomPrice;
+        userBalance -= roomPrice; // የካርቴላውን ዋጋ መቀነስ
       }
       
       document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
@@ -262,7 +268,12 @@
     }, 1000);
 
     function startLiveGame() {
-      if (selectedCards.length === 0) selectedCards = [80]; 
+      if (selectedCards.length === 0) {
+        // ካልመረጠ በራሱ 1 ይመርጥና ከባላንስ ይቆርጣል
+        selectedCards = [80];
+        userBalance -= roomPrice;
+        syncBalanceToBackend();
+      }
       document.getElementById('selection-view').style.display = 'none';
       document.getElementById('gameplay-view').style.display = 'block';
 
@@ -305,7 +316,7 @@
       });
     }
 
-    // 🎙️ Ball Caller Engine (1ኛ, 2ኛ... ጥሪዎች)
+    // 🎙️ Ball Caller Engine
     function startBallCaller() {
       const ballsToCall = [70, 15, 37, 68, 11, 61, 57, 36, 3, 46, 69];
       let idx = 0;
@@ -313,14 +324,13 @@
       const ballInterval = setInterval(() => {
         if (idx >= ballsToCall.length) {
           clearInterval(ballInterval);
-          rewardWinnerAndShowModal();
+          finishGame(true); // ተጫዋቹ አሸንፏል
           return;
         }
 
         const ballNum = ballsToCall[idx];
         calledNumbers.push(ballNum);
 
-        // 1ኛ፣ 2ኛ... መቁጠሪያ
         const callOrder = (idx + 1) + "ኛ";
         document.getElementById('ui-call-count').innerText = callOrder;
 
@@ -335,21 +345,29 @@
           if (cardCell) cardCell.classList.add('dabbed');
         });
 
-        // ድምፅ ጥሪ
         speakCall(`${callOrder} call... ${letter}... ${ballNum}`);
 
         idx++;
       }, 3000);
     }
 
-    // ሲያሸንፉ ባላንስ መደመር
-    function rewardWinnerAndShowModal() {
-      const prizePool = 1824.00;
-      userBalance += prizePool;
-      document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
-      syncBalanceToBackend();
+    // 🏆 ጨዋታው ሲያልቅ (አሸናፊው ከ 80 ብሩ ላይ የሙሉ ተጫዋቾች ገንዘብ ይደመርለታል)
+    function finishGame(isWinner) {
+      if (isWinner) {
+        // አሸናፊ ከሆነ የ 12 ተጫዋቾቹን ገንዘብ (120 ETB) ይወስዳል!
+        userBalance += totalPrizePool;
+        document.getElementById('ui-balance').innerText = userBalance.toFixed(2) + " ETB";
+        document.getElementById('win-total-prize').innerText = totalPrizePool.toFixed(2) + " ETB";
+        document.getElementById('winner-status-text').innerText = "🏆 እርሶ አሸንፈዋል!";
+        speakCall("Bingo! You won the game!");
+      } else {
+        // ከተሸነፈ የቆረጠው የካርቴላ ብር ተቀንሶ ቀሪው ይቀራል
+        document.getElementById('winner-status-text').innerText = "❌ ሌላ ተጫዋች አሸነፈ";
+        document.getElementById('win-total-prize').innerText = "0 ETB";
+      }
 
-      speakCall("Bingo! Bingo! You have won!");
+      // አዲሱን ባላንስ ወደ ቦቱ (Backend) መላክ
+      syncBalanceToBackend();
 
       const modal = document.getElementById('winner-modal');
       modal.style.display = 'flex';
