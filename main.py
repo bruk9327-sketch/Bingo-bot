@@ -7,7 +7,7 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-API_TOKEN = "8623843462:AAH8Wx0gTOj9Fb6kSm63zTo-SBjwuPJuRUM"  # እዚህ ጋር የቦት Tokenዎን ያስገቡ
+API_TOKEN = "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM"  # እዚህ ጋር የቦት Tokenዎን ያስገቡ
 bot = telebot.TeleBot(API_TOKEN)
 
 # =========================================================
