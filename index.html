@@ -23,7 +23,7 @@
         /* Left Side: Called Numbers Board (1-75) */
         .left-board { width: 38%; background: #0f172a; padding: 6px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; font-size: 10px; text-align: center; overflow-y: auto; border-right: 1px solid #1e293b; }
         .board-cell { background: #1e293b; padding: 6px 0; border-radius: 4px; color: #64748b; font-weight: 500; }
-        .board-cell.called { background: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px #10b981; }
+        .board-cell.called { background: #10b981 !important; color: white !important; font-weight: bold; box-shadow: 0 0 5px #10b981; }
 
         /* Right Side: Ball & Cards */
         .right-area { width: 62%; padding: 10px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -39,8 +39,10 @@
         .hdr-b { background: #2563eb; } .hdr-i { background: #dc2626; } .hdr-n { background: #d97706; } .hdr-g { background: #16a34a; } .hdr-o { background: #9333ea; }
         
         .card-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; text-align: center; }
-        .c-cell { background: #f1f5f9; padding: 8px 0; font-weight: bold; border-radius: 3px; font-size: 13px; color: #0f172a; }
-        .c-cell.marked { background: #10b981 !important; color: white; }
+        
+        /* ቁጥር ሲጠራ የሚያበራው/ሚያጥቁረው CSS ክፍል */
+        .c-cell { background: #f1f5f9; padding: 8px 0; font-weight: bold; border-radius: 3px; font-size: 13px; color: #0f172a; transition: background-color 0.2s ease; }
+        .c-cell.marked { background-color: #10b981 !important; color: white !important; font-weight: bold; }
 
         /* Winner Modal */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 100; }
@@ -92,7 +94,10 @@
         const socket = io();
         const tg = window.Telegram ? window.Telegram.WebApp : null;
 
-        // የቴሌግራም ተጠቃሚ ID ማግኘት (ካልተገኘ random ያደርጋል)
+        // የወጡ ቁጥሮችን ታሪክ መዝግቦ መያዣ (State Re-render ሲሆን እንዳይጠፉ)
+        let calledNumbersHistory = new Set();
+
+        // የቴሌግራም ተጠቃሚ ID ማግኘት
         let myPlayerId = "User_" + Math.floor(Math.random() * 1000);
         if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
             tg.expand();
@@ -105,50 +110,79 @@
             leftBoard.innerHTML += `<div class="board-cell" id="b-cell-${i}">${i}</div>`;
         }
 
+        // ካርቴላ መግዣ ተግባር
         function buyCard() {
-            // የካርቴላ መግዣ ጥያቄ መላክ (ከ 10 ብር ክፍያ ጋር)
             socket.emit("join_game", { 
                 player_id: myPlayerId,
                 card_price: 10,
-                commission: 2 // 2 ብር ኮሚሽን
+                commission: 2
             });
         }
 
+        // የጨዋታው ሁኔታ ሲቀየር (State Update)
         socket.on("update_state", (state) => {
             document.getElementById("derash-display").innerText = state.derash + " ETB";
             document.getElementById("players-count").innerText = Object.keys(state.players_cards || {}).length;
             document.getElementById("timer-display").innerText = state.countdown + "s";
 
+            // ከሰርቨር የመጡት የወጡ ቁጥሮች ካሉ በታሪክ ውስጥ መመዝገብ
+            if (state.called_numbers && Array.isArray(state.called_numbers)) {
+                state.called_numbers.forEach(num => {
+                    const strNum = String(num);
+                    calledNumbersHistory.add(strNum);
+                    
+                    // የግራ ቦርድ ላይ ማብራት
+                    const bCell = document.getElementById(`b-cell-${strNum}`);
+                    if (bCell) bCell.classList.add("called");
+                });
+            }
+
+            // የኔን ካርቴላዎች መሳል
             if (state.players_cards && state.players_cards[myPlayerId]) {
                 renderMyCards(state.players_cards[myPlayerId]);
             }
         });
 
+        // አዲስ ቁጥር በቦቱ ሲጠራ (Number Called Event)
         socket.on("number_called", (data) => {
-            document.getElementById("current-ball").innerText = data.ball;
+            const ballValue = String(data.ball);
+            document.getElementById("current-ball").innerText = ballValue;
             
-            // የግራ ሰሌዳ ላይ ማብራት
-            const bCell = document.getElementById(`b-cell-${data.ball}`);
-            if (bCell) bCell.classList.add("called");
+            // ታሪክ ውስጥ መመዝገብ
+            calledNumbersHistory.add(ballValue);
 
-            // በካርቴላዎች ላይ ቁጥሩን ማቅለም
-            document.querySelectorAll(`[data-num='${data.ball}']`).forEach(el => {
+            // 1. በግራ በኩል ባለው 1-75 ሰሌዳ ላይ ማብራት
+            const bCell = document.getElementById(`b-cell-${ballValue}`);
+            if (bCell) {
+                bCell.classList.add("called");
+            }
+
+            // 2. በካርቴላዎች ላይ ቁጥሩ ሲመጣ ማጥቆር (String Conversion ማረጋገጫ)
+            const cardCells = document.querySelectorAll(`.c-cell[data-num='${ballValue}']`);
+            cardCells.forEach(el => {
                 el.classList.add("marked");
             });
         });
 
+        // ጨዋታው ሲያልቅ አሸናፊውን ማሳያ
         socket.on("game_over", (res) => {
             const modal = document.getElementById("winner-modal");
             document.getElementById("winner-info").innerText = res.winners.map(w => `${w.player} (ካርቴላ #${w.card_id})`).join(", ");
             document.getElementById("winner-prize").innerText = `ክፍያ፦ ${res.prize} ETB`;
             modal.style.display = "flex";
 
+            // አዲስ ጨዋታ ሲጀምር ታሪክን ማፅዳት
+            calledNumbersHistory.clear();
+            document.querySelectorAll(".board-cell.called").forEach(el => el.classList.remove("called"));
+
             setTimeout(() => { modal.style.display = "none"; }, 8000);
         });
 
+        // የካርቴላዎችን UI የመሳል ተግባር
         function renderMyCards(cards) {
             const container = document.getElementById("cards-container");
             container.innerHTML = "";
+            
             cards.forEach(card => {
                 let html = `
                     <div class="bingo-card">
@@ -157,12 +191,19 @@
                         </div>
                         <div class="card-grid">
                 `;
+                
                 card.grid.forEach(row => {
                     row.forEach(val => {
+                        const strVal = String(val);
                         const isFree = val === 0 || val === 'FREE';
-                        html += `<div class="c-cell ${isFree ? 'marked':''}" data-num="${val}">${isFree ? '★' : val}</div>`;
+                        
+                        // ቁጥሩ ቀደም ብሎ ከተጠራ ወይም FREE ከሆነ marked እንዲሆን ማድረግ
+                        const isMarked = isFree || calledNumbersHistory.has(strVal);
+
+                        html += `<div class="c-cell ${isMarked ? 'marked':''}" data-num="${strVal}">${isFree ? '★' : val}</div>`;
                     });
                 });
+                
                 html += `</div></div>`;
                 container.innerHTML += html;
             });
