@@ -3,85 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto Bingo Game</title>
+    <title>BK Bingo Bot (1-80)</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #0f172a;
-            color: white;
-            text-align: center;
-            padding: 15px;
+            color: #ffffff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        /* አውቶማቲክ አሸናፊ ሲኖር የሚመጣው Pop-Up Banner */
+        /* Banner Notification */
         #winner-banner {
             display: none;
+            width: 100%;
+            max-width: 450px;
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.5);
-            animation: popIn 0.5s ease-in-out;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4);
         }
 
-        #winner-banner h1 { margin: 0 0 10px 0; font-size: 26px; }
-        #winner-banner p { font-size: 18px; margin: 5px 0; }
-
-        @keyframes popIn {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .marked {
-            background-color: #10b981 !important;
-            color: white !important;
+        .header-status {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            justify-content: space-between;
+            background: #1e293b;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
             font-weight: bold;
+        }
+        .status-box {
+            background: #0f172a;
+            padding: 5px 12px;
+            border-radius: 6px;
+            color: #38bdf8;
+        }
+
+        .cards-container {
+            width: 100%;
+            max-width: 450px;
+        }
+        .cartela-card {
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .cartela-header {
+            font-size: 16px;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-bottom: 8px;
+        }
+        .bingo-header-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            margin-bottom: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .b-hdr { background: #2563eb; padding: 4px; border-radius: 4px; }
+        .i-hdr { background: #dc2626; padding: 4px; border-radius: 4px; }
+        .n-hdr { background: #eab308; padding: 4px; border-radius: 4px; }
+        .g-hdr { background: #16a34a; padding: 4px; border-radius: 4px; }
+        .o-hdr { background: #9333ea; padding: 4px; border-radius: 4px; }
+
+        .cartela-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+        }
+        .cartela-cell {
+            background: #334155;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* ★★★ አውቶማቲክ የሚያጠቁረው/የሚያበራው CSS Class ★★★ */
+        .marked {
+            background-color: #10b981 !important; /* ደማቅ አረንጓዴ */
+            color: #ffffff !important;
+            font-weight: 900 !important;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.9);
         }
     </style>
 </head>
 <body>
 
-    <!-- አውቶማቲክ አሸናፊነት ማስታወቂያ ሰሌዳ -->
+    <!-- የአሸናፊነት ማስታወቂያ ሰሌዳ -->
     <div id="winner-banner">
-        <h1 id="win-title">🏆 BINGO! 🏆</h1>
-        <p id="win-details">ተጫዋች አሸንፏል!</p>
-        <h2 id="win-payout" style="color: #fef08a;">+80 ETB</h2>
+        <h2 id="win-title">🏆 BINGO! 🏆</h2>
+        <p id="win-details"></p>
+        <h3 id="win-payout" style="color: #fef08a; margin-top: 5px;"></h3>
     </div>
 
-    <h2>📢 የተጠራ ቁጥር: <span id="current-call" style="color: #38bdf8;">--</span></h2>
+    <!-- Header Status -->
+    <div class="header-status">
+        <div>ROOM: <span class="status-box">VIP</span></div>
+        <div>CALL: <span class="status-box" id="current-call">--</span></div>
+    </div>
+
+    <!-- የተጫዋቹ ካርቴላ (1-80 ቁጥሮች) -->
+    <div class="cards-container" id="cards-container"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
+
         const socket = io();
 
-        // 1. ሰርቨሩ ቁጥር ሲጠራ
-        socket.on("number_called", (data) => {
-            const calledNum = String(data.number);
-            document.getElementById("current-call").innerText = calledNum;
+        // የካርቴላ መረጃ (ከ1-80 ባለው range የተቀመጠ)
+        const myCartelas = [
+            {
+                id: "65",
+                numbers: [
+                    [1, 20, 35, 50, 68],
+                    [6, 24, 38, 55, 72],
+                    [12, 26, "★", 58, 75],
+                    [14, 29, 44, 60, 78],
+                    [16, 32, 48, 64, 80]
+                ]
+            }
+        ];
 
-            // በስክሪኑ ላይ ያሉትን ቁጥሮች አውቶማቲክ ማቅለም
-            const matchingCells = document.querySelectorAll(`[data-number='${calledNum}']`);
-            matchingCells.forEach(cell => cell.classList.add("marked"));
+        // ካርቴላውን በስክሪን ላይ መሳል
+        const container = document.getElementById("cards-container");
+        myCartelas.forEach(cartela => {
+            let html = `
+                <div class="cartela-card">
+                    <div class="cartela-header">ካርቴላ #${cartela.id}</div>
+                    <div class="bingo-header-row">
+                        <div class="b-hdr">B</div><div class="i-hdr">I</div>
+                        <div class="n-hdr">N</div><div class="g-hdr">G</div>
+                        <div class="o-hdr">O</div>
+                    </div>
+                    <div class="cartela-grid">
+            `;
+
+            cartela.numbers.forEach(row => {
+                row.forEach(num => {
+                    const isFree = num === "★";
+                    const markedClass = isFree ? "marked" : "";
+                    const valAttr = isFree ? "0" : num;
+                    html += `<div class="cartela-cell ${markedClass}" data-number="${valAttr}">${num}</div>`;
+                });
+            });
+
+            html += `</div></div>`;
+            container.innerHTML = html;
         });
 
-        // 2. ሰርቨሩ አውቶማቲክ አሸናፊ ሲያገኝ የሚቀበለው Event
+        // ★ 1. አውቶማቲክ ማቅለም (Socket Event) ★
+        socket.on("number_called", (data) => {
+            const calledNum = String(data.number).trim();
+            document.getElementById("current-call").innerText = calledNum;
+
+            // በስክሪኑ ላይ ያለውን ተመሳሳይ ቁጥር ፈልጎ ማቅለም
+            const matchingCells = document.querySelectorAll(`[data-number='${calledNum}']`);
+            matchingCells.forEach(cell => {
+                cell.classList.add("marked");
+            });
+        });
+
+        // 2. አውቶማቲክ አሸናፊ ሲኖር
         socket.on("auto_bingo_winner", (res) => {
             const banner = document.getElementById("winner-banner");
-            const winDetails = document.getElementById("win-details");
-            const winPayout = document.getElementById("win-payout");
-
-            // አሸናፊውን እና የያዘውን ካርቴላ በጎላ ሁኔታ ማሳየት
-            winDetails.innerText = `ተጫዋች፦ ${res.winnerId}\nካርቴላ፦ #${res.cartelaId}\nማሸነፊያ ቁጥር፦ ${res.winningNumber}`;
-            winPayout.innerText = `💰 የተጣራ ሽልማት፦ ${res.payout} ETB`;
+            document.getElementById("win-details").innerText = `ተጫዋች፦ ${res.winnerId} | ካርቴላ፦ #${res.cartelaId}`;
+            document.getElementById("win-payout").innerText = `💰 ሽልማት፦ ${res.payout} ETB`;
             
-            banner.style.display = "block"; // Banner-ዉን ማሳየት
-
-            // በቴሌግራም አልፋቤት Alert ማሳየት
+            banner.style.display = "block";
             tg.showAlert(res.message);
         });
     </script>
