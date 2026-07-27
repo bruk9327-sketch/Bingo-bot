@@ -9,46 +9,36 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__, template_folder='.')
-app.config['SECRET_KEY'] = 'bingo_auto_win_secret'
+app.config['SECRET_KEY'] = 'bingo_secret_key'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# የጨዋታው መረጃዎች
-STAKE_AMOUNT = 10
-BOT_COMMISSION = 2
-WINNER_PAYOUT = (STAKE_AMOUNT - BOT_COMMISSION) * 10  # 80 ብር
+@app.route('/')
+def index():
+    return render_template('index.html')
 
+# የጨዋታው መረጃዎች
 called_numbers = []
 is_game_active = False
+STAKE_AMOUNT = 10
+BOT_COMMISSION = 2
+WINNER_PAYOUT = (STAKE_AMOUNT - BOT_COMMISSION) * 10  # 80 ETB
 
-# የተጫዋቾች ካርቴላዎች መረጃ (በእውነተኛ ጨዋታ ከ Database የሚመጣ)
+# የተጫዋቾች ካርቴላዎች መረጃ (ቁጥሮቹ ከ 1 እስከ 80 ባለው range የተዋቀሩ ናቸው)
 players_cards = {
     "Player_1": {
         "cartela_id": "65",
         "grid": [
-            [1, 19, 31, 46, 62],
-            [5, 22, 32, 53, 63],
-            [9, 23, 0,  55, 69],  # 0 ማለት FREE ቦታ ነው
-            [11, 28, 42, 57, 70],
-            [15, 29, 44, 58, 65]
-        ]
-    },
-    "Player_2": {
-        "cartela_id": "80",
-        "grid": [
-            [4, 17, 32, 49, 61],
-            [5, 18, 33, 52, 64],
-            [10, 19, 0,  54, 80],
-            [11, 21, 42, 56, 71],
-            [12, 23, 45, 60, 75]
+            [1, 20, 35, 50, 68],
+            [6, 24, 38, 55, 72],
+            [12, 26, 0,  58, 75],  # 0 ማለት FREE ቦታ ነው
+            [14, 29, 44, 60, 78],
+            [16, 32, 48, 64, 80]
         ]
     }
 }
 
-# ---------------------------------------------------------
-# አውቶማቲክ አሸናፊነትን የሚያረጋግጥ Function (Auto Win Validator)
-# ---------------------------------------------------------
+# አውቶማቲክ አሸናፊነትን የሚያረጋግጥ Function
 def check_auto_bingo(grid, called_list):
-    # 0 (FREE ቦታ) አውቶማቲክ እንደተጠራ ይቆጠራል
     def is_marked(num):
         return num == 0 or num in called_list
 
@@ -57,7 +47,7 @@ def check_auto_bingo(grid, called_list):
         if all(is_marked(num) for num in row):
             return True
 
-    # 2. ဒေါንግሊ መስመሮችን (Columns) መፈተሽ
+    # 2. 垂直/ደေါንግሊ መስመሮችን (Columns) መፈተሽ
     for col in range(5):
         if all(is_marked(grid[row][col]) for row in range(5)):
             return True
@@ -71,19 +61,17 @@ def check_auto_bingo(grid, called_list):
 
     return False
 
-# ---------------------------------------------------------
-# ቁጥሮችን አውቶማቲክ የሚጠራ እና አሸናፊ የሚያስብል Loop
-# ---------------------------------------------------------
+# ከ 1 እስከ 80 ያሉ ቁጥሮችን አውቶማቲክ የሚጠራ እና አሸናፊ የሚያስብል Loop
 def start_calling_numbers():
     global called_numbers, is_game_active
-    
     called_numbers = []
     is_game_active = True
     
-    all_numbers = list(range(1, 76))
+    # ★ ከ1 እስከ 80 ያሉ ቁጥሮች ★
+    all_numbers = list(range(1, 81))
     random.shuffle(all_numbers)
 
-    print("🎲 አውቶማቲክ የቢንጎ ጨዋታ ተጀመረ...")
+    print("🎲 የቢንጎ ጨዋታ ተጀመረ (ቁጥሮች፡ 1-80)...")
 
     for num in all_numbers:
         if not is_game_active:
@@ -91,36 +79,31 @@ def start_calling_numbers():
         
         called_numbers.append(num)
         
-        # 1. የተጠራውን ቁጥር ለሁሉም ተጫዋች መላክ
-        socketio.emit('number_called', {'number': num})
+        # የተጠራውን ቁጥር ለሁሉ ተጫዋች መላክ
+        socketio.emit('number_called', {'number': str(num)})
         print(f"📢 የተጠራ ቁጥር: {num}")
 
-        # 2. አውቶማቲክ አሸናፊ መኖሩን እያንዳንዱ ቁጥር በተጠራ ቁጥር መፈተሽ
-        winner_found = False
+        # አውቶማቲክ አሸናፊ መኖሩን መፈተሽ
         for player_id, card_info in players_cards.items():
             if check_auto_bingo(card_info["grid"], called_numbers):
                 is_game_active = False
-                winner_found = True
                 
-                # አውቶማቲክ የአሸናፊነት ማስታወቂያ ለሁሉም ተጫዋቾች ማሰራጨት
                 socketio.emit('auto_bingo_winner', {
                     'winnerId': player_id,
                     'cartelaId': card_info["cartela_id"],
                     'winningNumber': num,
                     'payout': WINNER_PAYOUT,
-                    'message': f"🎉 አውቶማቲክ BINGO! ተጫዋች {player_id} በካርቴላ #{card_info['cartela_id']} በቁጥር {num} አሸንፏል!"
+                    'message': f"🎉 BINGO! ተጫዋች {player_id} በካርቴላ #{card_info['cartela_id']} አሸንፏል!"
                 })
-                print(f"🏆 አውቶማቲክ አሸናፊ ተገኝቷል፦ {player_id} (ካርቴላ #{card_info['cartela_id']})")
+                print(f"🏆 አውቶማቲክ አሸናፊ ተገኝቷል፦ {player_id}")
                 break
-        
-        if winner_found:
-            break
 
         eventlet.sleep(3) # በየ 3 ሰከንዱ አዲስ ቁጥር ይጠራል
 
-@socketio.on('start_game')
-def handle_start_game():
+@socketio.on('connect')
+def handle_connect():
     global is_game_active
+    print("🔌 አዲስ ተጫዋች ተቀላቅሏል")
     if not is_game_active:
         socketio.start_background_task(start_calling_numbers)
 
