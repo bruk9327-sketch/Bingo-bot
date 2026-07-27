@@ -3,123 +3,127 @@ import time
 import random
 import eventlet
 
-# Render ላይ WebSocket በትክክል እንዲሰራ Eventlet Monkey Patch ይደረጋል
 eventlet.monkey_patch()
 
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__, template_folder='.')
-app.config['SECRET_KEY'] = 'bingo_secret_key_12345'
-
-# Render ላይ ከየትኛውም ዶሜይን (Telegram WebApp ጨምሮ) ግንኙነት እንዲቀበል CORS የተፈቀደ ነው
+app.config['SECRET_KEY'] = 'bingo_auto_win_secret'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# =========================================================
-# GAME CONFIGURATION & STATE
-# =========================================================
-STAKE_AMOUNT = 10        # የመግቢያ ክፍያ (10 ብር)
-BOT_COMMISSION = 2       # ከእያንዳንዱ ተጫዋች የሚወሰድ ኮሚሽን (2 ብር)
-NET_PER_PLAYER = STAKE_AMOUNT - BOT_COMMISSION  # 8 ብር
+# የጨዋታው መረጃዎች
+STAKE_AMOUNT = 10
+BOT_COMMISSION = 2
+WINNER_PAYOUT = (STAKE_AMOUNT - BOT_COMMISSION) * 10  # 80 ብር
 
-called_numbers_history = []
+called_numbers = []
 is_game_active = False
 
-@app.route('/')
-def index():
-    # index.html ፋይልን ከ Render ለማቅረብ
-    return render_template('index.html')
+# የተጫዋቾች ካርቴላዎች መረጃ (በእውነተኛ ጨዋታ ከ Database የሚመጣ)
+players_cards = {
+    "Player_1": {
+        "cartela_id": "65",
+        "grid": [
+            [1, 19, 31, 46, 62],
+            [5, 22, 32, 53, 63],
+            [9, 23, 0,  55, 69],  # 0 ማለት FREE ቦታ ነው
+            [11, 28, 42, 57, 70],
+            [15, 29, 44, 58, 65]
+        ]
+    },
+    "Player_2": {
+        "cartela_id": "80",
+        "grid": [
+            [4, 17, 32, 49, 61],
+            [5, 18, 33, 52, 64],
+            [10, 19, 0,  54, 80],
+            [11, 21, 42, 56, 71],
+            [12, 23, 45, 60, 75]
+        ]
+    }
+}
 
-# =========================================================
-# BINGO ENGINE (AUTOMATIC NUMBER CALLER)
-# =========================================================
-def start_calling_numbers():
-    global called_numbers_history, is_game_active
+# ---------------------------------------------------------
+# አውቶማቲክ አሸናፊነትን የሚያረጋግጥ Function (Auto Win Validator)
+# ---------------------------------------------------------
+def check_auto_bingo(grid, called_list):
+    # 0 (FREE ቦታ) አውቶማቲክ እንደተጠራ ይቆጠራል
+    def is_marked(num):
+        return num == 0 or num in called_list
+
+    # 1. አግድም መስመሮችን (Rows) መፈተሽ
+    for row in grid:
+        if all(is_marked(num) for num in row):
+            return True
+
+    # 2. ဒေါንግሊ መስመሮችን (Columns) መፈተሽ
+    for col in range(5):
+        if all(is_marked(grid[row][col]) for row in range(5)):
+            return True
+
+    # 3. ሰያፍ መስመሮችን (Diagonals) መፈተሽ
+    diagonal1 = [grid[i][i] for i in range(5)]
+    diagonal2 = [grid[i][4 - i] for i in range(5)]
     
-    called_numbers_history = []
+    if all(is_marked(num) for num in diagonal1) or all(is_marked(num) for num in diagonal2):
+        return True
+
+    return False
+
+# ---------------------------------------------------------
+# ቁጥሮችን አውቶማቲክ የሚጠራ እና አሸናፊ የሚያስብል Loop
+# ---------------------------------------------------------
+def start_calling_numbers():
+    global called_numbers, is_game_active
+    
+    called_numbers = []
     is_game_active = True
     
-    # 1 እስከ 75 ያሉ የቢንጎ ቁጥሮች
     all_numbers = list(range(1, 76))
     random.shuffle(all_numbers)
 
-    print("🎲 ጨዋታው ተጀምሯል! ቁጥሮች መጠራት ጀምረዋል...")
+    print("🎲 አውቶማቲክ የቢንጎ ጨዋታ ተጀመረ...")
 
     for num in all_numbers:
         if not is_game_active:
-            print("🛑 ጨዋታው በአሸናፊነት ወይም በስህተት ተቋርጧል።")
             break
         
-        called_numbers_history.append(num)
+        called_numbers.append(num)
         
-        # ለሁሉም የተገናኙ ተጫዋቾች የተጠራውን ቁጥር በWebSocket መላክ
+        # 1. የተጠራውን ቁጥር ለሁሉም ተጫዋች መላክ
         socketio.emit('number_called', {'number': num})
         print(f"📢 የተጠራ ቁጥር: {num}")
+
+        # 2. አውቶማቲክ አሸናፊ መኖሩን እያንዳንዱ ቁጥር በተጠራ ቁጥር መፈተሽ
+        winner_found = False
+        for player_id, card_info in players_cards.items():
+            if check_auto_bingo(card_info["grid"], called_numbers):
+                is_game_active = False
+                winner_found = True
+                
+                # አውቶማቲክ የአሸናፊነት ማስታወቂያ ለሁሉም ተጫዋቾች ማሰራጨት
+                socketio.emit('auto_bingo_winner', {
+                    'winnerId': player_id,
+                    'cartelaId': card_info["cartela_id"],
+                    'winningNumber': num,
+                    'payout': WINNER_PAYOUT,
+                    'message': f"🎉 አውቶማቲክ BINGO! ተጫዋች {player_id} በካርቴላ #{card_info['cartela_id']} በቁጥር {num} አሸንፏል!"
+                })
+                print(f"🏆 አውቶማቲክ አሸናፊ ተገኝቷል፦ {player_id} (ካርቴላ #{card_info['cartela_id']})")
+                break
         
-        # በየ 3 ሰከንዱ አዲስ ቁጥር ይጠራል (እንደ ፍላጎትህ የሰከንዱን መጠን መቀየር ትችላለህ)
-        eventlet.sleep(3)
+        if winner_found:
+            break
 
-# =========================================================
-# WEBSOCKET EVENT HANDLERS
-# =========================================================
-@socketio.on('connect')
-def handle_connect():
-    print("🔌 አዲስ ተጫዋች ከሰርቨሩ ጋር ተገናኝቷል (Connected)")
+        eventlet.sleep(3) # በየ 3 ሰከንዱ አዲስ ቁጥር ይጠራል
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    print("❌ ተጫዋች ከሰርቨሩ ተቋርጧል (Disconnected)")
-
-@socketio.on('start_game_session')
-def trigger_game():
+@socketio.on('start_game')
+def handle_start_game():
     global is_game_active
     if not is_game_active:
-        # ቁጥር መጥራቱን በጀርባ (Background Task) ማስጀመር
         socketio.start_background_task(start_calling_numbers)
 
-@socketio.on('claim_bingo')
-def handle_bingo_claim(data):
-    global is_game_active
-    
-    user_id = data.get('userId', 'Unknown')
-    user_selected = data.get('selectedNumbers', [])
-
-    print(f"📩 ተጠቃሚ {user_id} BINGO ብሏል! የመረጣቸው ቁጥሮች: {user_selected}")
-
-    # 1. ተጫዋቹ የመረጣቸው ቁጥሮች በሙሉ በሰርቨሩ ከተጠሩት መሆናቸውን ማረጋገጥ
-    is_valid_calls = all(num in called_numbers_history for num in user_selected)
-
-    # 2. ቢያንስ 4 ወይም 5 ቁጥሮች መመረጣቸውን ማረጋገጥ
-    has_enough_numbers = len(user_selected) >= 4
-
-    if is_valid_calls and has_enough_numbers and is_game_active:
-        is_game_active = False  # ጨዋታውን ማቆም
-        
-        # የ 10 ተጫዋች ፖል ስሌት፦ 10 * 8 = 80 ብር አሸናፊው ያገኛል (20 ብር የቦቱ ኮሚሽን)
-        total_players = 10
-        winner_payout = total_players * NET_PER_PLAYER # 80 ብር
-        
-        # ለአሸናፊው እና ለሌሎች ተጫዋቾች ማስታወቂያ መላክ
-        emit('bingo_response', {
-            'success': True, 
-            'message': 'አሸንፈዋል!', 
-            'winnerId': user_id,
-            'payout': winner_payout
-        }, broadcast=True)
-        
-        print(f"🏆 ተጫዋች {user_id} የ {winner_payout} ብር አሸናፊ ሆኗል!")
-    else:
-        # የተሳሳተ ቢንጎ ከሆነ ለጠየቀው ተጫዋች ብቻ ስህተቱን መላክ
-        emit('bingo_response', {
-            'success': False, 
-            'message': 'የተሳሳተ ቢንጎ! ያልተጠራ ቁጥር መርጠዋል ወይም ገና አልሞሉም።'
-        })
-
-# =========================================================
-# RENDER DEPLOYMENT SERVER LAUNCHER
-# =========================================================
 if __name__ == '__main__':
-    # Render በራሱ የሚመድበውን PORT መጠቀም (ከሌለ በዳግም 5000)
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 የቢንጎ ሰርቨር በ PORT {port} ላይ እየሰራ ነው...")
     socketio.run(app, host='0.0.0.0', port=port)
