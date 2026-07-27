@@ -3,470 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BKBingoHousebot</title>
+    <title>Auto Bingo Game</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            user-select: none;
-        }
-
         body {
+            font-family: Arial, sans-serif;
             background-color: #0f172a;
-            color: #ffffff;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        /* Top Header Stats */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            max-width: 480px;
-            margin-bottom: 12px;
-            gap: 6px;
-        }
-
-        .room-tag {
-            background: #facc15;
-            color: #000000;
-            font-size: 11px;
-            font-weight: 900;
-            padding: 8px 10px;
-            border-radius: 8px;
-        }
-
-        .stat-box {
-            background: #1e293b;
-            border-radius: 8px;
-            padding: 4px 8px;
-            text-align: center;
-            flex: 1;
-        }
-
-        .stat-label {
-            font-size: 9px;
-            color: #899fb8;
-            font-weight: bold;
-        }
-
-        .stat-value {
-            font-size: 12px;
-            font-weight: bold;
-            color: #ffffff;
-        }
-
-        .balance-tag {
-            background: #10b981;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 900;
-            padding: 6px 10px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        /* 1-88 Main Board */
-        .board-container {
-            width: 100%;
-            max-width: 480px;
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 8px;
-            margin-bottom: 15px;
-        }
-
-        .board-grid {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 4px;
-        }
-
-        .board-num {
-            background: #ffffff;
-            color: #0f172a;
-            font-size: 11px;
-            font-weight: bold;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            border: 1px solid #e2e8f0;
-            cursor: pointer;
-        }
-
-        .board-num.selected-card {
-            background: #10b981 !important;
-            color: #ffffff !important;
-            border: none;
-            font-weight: 900;
-        }
-
-        /* Player Cards Area */
-        .cards-container {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            max-width: 480px;
-            overflow-x: auto;
-            padding-bottom: 10px;
-        }
-
-        .card-wrapper {
-            position: relative;
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 8px;
-            flex: 1;
-            min-width: 210px;
-            border: 2px solid #10b981;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .card-id {
-            color: #1d4ed8;
-            font-weight: 900;
-            font-size: 14px;
-        }
-
-        .close-btn {
-            background: #ef4444;
             color: white;
-            border: 2px solid #ffffff;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 11px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            text-align: center;
+            padding: 15px;
         }
 
-        /* B-I-N-G-O Header Inside Card */
-        .bingo-header {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
-            margin-bottom: 4px;
-            text-align: center;
-            font-weight: 900;
-            font-size: 12px;
+        /* አውቶማቲክ አሸናፊ ሲኖር የሚመጣው Pop-Up Banner */
+        #winner-banner {
+            display: none;
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
-            border-radius: 4px;
-            overflow: hidden;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.5);
+            animation: popIn 0.5s ease-in-out;
         }
 
-        .b-head { background: #2563eb; padding: 2px 0; }
-        .i-head { background: #dc2626; padding: 2px 0; }
-        .n-head { background: #eab308; padding: 2px 0; }
-        .g-head { background: #16a34a; padding: 2px 0; }
-        .o-head { background: #9333ea; padding: 2px 0; }
+        #winner-banner h1 { margin: 0 0 10px 0; font-size: 26px; }
+        #winner-banner p { font-size: 18px; margin: 5px 0; }
 
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
-            margin-bottom: 8px;
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
-        .cell {
-            background: #ffffff;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .marked {
+            background-color: #10b981 !important;
+            color: white !important;
             font-weight: bold;
-            font-size: 11px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .cell.star {
-            color: #f59e0b;
-            font-size: 13px;
-        }
-
-        /* ተጫዋቹ የነካው ቁጥር አረንጓዴ ይሆናል */
-        .cell.marked {
-            background: #10b981 !important;
-            color: #ffffff !important;
-            font-weight: 900;
-        }
-
-        /* BINGO Button at bottom of card */
-        .bingo-btn {
-            background: #2563eb;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 0;
-            font-size: 15px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            cursor: pointer;
-            text-align: center;
-            transition: background 0.2s;
-            margin-top: auto;
-        }
-
-        .bingo-btn:active {
-            background: #1d4ed8;
-            transform: scale(0.98);
         }
     </style>
 </head>
 <body>
 
-    <!-- Top Stats -->
-    <div class="header">
-        <div class="room-tag">ROOM VIP 💰</div>
-        <div class="stat-box">
-            <div class="stat-label">SOLD</div>
-            <div class="stat-value" id="soldCount">0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">TIME</div>
-            <div class="stat-value" id="timeCount">13s</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">CALL</div>
-            <div class="stat-value" id="callCount">0</div>
-        </div>
-        <div class="balance-tag" id="balDisplay">280.00 ETB</div>
+    <!-- አውቶማቲክ አሸናፊነት ማስታወቂያ ሰሌዳ -->
+    <div id="winner-banner">
+        <h1 id="win-title">🏆 BINGO! 🏆</h1>
+        <p id="win-details">ተጫዋች አሸንፏል!</p>
+        <h2 id="win-payout" style="color: #fef08a;">+80 ETB</h2>
     </div>
 
-    <!-- Main Board (1-88) -->
-    <div class="board-container">
-        <div class="board-grid" id="mainBoard"></div>
-    </div>
-
-    <!-- Cards Container -->
-    <div class="cards-container" id="cardsContainer"></div>
+    <h2>📢 የተጠራ ቁጥር: <span id="current-call" style="color: #38bdf8;">--</span></h2>
 
     <script>
-        const tg = window.Telegram ? window.Telegram.WebApp : null;
-        if(tg) tg.expand();
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        const socket = io();
 
-        let playerCards = []; 
-        let userMarkedCells = {}; // ተጫዋቹ ያጠቆራቸው ቁጥሮች
-        let calledNumbers = new Set();
-        let gameStarted = false;
-        let timeLeft = 13;
+        // 1. ሰርቨሩ ቁጥር ሲጠራ
+        socket.on("number_called", (data) => {
+            const calledNum = String(data.number);
+            document.getElementById("current-call").innerText = calledNum;
 
-        // 1. Render 1-88 Grid
-        const mainBoard = document.getElementById('mainBoard');
-        for (let i = 1; i <= 88; i++) {
-            let div = document.createElement('div');
-            div.className = 'board-num';
-            div.id = 'num-' + i;
-            div.innerText = i;
-            div.onclick = function() {
-                if (!gameStarted) {
-                    toggleCardSelection(i);
-                }
-            };
-            mainBoard.appendChild(div);
-        }
+            // በስክሪኑ ላይ ያሉትን ቁጥሮች አውቶማቲክ ማቅለም
+            const matchingCells = document.querySelectorAll(`[data-number='${calledNum}']`);
+            matchingCells.forEach(cell => cell.classList.add("marked"));
+        });
 
-        function seededRandom(seed) {
-            let x = Math.sin(seed++) * 10000;
-            return x - Math.floor(x);
-        }
+        // 2. ሰርቨሩ አውቶማቲክ አሸናፊ ሲያገኝ የሚቀበለው Event
+        socket.on("auto_bingo_winner", (res) => {
+            const banner = document.getElementById("winner-banner");
+            const winDetails = document.getElementById("win-details");
+            const winPayout = document.getElementById("win-payout");
 
-        function generateUniqueGridForCard(cardId) {
-            let ranges = [
-                { min: 1, max: 15 },
-                { min: 16, max: 30 },
-                { min: 31, max: 45 },
-                { min: 46, max: 60 },
-                { min: 61, max: 75 }
-            ];
+            // አሸናፊውን እና የያዘውን ካርቴላ በጎላ ሁኔታ ማሳየት
+            winDetails.innerText = `ተጫዋች፦ ${res.winnerId}\nካርቴላ፦ #${res.cartelaId}\nማሸነፊያ ቁጥር፦ ${res.winningNumber}`;
+            winPayout.innerText = `💰 የተጣራ ሽልማት፦ ${res.payout} ETB`;
+            
+            banner.style.display = "block"; // Banner-ዉን ማሳየት
 
-            let columns = [];
-            let currentSeed = cardId * 997;
-
-            ranges.forEach((range) => {
-                let colNums = [];
-                while (colNums.length < 5) {
-                    let rand = seededRandom(currentSeed++);
-                    let val = Math.floor(rand * (range.max - range.min + 1)) + range.min;
-                    if (!colNums.includes(val)) {
-                        colNums.push(val);
-                    }
-                }
-                colNums.sort((a, b) => a - b);
-                columns.push(colNums);
-            });
-
-            let grid = [];
-            for (let r = 0; r < 5; r++) {
-                let row = [];
-                for (let c = 0; c < 5; c++) {
-                    if (r === 2 && c === 2) {
-                        row.push("★");
-                    } else {
-                        row.push(columns[c][r]);
-                    }
-                }
-                grid.push(row);
-            }
-            return grid;
-        }
-
-        function toggleCardSelection(cardId) {
-            let index = playerCards.indexOf(cardId);
-            if (index === -1) {
-                if (playerCards.length >= 4) {
-                    alert("ከ 4 በላይ ካርቴላ መምረጥ አይችሉም!");
-                    return;
-                }
-                playerCards.push(cardId);
-                userMarkedCells[cardId] = new Set(["★"]);
-            } else {
-                playerCards.splice(index, 1);
-                delete userMarkedCells[cardId];
-            }
-            renderGame();
-        }
-
-        function markCell(cardId, val) {
-            if (val === "★") return;
-            if (userMarkedCells[cardId].has(val)) {
-                userMarkedCells[cardId].delete(val);
-            } else {
-                userMarkedCells[cardId].add(val);
-            }
-            renderGame();
-        }
-
-        function renderGame() {
-            document.querySelectorAll('.board-num').forEach(el => el.classList.remove('selected-card'));
-
-            const container = document.getElementById('cardsContainer');
-            container.innerHTML = '';
-
-            playerCards.forEach((cardId) => {
-                let boardCell = document.getElementById('num-' + cardId);
-                if (boardCell) {
-                    boardCell.classList.add('selected-card');
-                }
-
-                let cardNumbers = generateUniqueGridForCard(cardId);
-                let cardWrapper = document.createElement('div');
-                cardWrapper.className = 'card-wrapper';
-
-                let cardHeader = `
-                    <div class="card-header">
-                        <span class="card-id">#${cardId}</span>
-                        ${!gameStarted ? `<button class="close-btn" onclick="toggleCardSelection(${cardId})">✕</button>` : ''}
-                    </div>
-                    <div class="bingo-header">
-                        <div class="b-head">B</div>
-                        <div class="i-head">I</div>
-                        <div class="n-head">N</div>
-                        <div class="g-head">G</div>
-                        <div class="o-head">O</div>
-                    </div>
-                `;
-
-                let gridHtml = '<div class="card-grid">';
-                for (let r = 0; r < 5; r++) {
-                    for (let c = 0; c < 5; c++) {
-                        let val = cardNumbers[r][c];
-                        let isStar = (val === "★") ? "star" : "";
-                        let isMarked = userMarkedCells[cardId] && userMarkedCells[cardId].has(val) ? "marked" : "";
-                        
-                        gridHtml += `<div class="cell ${isStar} ${isMarked}" onclick="markCell(${cardId}, '${val}')">${val}</div>`;
-                    }
-                }
-                gridHtml += '</div>';
-
-                let bingoButton = `<button class="bingo-btn" onclick="claimBingo(${cardId})">BINGO!</button>`;
-
-                cardWrapper.innerHTML = cardHeader + gridHtml + bingoButton;
-                container.appendChild(cardWrapper);
-            });
-
-            document.getElementById('soldCount').innerText = playerCards.length;
-        }
-
-        // ⏱️ የታይመር መቁጠሪያ
-        let timerInterval = setInterval(() => {
-            timeLeft--;
-            document.getElementById('timeCount').innerText = timeLeft + 's';
-
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                startGameCall();
-            }
-        }, 1000);
-
-        // 🎲 የቁጥሮች ጥሪ
-        function startGameCall() {
-            gameStarted = true;
-            renderGame();
-
-            let callInterval = setInterval(() => {
-                if (calledNumbers.size >= 75) {
-                    clearInterval(callInterval);
-                    return;
-                }
-
-                let nextCall;
-                do {
-                    nextCall = Math.floor(Math.random() * 75) + 1;
-                } while (calledNumbers.has(nextCall));
-
-                calledNumbers.add(nextCall);
-                document.getElementById('callCount').innerText = nextCall;
-
-            }, 3000);
-        }
-
-        // 🏆 BINGO! ሲጫኑ ማረጋገጫ
-        function claimBingo(cardId) {
-            let marked = userMarkedCells[cardId];
-            if (!marked || marked.size < 5) {
-                alert("❌ ገና አልሞላህም! ቢያንስ 5 ቁጥር ማጥቁር አለብህ።");
-                return;
-            }
-
-            let isValid = true;
-            marked.forEach(num => {
-                if (num !== "★" && !calledNumbers.has(parseInt(num))) {
-                    isValid = false;
-                }
-            });
-
-            if (isValid) {
-                alert(`🎉 ቢንጎ! # ${cardId} ካርቴላ አሸንፏል!`);
-            } else {
-                alert("❌ ስህተት! ያልወጣ ቁጥር አጥቁረሃል።");
-            }
-        }
-
-        renderGame();
+            // በቴሌግራም አልፋቤት Alert ማሳየት
+            tg.showAlert(res.message);
+        });
     </script>
 </body>
 </html>
