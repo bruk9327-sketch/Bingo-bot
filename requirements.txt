@@ -1,2 +1,5 @@
-python-telegram-bot
-flask
+pyTelegramBotAPI
+Flask
+Flask-SocketIO
+eventlet
+gunicorn
