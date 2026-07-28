@@ -1,3 +1,7 @@
+import os
+import random
+from threading import Thread
+from flask import Flask
 import telebot
 from telebot.types import (
     ReplyKeyboardMarkup, 
@@ -7,7 +11,29 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-API_TOKEN = "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM"  # እዚህ ጋር የቦት Tokenዎን ያስገቡ
+# =========================================================
+# 1. WEB SERVER CONFIGURATION (Render Timeout ለመከላከል)
+# =========================================================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bingo Bot is Alive and Running on Render!"
+
+def run_web_server():
+    # Render የሚሰጠውን PORT ይጠቀማል፣ ባይኖር በዲፎልት 10000 ያደርገዋል
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    server_thread = Thread(target=run_web_server)
+    server_thread.daemon = True
+    server_thread.start()
+
+# =========================================================
+# 2. BOT CONFIGURATION
+# =========================================================
+API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")  # እዚህ ጋር የቦት Tokenዎን ያስገቡ
 bot = telebot.TeleBot(API_TOKEN)
 
 # =========================================================
@@ -20,7 +46,7 @@ MAX_PLAYERS = 10         # በ1 ዙር የሚጫወቱ ተጫዋቾች ብዛት
 
 # Mock Data Storage (በእውነተኛ ሲስተም በDatabase የሚተካ)
 users_db = {}            # {user_id: {"phone": str, "balance": int, "referred_by": str}}
-active_room = []         # አሁንWaiting Room ላይ ያሉ ተጫዋቾች ዝርዝር [user_id_1, user_id_2, ...]
+active_room = []         # አሁን Waiting Room ላይ ያሉ ተጫዋቾች ዝርዝር [user_id_1, user_id_2, ...]
 
 # =========================================================
 # HELPER FUNCTIONS
@@ -163,8 +189,7 @@ def start_bingo_round():
     house_commission = total_players * BOT_COMMISSION      # 10 * 2 = 20 ብር
     winner_payout = total_players * NET_PER_PLAYER        # 10 * 8 = 80 ብር
 
-    # ለአብነት ያህል ከ10ሩ ተጫዋቾች አንዱን የመጀመሪያ ተጫዋች አሸናፊ እናድርገው (በእውነተኛ ጨዋታ በBingo Logic የሚተካ)
-    import random
+    # ለአብነት ያህል ከ10ሩ ተጫዋቾች አንዱን የመጀመሪያ ተጫዋች አሸናፊ እናድርገው
     winner_id = random.choice(active_room)
     
     # የኪስ ቦርሳ ማደስ (ለአሸናፊው 80 ብር ገቢ ማድረግ)
@@ -203,8 +228,13 @@ def check_balance(message):
     bot.send_message(user_id, f"💳 **የእርስዎ የሂሳብ መጠን:** {user['balance']} ብር", parse_mode="Markdown")
 
 # =========================================================
-# RUN BOT
+# RUN BOT & SERVER
 # =========================================================
 if __name__ == "__main__":
+    # 1. መጀመሪያ Web Serverሩን ከበስተጀርባ ማስነሳት
+    print("🌐 Web Server እየተነሳ ነው...")
+    keep_alive()
+
+    # 2. በመቀጠል የቴሌግራም ቦቱን ማስነሳት
     print("🤖 ቦቱ ስራ ጀምሯል...")
     bot.infinity_polling()
