@@ -24,7 +24,7 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 
 # =========================================================
-# HTML TEMPLATE (INLINE TO PREVENT TEMPLATE NOT FOUND ERROR)
+# HTML TEMPLATE WITH AUTOMATIC RESTART & 2 CARTELA SELECTION
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -67,8 +67,11 @@ HTML_TEMPLATE = """
 
     <!-- CARTELA SELECTION DASHBOARD (1-104) -->
     <div id="selection-screen" class="px-3">
-        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱበትን የካርቴላ ቁጥር ይምረጡ፦</div>
-        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-800/60 p-2 rounded-2xl max-h-[60vh] overflow-y-auto">
+        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱባቸውን 2 የካርቴላ ቁጥሮች ይምረጡ (የጠቆሩት የተመረጡ ናቸው)፦</div>
+        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-800/60 p-2 rounded-2xl max-h-[55vh] overflow-y-auto">
+        </div>
+        <div class="text-center mt-3">
+            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት ካርቴላዎች፦ #64, #80</span>
         </div>
     </div>
 
@@ -119,7 +122,7 @@ HTML_TEMPLATE = """
             <div class="w-full bg-amber-400 h-2 rounded-full overflow-hidden">
                 <div class="bg-amber-600 h-full w-full animate-ping"></div>
             </div>
-            <div class="text-[10px] text-gray-500 mt-2 font-bold">NEXT ROUND: 12S</div>
+            <div class="text-[10px] text-gray-500 mt-2 font-bold" id="next-round-text">አዲስ ዙር በመጀመር ላይ...</div>
         </div>
     </div>
 
@@ -128,39 +131,77 @@ HTML_TEMPLATE = """
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
 
-        let mySelectedCards = [64, 80];
+        let mySelectedCards = [64, 80]; // ነባሪ የተመረጡት 2 ካርቴላዎች
         let drawnNumbersSet = new Set();
 
-        const gridContainer = document.getElementById('cartela-grid');
-        for (let i = 1; i <= 104; i++) {
-            const btn = document.createElement('button');
-            btn.className = `p-2 text-xs font-bold rounded-lg border transition ${mySelectedCards.includes(i) ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-slate-700/80 text-gray-300 border-slate-600'}`;
-            btn.innerText = i;
-            btn.onclick = () => selectCard(i, btn);
-            gridContainer.appendChild(btn);
+        // ካርቴላ 1-104 መፍጠሪያ
+        function initCartelaGrid() {
+            const gridContainer = document.getElementById('cartela-grid');
+            gridContainer.innerHTML = '';
+            for (let i = 1; i <= 104; i++) {
+                const btn = document.createElement('button');
+                const isSelected = mySelectedCards.includes(i);
+                
+                // የተመረጡት ጥቁር (Dark Background) እንዲሆኑ ማድረግ
+                btn.className = `p-2 text-xs font-bold rounded-lg border transition ${isSelected ? 'bg-slate-900 text-amber-400 border-amber-400 font-black shadow-lg scale-105' : 'bg-slate-700/80 text-gray-300 border-slate-600'}`;
+                btn.innerText = i;
+                btn.onclick = () => toggleCardSelection(i);
+                gridContainer.appendChild(btn);
+            }
+            updateSelectedInfo();
         }
 
-        const board75 = document.getElementById('bingo-75-grid');
-        for (let i = 1; i <= 75; i++) {
-            const cell = document.createElement('div');
-            cell.id = `ball-cell-${i}`;
-            cell.className = 'p-1 rounded bg-slate-700 text-gray-300';
-            cell.innerText = i;
-            board75.appendChild(cell);
+        function toggleCardSelection(num) {
+            if (mySelectedCards.includes(num)) {
+                if (mySelectedCards.length > 1) {
+                    mySelectedCards = mySelectedCards.filter(c => c !== num);
+                }
+            } else {
+                if (mySelectedCards.length >= 2) {
+                    mySelectedCards.shift(); // 2 ካርቴላ ብቻ እንዲመረጥ የመጀመሪያውን ያስወጣል
+                }
+                mySelectedCards.push(num);
+            }
+            initCartelaGrid();
+            socket.emit('select_card', { cards: mySelectedCards });
         }
 
-        function selectCard(num, btn) {
-            btn.className = 'p-2 text-xs font-bold rounded-lg bg-emerald-500 text-white border border-emerald-400';
-            socket.emit('select_card', { card_num: num });
+        function updateSelectedInfo() {
+            document.getElementById('selected-info').innerText = `የተመረጡት ካርቴላዎች፦ #${mySelectedCards.join(', #')}`;
         }
+
+        // 1-75 የቦርድ ሴሎችን መፍጠሪያ
+        function init75Board() {
+            const board75 = document.getElementById('bingo-75-grid');
+            board75.innerHTML = '';
+            for (let i = 1; i <= 75; i++) {
+                const cell = document.createElement('div');
+                cell.id = `ball-cell-${i}`;
+                cell.className = 'p-1 rounded bg-slate-700 text-gray-300';
+                cell.innerText = i;
+                board75.appendChild(cell);
+            }
+        }
+
+        initCartelaGrid();
+        init75Board();
 
         socket.on('timer_update', (data) => {
             document.getElementById('timer').innerText = `${data.time_left}s`;
+            if (data.status === 'WAITING') {
+                // አዲስ ቆጠራ ሲጀምር Winner Modal እንዲዘጋ እና መምረጫው እንዲመለስ ማድረግ
+                document.getElementById('winner-modal').classList.add('hidden');
+                document.getElementById('game-screen').classList.add('hidden');
+                document.getElementById('selection-screen').classList.remove('hidden');
+                drawnNumbersSet.clear();
+                init75Board();
+            }
         });
 
         socket.on('game_started', () => {
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('winner-modal').classList.add('hidden');
             renderMyCards();
         });
 
@@ -202,21 +243,26 @@ HTML_TEMPLATE = """
             const container = document.getElementById('my-cards-container');
             container.innerHTML = '';
             
-            const sampleCards = [
-                { id: 80, matrix: [[3,21,45,52,68],[10,30,37,48,66],[13,26,'★',56,70],[14,24,35,46,73],[7,25,34,55,62]] },
-                { id: 64, matrix: [[6,29,38,60,64],[10,23,42,59,73],[14,28,'★',48,72],[9,27,32,53,61],[1,26,31,56,63]] }
-            ];
-
-            sampleCards.forEach(card => {
+            // ለሁለቱ የተመረጡ ካርቴላዎች ናሙና ማትሪክስ መፍጠር
+            mySelectedCards.forEach(cardId => {
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'bg-white text-slate-900 rounded-2xl p-2 shadow-lg';
-                let html = `<div class="flex justify-between items-center text-xs font-bold text-blue-600 mb-1"><span>#${card.id}</span><span class="text-[10px] bg-blue-100 px-1 rounded">LIVE</span></div>`;
+                let html = `<div class="flex justify-between items-center text-xs font-bold text-blue-600 mb-1"><span>CARD #${cardId}</span><span class="text-[10px] bg-blue-100 px-1 rounded">LIVE</span></div>`;
                 html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
                 
-                card.matrix.forEach(row => {
+                // ናሙና 5x5 BINGO ማትሪክስ
+                const sampleMatrix = [
+                    [3 + (cardId % 5), 21, 45, 52, 68],
+                    [10, 30, 37, 48, 66],
+                    [13, 26, '★', 56, 70],
+                    [14, 24, 35, 46, 73],
+                    [7, 25, 34, 55, 62 + (cardId % 3)]
+                ];
+
+                sampleMatrix.forEach(row => {
                     row.forEach(val => {
                         const isHit = val === '★' || drawnNumbersSet.has(val);
-                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}" id="card-${card.id}-${val}">${val}</div>`;
+                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}" id="card-${cardId}-${val}">${val}</div>`;
                     });
                 });
                 
@@ -280,7 +326,7 @@ def run_bot():
         print(f"Bot Error: {e}")
 
 # =========================================================
-# SOCKET.IO & GAME LOOP
+# SOCKET.IO & REPEATING GAME LOOP
 # =========================================================
 @socketio.on('connect')
 def handle_connect():
@@ -289,6 +335,7 @@ def handle_connect():
 def game_loop():
     global game_state
     while True:
+        # 1. የቆጠራ ክፍል (15 ሰከንድ)
         game_state["status"] = "WAITING"
         game_state["drawn_numbers"] = []
         
@@ -297,6 +344,7 @@ def game_loop():
             socketio.emit('timer_update', {'time_left': t, 'status': 'WAITING'})
             socketio.sleep(1)
 
+        # 2. የጨዋታው መጀመር (PLAYING PHASE)
         game_state["status"] = "PLAYING"
         socketio.emit('game_started', {'status': 'PLAYING'})
 
@@ -317,6 +365,7 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
+            # 10ኛው ቁጥር ሲወጣ አሸናፊ ማሳወቅ (Demo)
             if len(game_state["drawn_numbers"]) == 10:
                 winner_data = {
                     "winner_name": "Abrshi",
@@ -332,7 +381,8 @@ def game_loop():
                 }
                 socketio.emit('winner_announced', winner_data)
                 game_state["status"] = "FINISHED"
-                socketio.sleep(8)
+                # አሸናፊውን ለ 6 ሰከንድ አሳይቶ ቀጥታ ወደ አዲስ ጨዋታ ቆጠራ ይመለሳል
+                socketio.sleep(6)
                 break
 
             socketio.sleep(3)
