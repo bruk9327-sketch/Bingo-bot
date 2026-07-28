@@ -2,425 +2,210 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GoodBingo Mini App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            user-select: none;
-        }
-
-        body {
-            background-color: #1a2232;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Header Navigation */
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background-color: #1a2232;
-        }
-
-        .top-bar .icon-btn {
-            font-size: 18px;
-            cursor: pointer;
-            color: #ffffff;
-            font-weight: bold;
-        }
-
-        .top-bar .title {
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .top-bar .right-icons {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-        }
-
-        .top-bar .chevron-down {
-            transform: rotate(90deg);
-            display: inline-block;
-        }
-
-        /* Top Game Dashboard Stats */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            padding: 4px 12px 10px 12px;
-        }
-
-        .stat-card {
-            border-radius: 12px;
-            padding: 6px 4px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .stat-card .label {
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-
-        .stat-card .value {
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        .yellow-card { background-color: #fbc02d; color: #000000; }
-        .dark-card { background-color: #2b3648; color: #ffffff; }
-        .dark-card .label { color: #8d99ae; }
-        .dark-card .time-val { color: #ff5252; }
-        .green-card { background-color: #00c853; color: #ffffff; }
-
-        /* Main Bingo Grid 1 - 104 */
-        .grid-container {
-            flex: 1;
-            background-color: #cfd8dc;
-            margin: 0 10px 10px 10px;
-            border-radius: 20px;
-            padding: 8px;
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
-            overflow-y: auto;
-        }
-
-        .num-cell {
-            background-color: #b0bec5;
-            color: #78909c;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            font-size: 12px;
-            border-radius: 8px;
-            aspect-ratio: 1;
-            cursor: not-allowed;
-            transition: all 0.2s ease;
-        }
-
-        .num-cell.available {
-            background-color: #ffffff;
-            color: #1a2232;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .num-cell.available:hover {
-            background-color: #e3f2fd;
-        }
-
-        .num-cell.selected {
-            background-color: #00c853;
-            color: #ffffff;
-            box-shadow: 0 2px 5px rgba(0,200,83,0.4);
-        }
-
-        /* Bottom Selected Bingo Cards Deck */
-        .selected-cards-bar {
-            background-color: #ffffff;
-            padding: 10px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            border-top-left-radius: 12px;
-            border-top-right-radius: 12px;
-            min-height: 160px;
-        }
-
-        .card-slot {
-            width: 48%;
-            max-width: 180px;
-            border-radius: 12px;
-            border: 1px solid #e0e0e0;
-            padding: 6px;
-            position: relative;
-            background: #ffffff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-            padding: 0 2px;
-        }
-
-        .card-num {
-            color: #2962ff;
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .card-num.live-tag {
-            color: #2962ff;
-            font-style: italic;
-        }
-
-        .remove-btn {
-            background: #e53935;
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        /* Bingo Card 5x5 Matrix Grid */
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2px;
-            text-align: center;
-            font-size: 10px;
-            font-weight: bold;
-            color: #263238;
-        }
-
-        .mini-grid div {
-            padding: 3px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 3px;
-        }
-
-        .star-box {
-            background-color: #ffc107;
-            color: #000;
-            font-size: 11px;
-        }
-
-        /* Empty Card Slot Styling */
-        .empty-slot {
-            border: 2px dashed #b0bec5;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #78909c;
-            font-size: 9px;
-            font-weight: 800;
-            background: #f8f9fa;
-            cursor: pointer;
-            border-radius: 12px;
-        }
-
-        .empty-slot .plus-icon {
-            font-size: 22px;
-            margin-bottom: 2px;
-            color: #90a4ae;
-        }
+        .bingo-bg { background-color: #1a2232; }
+        .card-bg { background-color: #242f42; }
+        .accent-green { background-color: #10b981; }
+        .accent-purple { background-color: #8b5cf6; }
     </style>
 </head>
-<body>
+<body class="bingo-bg text-white font-sans select-none pb-10">
 
-    <!-- Top Navigation -->
-    <div class="top-bar">
-        <span class="icon-btn">&times;</span>
-        <h2 class="title">GoodBingo</h2>
-        <div class="right-icons">
-            <span class="icon-btn chevron-down">&#10095;</span>
-            <span class="icon-btn">&#8942;</span>
+    <!-- TOP HEADER / DASHBOARD STATUS -->
+    <div class="grid grid-cols-4 gap-2 p-3 text-center text-xs font-bold">
+        <div class="bg-amber-500 text-slate-900 rounded-xl p-2 flex flex-col justify-center shadow">
+            <span class="text-[10px] opacity-80">ROOM</span>
+            <span>VIP 💰</span>
+        </div>
+        <div class="bg-slate-700 rounded-xl p-2 flex flex-col justify-center">
+            <span class="text-[10px] text-gray-400">SOLD</span>
+            <span class="text-sm">228</span>
+        </div>
+        <div class="bg-slate-700 rounded-xl p-2 flex flex-col justify-center">
+            <span class="text-[10px] text-red-400">TIME</span>
+            <span id="timer" class="text-sm text-red-400">15s</span>
+        </div>
+        <div class="bg-emerald-600 rounded-xl p-2 flex flex-col justify-center">
+            <span class="text-[10px] opacity-80">BALANCE</span>
+            <span class="text-sm">20.00 ETB</span>
         </div>
     </div>
 
-    <!-- Game Stats Bar -->
-    <div class="stats-container">
-        <div class="stat-card yellow-card">
-            <span class="label">ROOM</span>
-            <span class="value">VIP 💰💰</span>
-        </div>
-        <div class="stat-card dark-card">
-            <span class="label">SOLD</span>
-            <span class="value" id="sold-count">210</span>
-        </div>
-        <div class="stat-card dark-card">
-            <span class="label">TIME</span>
-            <span class="value time-val" id="timer">18s</span>
-        </div>
-        <div class="stat-card green-card">
-            <span class="label">BALANCE</span>
-            <span class="value"><span id="balance">30.00</span> <small style="font-size:8px;">ETB</small></span>
+    <!-- MAIN VIEW 1: CARTELA SELECTION DASHBOARD (1-104) -->
+    <div id="selection-screen" class="px-3">
+        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱበትን የካርቴላ ቁጥር ይምረጡ፦</div>
+        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-800/60 p-2 rounded-2xl max-h-[60vh] overflow-y-auto">
         </div>
     </div>
 
-    <!-- Main Grid (Numbers 1-104) -->
-    <div class="grid-container" id="bingo-grid"></div>
-
-    <!-- Selected Cards Bottom Container -->
-    <div class="selected-cards-bar">
-        
-        <!-- Slot 1 (Selected Card #80) -->
-        <div class="card-slot" id="slot-1">
-            <div class="card-header">
-                <span class="card-num">#80</span>
-                <span class="card-num live-tag">LIVE</span>
-            </div>
-            <div class="remove-btn" onclick="removeCard(80)">&times;</div>
-            <div class="mini-grid">
-                <div>3</div><div>21</div><div>45</div><div>52</div><div>68</div>
-                <div>10</div><div>30</div><div>37</div><div>48</div><div>66</div>
-                <div>13</div><div>26</div><div class="star-box">★</div><div>56</div><div>70</div>
-                <div>14</div><div>24</div><div>35</div><div>46</div><div>73</div>
-                <div>7</div><div>25</div><div>34</div><div>55</div><div>62</div>
-            </div>
+    <!-- MAIN VIEW 2: LIVE GAME SCREEN (B-I-N-G-O DISPLAY) -->
+    <div id="game-screen" class="hidden px-2">
+        <div class="flex justify-between items-center text-xs mb-2 px-2 text-gray-300">
+            <div>DERASH: <span class="text-emerald-400 font-bold">1824 ETB</span></div>
+            <div>BALLS: <span id="balls-count" class="font-bold text-white">0/75</span></div>
+            <div>PLAYERS: <span class="font-bold text-white">228</span></div>
         </div>
 
-        <!-- Slot 2 (Empty Slot) -->
-        <div class="card-slot empty-slot" id="slot-2">
-            <span class="plus-icon">+</span>
-            <p>SLOT 2 EMPTY</p>
-        </div>
+        <div class="flex gap-2">
+            <!-- LEFT: 1-75 BOARD -->
+            <div class="w-1/3 bg-slate-800 rounded-xl p-1 text-[10px] font-bold">
+                <div class="grid grid-cols-5 text-center text-purple-400 font-black mb-1">
+                    <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+                </div>
+                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center">
+                </div>
+            </div>
 
+            <!-- RIGHT: CURRENT DRAWN BALL & USER CARDS -->
+            <div class="w-2/3 flex flex-col items-center">
+                <div id="current-ball" class="w-20 h-20 rounded-full accent-purple flex items-center justify-center text-2xl font-black shadow-lg border-4 border-purple-300 mb-3 animate-pulse">
+                    READY
+                </div>
+
+                <div id="my-cards-container" class="w-full space-y-3">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POPUP: WINNER ANNOUNCEMENT -->
+    <div id="winner-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white text-slate-900 rounded-3xl p-5 w-full max-w-sm text-center shadow-2xl relative border-4 border-amber-400">
+            <h2 class="text-3xl font-black text-red-600 mb-1">1 <span class="text-lg text-gray-700">አሸናፊ</span></h2>
+            <div id="winner-name" class="text-2xl font-black text-emerald-600 italic mb-2">Abrshi has won!</div>
+            
+            <div class="bg-gray-100 rounded-2xl p-3 mb-4">
+                <div class="text-xs text-gray-500 font-bold">TOTAL PRIZE POOL</div>
+                <div id="winner-prize" class="text-2xl font-black text-emerald-600">1824 ETB</div>
+            </div>
+
+            <div class="text-left font-bold text-blue-600 text-sm mb-2" id="winner-card-title">CARD #62</div>
+            <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-gray-200 p-2 rounded-2xl text-center text-xs font-bold mb-4">
+            </div>
+
+            <div class="w-full bg-amber-400 h-2 rounded-full overflow-hidden">
+                <div class="bg-amber-600 h-full w-full animate-ping"></div>
+            </div>
+            <div class="text-[10px] text-gray-500 mt-2 font-bold">NEXT ROUND: 12S</div>
+        </div>
     </div>
 
     <script>
-        // ክፍት እና የተያዙ ቁጥሮች
-        const availableNumbers = [4, 7, 8, 9, 10, 15, 18, 20, 25, 26, 27, 28, 29, 31, 32, 34, 35, 36, 37, 39, 40, 41, 44, 45, 46, 49, 54, 56, 57, 60, 64, 65, 67, 73, 81, 82, 84, 88, 89, 92, 94, 95, 98, 103];
-        let selectedCards = [80];
+        const socket = io();
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if(tg) tg.expand();
 
-        // 1-104 ቦርድ የመፍጠር ሎጂክ
-        function renderGrid() {
-            const gridContainer = document.getElementById("bingo-grid");
-            gridContainer.innerHTML = "";
+        let mySelectedCards = [64, 80];
+        let drawnNumbersSet = new Set();
 
-            for (let i = 1; i <= 104; i++) {
-                const cell = document.createElement("div");
-                cell.classList.add("num-cell");
-                cell.textContent = i;
-
-                if (selectedCards.includes(i)) {
-                    cell.classList.add("selected");
-                } else if (availableNumbers.includes(i)) {
-                    cell.classList.add("available");
-                    cell.onclick = () => selectCard(i);
-                }
-
-                gridContainer.appendChild(cell);
-            }
+        const gridContainer = document.getElementById('cartela-grid');
+        for (let i = 1; i <= 104; i++) {
+            const btn = document.createElement('button');
+            btn.className = `p-2 text-xs font-bold rounded-lg border transition ${mySelectedCards.includes(i) ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-slate-700/80 text-gray-300 border-slate-600'}`;
+            btn.innerText = i;
+            btn.onclick = () => selectCard(i, btn);
+            gridContainer.appendChild(btn);
         }
 
-        // ቁጥር መምረጥ (ካርድ መግዛት)
-        function selectCard(num) {
-            if (selectedCards.length >= 2) {
-                alert("በአንድ ጊዜ ከ2 ካርድ በላይ መግዛት አይችሉም!");
-                return;
+        const board75 = document.getElementById('bingo-75-grid');
+        for (let i = 1; i <= 75; i++) {
+            const cell = document.createElement('div');
+            cell.id = `ball-cell-${i}`;
+            cell.className = 'p-1 rounded bg-slate-700 text-gray-300';
+            cell.innerText = i;
+            board75.appendChild(cell);
+        }
+
+        function selectCard(num, btn) {
+            btn.className = 'p-2 text-xs font-bold rounded-lg bg-emerald-500 text-white border border-emerald-400';
+            socket.emit('select_card', { card_num: num });
+        }
+
+        socket.on('timer_update', (data) => {
+            document.getElementById('timer').innerText = `${data.time_left}s`;
+        });
+
+        socket.on('game_started', () => {
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            renderMyCards();
+        });
+
+        socket.on('new_number', (data) => {
+            drawnNumbersSet.add(data.number);
+            document.getElementById('current-ball').innerText = data.ball;
+            document.getElementById('balls-count').innerText = `${data.drawn_list.length}/75`;
+            
+            const cell = document.getElementById(`ball-cell-${data.number}`);
+            if(cell) {
+                cell.className = 'p-1 rounded bg-emerald-500 text-white font-black animate-bounce';
             }
-            if (!selectedCards.includes(num)) {
-                selectedCards.push(num);
-                // ካርዱን ከይዞታ ክፍት ዝርዝር ውስጥ መቀነስ
-                const idx = availableNumbers.indexOf(num);
-                if (idx > -1) availableNumbers.splice(idx, 1);
+
+            highlightUserCards();
+        });
+
+        socket.on('winner_announced', (data) => {
+            document.getElementById('winner-name').innerText = `${data.winner_name} has won!`;
+            document.getElementById('winner-prize').innerText = `${data.prize} ETB`;
+            document.getElementById('winner-card-title').innerText = `CARD #${data.card_num}`;
+            
+            const matrixContainer = document.getElementById('winner-card-matrix');
+            matrixContainer.innerHTML = '';
+            
+            data.card_matrix.forEach(row => {
+                row.forEach(val => {
+                    const div = document.createElement('div');
+                    const isHit = val === 'FREE' || drawnNumbersSet.has(val);
+                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-white font-bold' : 'bg-white text-slate-800'}`;
+                    div.innerText = val === 'FREE' ? '★' : val;
+                    matrixContainer.appendChild(div);
+                });
+            });
+
+            document.getElementById('winner-modal').classList.remove('hidden');
+        });
+
+        function renderMyCards() {
+            const container = document.getElementById('my-cards-container');
+            container.innerHTML = '';
+            
+            const sampleCards = [
+                { id: 80, matrix: [[3,21,45,52,68],[10,30,37,48,66],[13,26,'★',56,70],[14,24,35,46,73],[7,25,34,55,62]] },
+                { id: 64, matrix: [[6,29,38,60,64],[10,23,42,59,73],[14,28,'★',48,72],[9,27,32,53,61],[1,26,31,56,63]] }
+            ];
+
+            sampleCards.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'bg-white text-slate-900 rounded-2xl p-2 shadow-lg';
+                let html = `<div class="flex justify-between items-center text-xs font-bold text-blue-600 mb-1"><span>#${card.id}</span><span class="text-[10px] bg-blue-100 px-1 rounded">LIVE</span></div>`;
+                html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
                 
-                // SOLD ቁጥርን መጨመር
-                const soldElem = document.getElementById("sold-count");
-                soldElem.textContent = parseInt(soldElem.textContent) + 1;
-
-                renderGrid();
-                updateSlots();
-            }
+                card.matrix.forEach(row => {
+                    row.forEach(val => {
+                        const isHit = val === '★' || drawnNumbersSet.has(val);
+                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}" id="card-${card.id}-${val}">${val}</div>`;
+                    });
+                });
+                
+                html += `</div><button class="w-full mt-2 py-1 bg-blue-600 text-white text-xs font-black rounded-xl">BINGO!</button>`;
+                cardDiv.innerHTML = html;
+                container.appendChild(cardDiv);
+            });
         }
 
-        // የተመረጠ ካርድ መሰረዝ
-        function removeCard(num) {
-            selectedCards = selectedCards.filter(c => c !== num);
-            availableNumbers.push(num);
-
-            const soldElem = document.getElementById("sold-count");
-            soldElem.textContent = parseInt(soldElem.textContent) - 1;
-
-            renderGrid();
-            updateSlots();
+        function highlightUserCards() {
+            drawnNumbersSet.forEach(num => {
+                const elements = document.querySelectorAll(`[id$='-${num}']`);
+                elements.forEach(el => {
+                    el.className = 'p-1 rounded bg-emerald-500 text-white font-black';
+                });
+            });
         }
-
-        // የታችኞቹን Slot-ዎች ማዘመን
-        function updateSlots() {
-            const slot1 = document.getElementById("slot-1");
-            const slot2 = document.getElementById("slot-2");
-
-            // Slot 2 ማስተካከያ
-            if (selectedCards.length > 1) {
-                const secondNum = selectedCards[1];
-                slot2.className = "card-slot";
-                slot2.innerHTML = `
-                    <div class="card-header">
-                        <span class="card-num">#${secondNum}</span>
-                        <span class="card-num live-tag">LIVE</span>
-                    </div>
-                    <div class="remove-btn" onclick="removeCard(${secondNum})">&times;</div>
-                    <div class="mini-grid">
-                        <div>6</div><div>29</div><div>38</div><div>60</div><div>64</div>
-                        <div>10</div><div>23</div><div>42</div><div>59</div><div>73</div>
-                        <div>14</div><div>28</div><div class="star-box">★</div><div>48</div><div>72</div>
-                        <div>9</div><div>27</div><div>32</div><div>53</div><div>61</div>
-                        <div>1</div><div>26</div><div>31</div><div>56</div><div>63</div>
-                    </div>
-                `;
-            } else {
-                slot2.className = "card-slot empty-slot";
-                slot2.innerHTML = `
-                    <span class="plus-icon">+</span>
-                    <p>SLOT 2 EMPTY</p>
-                `;
-            }
-
-            // Slot 1 ባዶ ከሆነ
-            if (selectedCards.length === 0) {
-                slot1.className = "card-slot empty-slot";
-                slot1.innerHTML = `
-                    <span class="plus-icon">+</span>
-                    <p>SLOT 1 EMPTY</p>
-                `;
-            }
-        }
-
-        // የእውነተኛ ሰዓት ታይመር (Countdown Timer)
-        let timeLeft = 18;
-        const timerElem = document.getElementById("timer");
-
-        setInterval(() => {
-            if (timeLeft > 0) {
-                timeLeft--;
-                timerElem.textContent = timeLeft + "s";
-            } else {
-                timeLeft = 30; // ቆጠራው ሲያልቅ እንደገና ይጀምራል
-            }
-        }, 1000);
-
-        // የመጀመሪያ ገፅ ግንባታ
-        renderGrid();
     </script>
 </body>
 </html>
