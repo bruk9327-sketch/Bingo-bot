@@ -223,7 +223,7 @@ HTML_TEMPLATE = """
                 row.forEach(val => {
                     const div = document.createElement('div');
                     const isHit = val === 'FREE' || drawnNumbersSet.has(val);
-                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-white font-bold' : 'bg-white text-slate-800'}`;
+                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-white font-bold' : 'bg-gray-100 text-slate-800'}`;
                     div.innerText = val === 'FREE' ? '★' : val;
                     matrixContainer.appendChild(div);
                 });
@@ -307,7 +307,7 @@ def start_cmd(message):
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text == "👤 ፕሮፋይል / ባላንስ")
+@bot.message_handler(func=lambda m: m.text and "ፕሮፋይል" in m.text)
 def profile_cmd(message):
     uid = message.from_user.id
     bal = user_balances.get(uid, 0.0)
@@ -320,7 +320,7 @@ def profile_cmd(message):
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text in ["📥 ዲፖዚት (Deposit)", "📥 ዲፖዚት (Deposit)"])
+@bot.message_handler(func=lambda m: m.text and "ዲፖዚት" in m.text)
 def deposit_cmd(message):
     uid = message.from_user.id
     user_states[uid] = "WAITING_DEPOSIT_INFO"
@@ -403,7 +403,7 @@ def handle_admin_approval(call):
             parse_mode="Markdown"
         )
 
-@bot.message_handler(func=lambda m: m.text in ["📤 ዊዝድሮው (Withdraw)", "📤 ዊዝድሮው (Withdraw)"])
+@bot.message_handler(func=lambda m: m.text and "ዊዝድሮው" in m.text)
 def withdraw_cmd(message):
     uid = message.from_user.id
     bal = user_balances.get(uid, 0.0)
@@ -420,7 +420,7 @@ def withdraw_cmd(message):
     )
     bot.send_message(message.chat.id, w_text, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text in ["👥 ሪፈራል / ግብዣ", "👥 ሪፈራል / ግብዣ"])
+@bot.message_handler(func=lambda m: m.text and "ሪፈራል" in m.text)
 def referral_cmd(message):
     uid = message.from_user.id
     bot_name = bot.get_me().username
@@ -434,7 +434,7 @@ def referral_cmd(message):
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text in ["ℹ️ እርዳታ እና ህጎች", "ℹ️ እርዳታ እና ህጎች"])
+@bot.message_handler(func=lambda m: m.text and "እርዳታ" in m.text)
 def help_cmd(message):
     help_txt = (
         "ℹ️ **የጨዋታ ህጎች እና መመሪያዎች**\n"
@@ -446,12 +446,13 @@ def help_cmd(message):
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
-# 🛠️ የተስተካከለው እና ፈጣን የ Bot Loop
+# 🛠️ 100% አስተማማኝ የ Bot Polling Loop
 def run_bot():
     while True:
         try:
-            bot.remove_webhook(drop_pending_updates=True)
-            bot.polling(none_stop=True, interval=1, timeout=20)
+            bot.remove_webhook()
+            time.sleep(1)
+            bot.polling(none_stop=True)
         except Exception as e:
             print(f"Bot Polling Error: {e}")
             time.sleep(3)
