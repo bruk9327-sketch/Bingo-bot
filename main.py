@@ -27,13 +27,12 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673")) 
 
-# Data Storage & Validation Database
-user_balances = {}       # {user_id: balance}
-user_states = {}         # {user_id: state}
-used_txn_ids = set()     # 🛡️ Duplicate Transaction Checker
+user_balances = {}       
+user_states = {}         
+used_txn_ids = set()     
 
 # =========================================================
-# 3. MODERN & ATTRACTIVE HTML / CSS / JS TEMPLATE (MINI APP)
+# 3. HTML TEMPLATE WITH OFFICIAL BINGO 75 RULES
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -41,7 +40,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GoodBingo Pro</title>
+    <title>GoodBingo Rules Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -49,7 +48,6 @@ HTML_TEMPLATE = """
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
         body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%); color: #fff; min-height: 100vh; }
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .neon-glow { box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
         .gold-glow { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
         .ball-gradient { background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); }
     </style>
@@ -79,12 +77,12 @@ HTML_TEMPLATE = """
     <!-- Selection Screen -->
     <div id="selection-screen" class="mt-2">
         <div class="glass-panel p-3 rounded-2xl mb-3 text-center">
-            <div class="text-xs font-semibold text-purple-300">🎲 እባክዎን የሚጫወቱባቸውን 2 ካርቴላ ይምረጡ</div>
+            <div class="text-xs font-semibold text-purple-300">🎲 በህጉ መሰረት የሚጫወቱባቸውን 2 ካርቴላዎች ይምረጡ</div>
         </div>
         <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-3xl max-h-[52vh] overflow-y-auto">
         </div>
-        <div class="mt-4 text-center glass-panel py-2.5 rounded-2xl border-purple-500/40 neon-glow">
-            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት፦ #64, #80</span>
+        <div class="mt-4 text-center glass-panel py-2.5 rounded-2xl border-purple-500/40">
+            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት ካርቴላዎች፦ #64, #80</span>
         </div>
     </div>
 
@@ -96,7 +94,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
-            <!-- 75 Board Mini View -->
+            <!-- 75 Board View -->
             <div class="w-1/3 glass-panel rounded-2xl p-2">
                 <div class="grid grid-cols-5 text-center text-[10px] text-purple-400 font-black mb-1">
                     <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
@@ -105,7 +103,7 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- Current Ball & User Cards -->
+            <!-- Current Drawn Ball & Cards -->
             <div class="w-2/3 flex flex-col items-center">
                 <div id="current-ball" class="w-24 h-24 rounded-full ball-gradient flex items-center justify-center text-2xl font-black shadow-2xl border-4 border-purple-300/60 mb-3 animate-bounce">
                     READY
@@ -147,6 +145,37 @@ HTML_TEMPLATE = """
 
         let mySelectedCards = [64, 80];
         let drawnNumbersSet = new Set();
+        let cardMatrices = {};
+
+        // 🎲 በቢንጎ 75 ህግ መሰረት የካርቴላ ቁጥሮችን ማመንጫ (Standard Bingo 75 Rule Generator)
+        function generateOfficialBingoCard(cardId) {
+            const seed = cardId * 997;
+            const getCol = (min, max, count) => {
+                let nums = [];
+                for(let i = min; i <= max; i++) nums.push(i);
+                nums.sort((a, b) => (Math.sin(seed + a) - Math.sin(seed + b)));
+                return nums.slice(0, count).sort((a,b) => a - b);
+            };
+
+            const b = getCol(1, 15, 5);
+            const i = getCol(16, 30, 5);
+            const n = getCol(31, 45, 4); 
+            const g = getCol(46, 60, 5);
+            const o = getCol(61, 75, 5);
+
+            let matrix = [];
+            for(let r = 0; r < 5; r++) {
+                let row = [
+                    b[r],
+                    i[r],
+                    r === 2 ? 'FREE' : (r < 2 ? n[r] : n[r-1]),
+                    g[r],
+                    o[r]
+                ];
+                matrix.push(row);
+            }
+            return matrix;
+        }
 
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
@@ -155,7 +184,7 @@ HTML_TEMPLATE = """
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
                 
-                btn.className = `p-2 text-xs font-bold rounded-xl transition-all duration-200 border ${isSelected ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 border-amber-300 font-black scale-105 shadow-lg' : 'bg-slate-800/80 text-gray-300 border-slate-700 hover:bg-slate-700'}`;
+                btn.className = `p-2 text-xs font-bold rounded-xl transition-all duration-200 border ${isSelected ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 border-amber-300 font-black scale-105 shadow-lg' : 'bg-slate-800/80 text-gray-300 border-slate-700'}`;
                 btn.innerText = i;
                 btn.onclick = () => toggleCardSelection(i);
                 gridContainer.appendChild(btn);
@@ -211,6 +240,10 @@ HTML_TEMPLATE = """
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
             document.getElementById('winner-modal').classList.add('hidden');
+            
+            mySelectedCards.forEach(cardId => {
+                cardMatrices[cardId] = generateOfficialBingoCard(cardId);
+            });
             renderMyCards();
         });
 
@@ -223,6 +256,7 @@ HTML_TEMPLATE = """
             if(cell) {
                 cell.className = 'p-1 rounded bg-emerald-500 text-slate-900 font-black animate-pulse shadow';
             }
+            renderMyCards();
         });
 
         socket.on('winner_announced', (data) => {
@@ -251,30 +285,28 @@ HTML_TEMPLATE = """
             container.innerHTML = '';
             
             mySelectedCards.forEach(cardId => {
+                const matrix = cardMatrices[cardId] || generateOfficialBingoCard(cardId);
                 const cardDiv = document.createElement('div');
                 cardDiv.className = 'glass-panel rounded-2xl p-2.5 shadow-xl border-purple-500/30';
+                
                 let html = `<div class="flex justify-between items-center text-xs font-bold text-purple-300 mb-2"><span>CARD #${cardId}</span><span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-500/40">LIVE</span></div>`;
                 html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
                 
-                const sampleMatrix = [
-                    [3 + (cardId % 5), 21, 45, 52, 68],
-                    [10, 30, 37, 48, 66],
-                    [13, 26, '★', 56, 70],
-                    [14, 24, 35, 46, 73],
-                    [7, 25, 34, 55, 62 + (cardId % 3)]
-                ];
-
-                sampleMatrix.forEach(row => {
+                matrix.forEach(row => {
                     row.forEach(val => {
-                        const isHit = val === '★' || drawnNumbersSet.has(val);
-                        html += `<div class="p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-slate-900 font-black shadow' : 'bg-slate-800/80 text-gray-200'}">${val}</div>`;
+                        const isHit = val === 'FREE' || drawnNumbersSet.has(val);
+                        html += `<div class="p-1.5 rounded-lg transition-colors ${isHit ? 'bg-emerald-500 text-slate-900 font-black shadow-md' : 'bg-slate-800/80 text-gray-200'}">${val === 'FREE' ? '★' : val}</div>`;
                     });
                 });
                 
-                html += `</div><button class="w-full mt-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black rounded-xl shadow-lg active:scale-95 transition">BINGO!</button>`;
+                html += `</div><button onclick="claimBingo(${cardId})" class="w-full mt-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black rounded-xl shadow-lg active:scale-95 transition">BINGO!</button>`;
                 cardDiv.innerHTML = html;
                 container.appendChild(cardDiv);
             });
+        }
+
+        function claimBingo(cardId) {
+            socket.emit('check_bingo', { card_id: cardId, drawn: Array.from(drawnNumbersSet) });
         }
     </script>
 </body>
@@ -557,7 +589,7 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
-            if len(game_state["drawn_numbers"]) == 10:
+            if len(game_state["drawn_numbers"]) == 12:
                 winner_data = {
                     "winner_name": "Abrshi",
                     "prize": 90,
