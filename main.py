@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import time
 from threading import Thread
@@ -24,13 +25,12 @@ API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0H
 bot = telebot.TeleBot(API_TOKEN)
 
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
-
-# የአድሚን Telegram ID
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673")) 
 
-# Data Storage
+# Data Storage & Validation Database
 user_balances = {}       # {user_id: balance}
 user_states = {}         # {user_id: state}
+used_txn_ids = set()     # 🛡️ ድጋሚ የገቡ የትራንዛክሽን ቁጥሮችን መያዣ (Duplicate Check)
 
 # =========================================================
 # 3. HTML TEMPLATE (MINI APP)
@@ -275,7 +275,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM BOT HANDLERS
+# 5. TELEGRAM BOT HANDLERS & VALIDATION LOGIC
 # =========================================================
 def main_menu_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -331,21 +331,70 @@ def deposit_cmd(message):
         "እባክዎን ከታች ባሉት የክፍያ አማራጮች ገንዘብ ያስገቡ፦\n\n"
         "📱 **Telebirr:** `0991983522`\n"
         "🏦 **CBE Birr:** `0991983522`\n\n"
-        "⚠️ **ከክፍያ በኋላ፦** ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር (Transaction ID) ወይም Screenshot ይላኩልን!\n"
-        "ምሳሌ: `50 ብር - TXN1234567`"
+        "⚠️ **ከክፍያ በኋላ መላክ ያለበት ፎርማት፦**\n"
+        "ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር በግልጽ ይጻፉ።\n\n"
+        "📌 **ምሳሌ፦** `50 ETB - TXN98765432` ወይም `100 ብር - 7891234`\n\n"
+        "🔴 **ማሳሰቢያ:** አነስተኛ የዲፖዚት መጠን **20 ETB** ሲሆን፣ ድጋሚ የተላከ የደረሰኝ ቁጥር አይቀበልም!"
     )
     bot.send_message(message.chat.id, dep_text, parse_mode="Markdown")
 
+# 🛠️ የተሻሻለ የዲፖዚት ቫሊዴሽን (Deposit Validation Handler)
 @bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT_INFO", content_types=['text', 'photo'])
 def handle_deposit_submission(message):
     uid = message.from_user.id
+    text_content = message.text if message.text else message.caption
+
+    if not text_content and not message.photo:
+        bot.send_message(message.chat.id, "❌ **እባክዎን ትክክለኛ የትራንዛክሽን መረጃ ወይም ስክሪንሾት (Screenshot) ይላኩ!**")
+        return
+
+    extracted_txn = None
+    extracted_amount = 0
+
+    if text_content:
+        # 1. የትራንዛክሽን ቁጥር ማወቂያ (Extract Txn ID e.g. TXN12345, 10293847, etc.)
+        txn_match = re.search(r'([A-Za-z0-9]{6,20})', text_content)
+        if txn_match:
+            extracted_txn = txn_match.group(1).upper()
+
+        # 2. የብር መጠን ማወቂያ (Extract Amount)
+        numbers = re.findall(r'\d+', text_content)
+        for num in numbers:
+            val = int(num)
+            if val >= 20: # አነስተኛው 20 ETB
+                extracted_amount = val
+                break
+
+    # 🛡️ VALIDATION 1: ድጋሚ የገባ የትራንዛክሽን ቁጥር መከላከል (Duplicate Txn Check)
+    if extracted_txn and extracted_txn in used_txn_ids:
+        bot.send_message(
+            message.chat.id, 
+            f"❌ **ይህ የትራንዛክሽን ቁጥር (`{extracted_txn}`) ከዚህ ቀደም አገልግሎት ላይ ውሏል!**\n\n"
+            "እባክዎን አዲስ እና ትክክለኛ የደረሰኝ ቁጥር ይላኩ።",
+            parse_mode="Markdown"
+        )
+        return
+
+    # 🛡️ VALIDATION 2: አነስተኛ የብር መጠን ማረጋገጫ (Minimum Amount Check)
+    if text_content and extracted_amount < 20 and not message.photo:
+        bot.send_message(
+            message.chat.id,
+            "⚠️ **አነስተኛው የዲፖዚት መጠን 20 ETB ነው።**\nእባክዎን ከ20 ETB በላይ አስገብተው እንደገና ይላኩ።"
+        )
+        return
+
+    # የትራንዛክሽን ቁጥር ከተገኘ ወደ Used List እንጨምረዋለን
+    if extracted_txn:
+        used_txn_ids.add(extracted_txn)
+
+    # ቫሊዴሽኑን ካለፈ ወደ አድሚን ይላካል
     user_states[uid] = None
-    
     dep_id = f"DEP_{int(time.time())}_{uid}"
     
     markup = InlineKeyboardMarkup()
+    suggested_amt = extracted_amount if extracted_amount >= 20 else 20
     markup.row(
-        InlineKeyboardButton("✅ Approve 20 ETB", callback_data=f"app_20_{uid}_{dep_id}"),
+        InlineKeyboardButton(f"✅ Approve {suggested_amt} ETB", callback_data=f"app_{suggested_amt}_{uid}_{dep_id}"),
         InlineKeyboardButton("✅ Approve 50 ETB", callback_data=f"app_50_{uid}_{dep_id}")
     )
     markup.row(
@@ -354,11 +403,13 @@ def handle_deposit_submission(message):
     )
 
     admin_msg = (
-        f"🚨 **አዲስ የዲፖዚት ጥያቄ!**\n"
+        f"🚨 **አዲስ የተረጋገጠ የዲፖዚት ጥያቄ!**\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
-        f"📝 መረጃ/ቁጥር: {message.text if message.text else 'Photo Sent'}\n\n"
-        "እባክዎን ያረጋግጡ፦"
+        f"🔍 የተለየ Txn ID: `{extracted_txn if extracted_txn else 'መረጃ አልተገኘም'}`\n"
+        f"💵 የታሰበው መጠን: **{suggested_amt} ETB**\n"
+        f"📝 ሙሉ መልእክት: {text_content if text_content else 'Photo Sent'}\n\n"
+        "ማረጋገጫ ይስጡ፦"
     )
     
     try:
@@ -367,7 +418,7 @@ def handle_deposit_submission(message):
         else:
             bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
             
-        bot.send_message(message.chat.id, "✅ **የዲፖዚት ጥያቄዎ ለአድሚን ተልኳል!**\nከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።")
+        bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ በስኬት ተላክቷል!**\nአድሚኑ መረጃውን አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።")
     except Exception as e:
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
@@ -383,21 +434,19 @@ def handle_admin_approval(call):
         bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**\nእባክዎን ትክክለኛውን የትራንዛክሽን መረጃ እንደገና ይላኩ።")
     
     elif action == "app":
-        amount_type = parts[1]
+        amount_val = float(parts[1])
         target_uid = int(parts[2])
-        
-        amount = float(amount_type) if amount_type.isdigit() else 20.0
 
-        user_balances[target_uid] = user_balances.get(target_uid, 0.0) + amount
+        user_balances[target_uid] = user_balances.get(target_uid, 0.0) + amount_val
         new_bal = user_balances[target_uid]
 
-        bot.answer_callback_query(call.id, f"{amount} ETB ፀድቋል!")
-        bot.edit_message_text(f"✅ **Deposit Approved!**\nUser: `{target_uid}`\nAmount: **+{amount} ETB**\nNew Balance: **{new_bal} ETB**", call.message.chat.id, call.message.message_id)
+        bot.answer_callback_query(call.id, f"{amount_val} ETB ፀድቋል!")
+        bot.edit_message_text(f"✅ **Deposit Approved!**\nUser: `{target_uid}`\nAmount: **+{amount_val} ETB**\nNew Balance: **{new_bal} ETB**", call.message.chat.id, call.message.message_id)
         
         bot.send_message(
             target_uid, 
             f"🎉 **ዲፖዚትዎ ፀድቋል!**\n\n"
-            f"📥 የተጨመረ: **+{amount:.2f} ETB**\n"
+            f"📥 የተጨመረ: **+{amount_val:.2f} ETB**\n"
             f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**\n\n"
             f"{'🎮 አሁን ጨዋታ መጫወት ይችላሉ!' if new_bal >= 20 else '⚠️ ጨዋታ ለመክፈት ባላንስዎ 20 ETB መሙላት አለበት።'}",
             parse_mode="Markdown"
