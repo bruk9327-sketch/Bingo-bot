@@ -1,5 +1,6 @@
 import os
 import random
+import time
 from threading import Thread
 from flask import Flask
 import telebot
@@ -21,7 +22,6 @@ def home():
     return "Bingo Bot is Alive and Running on Render!"
 
 def run_web_server():
-    # Render የሚሰጠውን PORT ይጠቀማል፣ ባይኖር በዲፎልት 10000 ያደርገዋል
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
@@ -33,73 +33,89 @@ def keep_alive():
 # =========================================================
 # 2. BOT CONFIGURATION
 # =========================================================
-API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")  # እዚህ ጋር የቦት Tokenዎን ያስገቡ
+API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
 bot = telebot.TeleBot(API_TOKEN)
 
-# =========================================================
-# CONSTANTS & CONFIGURATION
-# =========================================================
-STAKE_AMOUNT = 10        # የመግቢያ ክፍያ (10 ብር)
-BOT_COMMISSION = 2       # ከእያንዳንዱ ተጫዋች የሚወሰድ ኮሚሽን (2 ብር)
-NET_PER_PLAYER = STAKE_AMOUNT - BOT_COMMISSION  # 8 ብር
-MAX_PLAYERS = 10         # በ1 ዙር የሚጫወቱ ተጫዋቾች ብዛት (10 ሰዎች)
-
-# Mock Data Storage (በእውነተኛ ሲስተም በDatabase የሚተካ)
-users_db = {}            # {user_id: {"phone": str, "balance": int, "referred_by": str}}
-active_room = []         # አሁን Waiting Room ላይ ያሉ ተጫዋቾች ዝርዝር [user_id_1, user_id_2, ...]
+STAKE_AMOUNT = 10        # የመግቢያ ክፍያ
+BOT_COMMISSION = 2       # ኮሚሽን
+users_db = {}            # የተጠቃሚዎች መረጃ
+active_games = {}        # ንቁ ጨዋታዎች {user_id: {"card": [], "marked": [], "status": bool}}
 
 # =========================================================
-# HELPER FUNCTIONS
+# BINGO CARD & GAME HELPER FUNCTIONS
 # =========================================================
 def get_or_create_user(user_id):
     if user_id not in users_db:
         users_db[user_id] = {
             "phone": None,
-            "balance": 100,  # ለሙከራ 100 ብር Initial balance
+            "balance": 100,
             "referred_by": None
         }
     return users_db[user_id]
 
+def generate_bingo_card():
+    """የ 5x5 የቢንጎ ካርድ ያዘጋጃል (B:1-15, I:16-30, N:31-45, G:46-60, O:61-75)"""
+    b = random.sample(range(1, 16), 5)
+    i = random.sample(range(16, 31), 5)
+    n = random.sample(range(31, 46), 5)
+    g = random.sample(range(46, 61), 5)
+    o = random.sample(range(61, 76), 5)
+    
+    # የካርዱ መሃል FREE ነው
+    n[2] = "FREE"
+    
+    card = []
+    for row in range(5):
+        card.append([b[row], i[row], n[row], g[row], o[row]])
+    return card
+
+def format_bingo_card(card, marked_set):
+    """የቢንጎ ካርዱን በጥሩ የፅሁፍ ቅርፅ ማሳያ"""
+    text = "🟩 **የእርስዎ የቢንጎ ካርድ (B-I-N-G-O)** 🟩\n\n"
+    text += "` B   |  I   |  N   |  G   |  O `" + "\n"
+    text += "---------------------------------\n"
+    
+    for row in card:
+        row_str = []
+        for val in row:
+            if val == "FREE" or val in marked_set:
+                row_str.append(" ❌ ")
+            else:
+                row_str.append(f"{val:^4}")
+        text += "`" + "|".join(row_str) + "`\n"
+    return text
+
+def check_bingo_win(card, marked_set):
+    """መስመር መሞላቱን ይፈትሻል (Win Check)"""
+    # Grid ማዘጋጀት (True ከሆነ ተነክቷል)
+    grid = [[(val == "FREE" or val in marked_set) for val in row] for row in card]
+    
+    # Horizontal & Vertical checks
+    for i in range(5):
+        if all(grid[i][j] for j in range(5)): return True # Rows
+        if all(grid[j][i] for j in range(5)): return True # Columns
+        
+    # Diagonal checks
+    if all(grid[i][i] for i in range(5)): return True
+    if all(grid[i][4 - i] for i in range(5)): return True
+    
+    return False
+
 # =========================================================
-# 1. COMMAND: /start (WITH REFERRAL LOGIC)
+# COMMANDS & HANDLERS
 # =========================================================
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     user_id = message.from_user.id
-    user = get_or_create_user(user_id)
-    
-    # ሪፈራል መኖሩን ማረጋገጥ (የላከውን ሰው መያዝ)
-    args = message.text.split()
-    if len(args) > 1 and args[1].startswith("ref_"):
-        referrer_id = int(args[1].replace("ref_", ""))
-        
-        # ራሱን በራሱ ሪፈር እንዳያደርግና ቀደም ብሎ ከተመዘገበ እንዳይደገም ማድረግ
-        if referrer_id != user_id and user["referred_by"] is None:
-            user["referred_by"] = referrer_id
-            try:
-                bot.send_message(referrer_id, f"🎉 **አዲስ ተጠቃሚ!** ተጠቃሚ {user_id} በርስዎ ሼር ሊንክ ገብቷል።")
-            except Exception:
-                pass
-
-    # የሼር ሊንክ ማዘጋጀት
-    bot_username = bot.get_me().username
-    share_link = f"https://t.me/share/url?url=https://t.me/{bot_username}?start=ref_{user_id}&text=እጅግ አስደሳች የቢንጎ ጨዋታ በዚህ ቦት ይጫወቱ! 💰🎮"
-    
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📤 ቦቱን ለወዳጅዎ ሼር ያድርጉ", url=share_link))
-
+    get_or_create_user(user_id)
     welcome_msg = (
         f"👋 ሰላም {message.from_user.first_name}!\n\n"
         "ወደ **የቢንጎ (Bingo) ጨዋታ ቦት** እንኳን ደህና መጡ።\n\n"
         "🎮 ለመጫወት: /play ን ይጫኑ\n"
         "💰 የሂሳብ መጠን ለማየት: /balance\n"
-        "📤 ቦቱን ለሌሎች ለማጋራት ከታች ያለውን አዝራር ይጫኑ።"
     )
-    bot.send_message(user_id, welcome_msg, reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(user_id, welcome_msg, parse_mode="Markdown")
 
-# =========================================================
-# 2. SHARE CONTACT & VERIFICATION
-# =========================================================
 def request_phone_keyboard():
     markup = ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
     markup.add(KeyboardButton(text="📱 ስልክ ቁጥርዎን ያጋሩ (Share Contact)", request_contact=True))
@@ -109,118 +125,101 @@ def request_phone_keyboard():
 def handle_contact(message):
     user_id = message.from_user.id
     contact = message.contact
-    
-    if contact is not None:
-        # የላከው ስልክ ቁጥር የራሱ የመለያ አካውንት መሆኑን ማረጋገጥ
-        if contact.user_id == user_id:
-            user = get_or_create_user(user_id)
-            user["phone"] = contact.phone_number
-            
-            bot.send_message(
-                user_id, 
-                f"✅ **ስልክ ቁጥርዎ ተረጋግጧል!** ({contact.phone_number})\n\nአሁን /play በማለት መጫወት ይችላሉ።",
-                reply_markup=ReplyKeyboardRemove(),
-                parse_mode="Markdown"
-            )
-        else:
-            bot.send_message(
-                user_id, 
-                "❌ **ስህተት፦** እባክዎን የራስዎን ስልክ ቁጥር ያጋሩ!",
-                reply_markup=request_phone_keyboard()
-            )
+    if contact and contact.user_id == user_id:
+        user = get_or_create_user(user_id)
+        user["phone"] = contact.phone_number
+        bot.send_message(
+            user_id, 
+            f"✅ **ስልክ ቁጥርዎ ተረጋግጧል!** ({contact.phone_number})\n\nአሁን /play በማለት መጫወት ይችላሉ።",
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode="Markdown"
+        )
 
 # =========================================================
-# 3. GAME ROOM MATCHING & 10-PLAYER POOL LOGIC
+# GAME ENGINE (ቀጥታ ጨዋታ ለማየት የሚሰራ)
 # =========================================================
 @bot.message_handler(commands=['play'])
-def join_game(message):
+def play_game(message):
     user_id = message.from_user.id
     user = get_or_create_user(user_id)
     
-    # 1. ስልክ ቁጥር ማረጋገጥ
     if not user["phone"]:
-        bot.send_message(
-            user_id, 
-            "⚠️ **ለደህንነት ሲባል፦** ለመጫወት አስቀድመው የስልክ ቁጥርዎን ማረጋገጥ አለብዎት።",
-            reply_markup=request_phone_keyboard()
-        )
+        bot.send_message(user_id, "⚠️ **ለደህንነት ሲባል፦** ለመጫወት አስቀድመው የስልክ ቁጥርዎን ያጋሩ።", reply_markup=request_phone_keyboard())
         return
 
-    # 2. የሂሳብ መጠን (Balance) ማረጋገጥ
     if user["balance"] < STAKE_AMOUNT:
-        bot.send_message(user_id, f"❌ ለጨዋታው በቂ ሂሳብ የለዎትም። የመግቢያ ክፍያ {STAKE_AMOUNT} ብር ያስፈልጋል።")
+        bot.send_message(user_id, f"❌ በቂ ሂሳብ የለዎትም። ለመጫወት {STAKE_AMOUNT} ብር ያስፈልጋል።")
         return
 
-    # 3. ቀደም ብሎ ጨዋታ ውስጥ መኖሩን ማረጋገጥ
-    if user_id in active_room:
-        bot.send_message(user_id, "⏳ አሁን በጨዋታ ተመዝግበዋል፤ ሌሎች ተጫዋቾች እስኪሞሉ ይጠብቁ...")
+    if user_id in active_games and active_games[user_id]["running"]:
+        bot.send_message(user_id, "⏳ አሁን ጨዋታ ላይ ነዎት!")
         return
 
-    # ተጫዋቹን ወደ ጨዋታ ክፍሉ ማስገባት
-    user["balance"] -= STAKE_AMOUNT  # 10 ብር መቁረጥ
-    active_room.append(user_id)
+    # ሂሳብ መቁረጥ
+    user["balance"] -= STAKE_AMOUNT
     
-    current_count = len(active_room)
-    bot.send_message(
+    # አዲስ የቢንጎ ካርድ ማዘጋጀት
+    card = generate_bingo_card()
+    active_games[user_id] = {
+        "card": card,
+        "marked": set(),
+        "running": True
+    }
+
+    card_text = format_bingo_card(card, set())
+    msg = bot.send_message(
         user_id, 
-        f"✅ **ወደ ጨዋታው ተቀላቅለዋል!**\n"
-        f"💵 የመግቢያ ክፍያ: {STAKE_AMOUNT} ብር ተቆርጧል\n"
-        f"👥 አሁን ያሉ ተጫዋቾች: {current_count}/{MAX_PLAYERS}"
+        f"🎯 **ጨዋታው ተጀምሯል!**\n💵 የመግቢያ ክፍያ: {STAKE_AMOUNT} ብር ተቆርጧል\n\n{card_text}\n\n🎲 **ቁጥሮች መውጣት ሊጀምሩ ነው...**",
+        parse_mode="Markdown"
     )
 
-    # ለሌሎች ተጫዋቾች መልእክት መላክ (Optional)
-    for p_id in active_room:
-        if p_id != user_id:
-            try:
-                bot.send_message(p_id, f"📢 አዲስ ተጫዋች ተቀላቅሏል! ({current_count}/{MAX_PLAYERS})")
-            except Exception:
-                pass
+    # ቁጥሮችን በየሰከንዱ የመጥራት ሂደት (በአዲስ Thread)
+    Thread(target=run_bingo_loop, args=(user_id, msg.message_id)).start()
 
-    # 4. ተጫዋቾች 10 ሲሞሉ ጨዋታውን ማስጀመር
-    if current_count == MAX_PLAYERS:
-        start_bingo_round()
-
-def start_bingo_round():
-    global active_room
+def run_bingo_loop(user_id, msg_id):
+    """ቁጥሮችን በየሰከንዱ እየጠራ ጨዋታውን የሚያስኬድ"""
+    drawn_numbers = list(range(1, 76))
+    random.shuffle(drawn_numbers)
     
-    # 10 ተጫዋች ሲሞላ የሚሰራ ስሌት
-    total_players = len(active_room)
-    total_pool = total_players * STAKE_AMOUNT             # 10 * 10 = 100 ብር
-    house_commission = total_players * BOT_COMMISSION      # 10 * 2 = 20 ብር
-    winner_payout = total_players * NET_PER_PLAYER        # 10 * 8 = 80 ብር
+    game = active_games[user_id]
+    card = game["card"]
+    marked = game["marked"]
 
-    # ለአብነት ያህል ከ10ሩ ተጫዋቾች አንዱን የመጀመሪያ ተጫዋች አሸናፊ እናድርገው
-    winner_id = random.choice(active_room)
-    
-    # የኪስ ቦርሳ ማደስ (ለአሸናፊው 80 ብር ገቢ ማድረግ)
-    users_db[winner_id]["balance"] += winner_payout
+    for num in drawn_numbers:
+        if not game["running"]:
+            break
+            
+        time.sleep(3) # በየ 3 ሰከንዱ ቁጥር ይወጣል
+        marked.add(num)
+        
+        # የካርድ ማሳያውን ማደስ
+        card_text = format_bingo_card(card, marked)
+        
+        # አሸናፊ መሆኑን መፈተሽ
+        if check_bingo_win(card, marked):
+            game["running"] = False
+            win_amount = 80 # የአሸናፊነት ሽልማት
+            users_db[user_id]["balance"] += win_amount
+            
+            final_msg = (
+                f"🎉🎉 **BINGO! BINGO! BINGO!** 🎉🎉\n\n"
+                f"🏆 **እንኳን ደስ አለዎት! አሸንፈዋል!**\n"
+                f"💰 የሽልማት መጠን: {win_amount} ብር\n\n"
+                f"{card_text}"
+            )
+            bot.edit_message_text(final_msg, user_id, msg_id, parse_mode="Markdown")
+            return
 
-    # ለሁሉም ተጫዋቾች ውጤቱን ማሳወቅ
-    for p_id in active_room:
-        if p_id == winner_id:
-            msg = (
-                "🎉 **እንኳን ደስ አለዎት! አሸናፊ ሆነዋል!** 🎉\n\n"
-                f"💰 ጠቅላላ የተሰበሰበ: {total_pool} ብር\n"
-                f"🏢 የቦት ኮሚሽን (20%): {house_commission} ብር\n"
-                f"🏆 **የእርስዎ የተጣራ ሽልማት: {winner_payout} ብር**"
-            )
-        else:
-            msg = (
-                "🏁 **ጨዋታው ተጠናቋል!**\n\n"
-                f"🏆 የአሸናፊው ሽልማት: {winner_payout} ብር\n"
-                "እድልዎን በሌላ ዙር ይሞክሩ! /play"
-            )
         try:
-            bot.send_message(p_id, msg, parse_mode="Markdown")
+            bot.edit_message_text(
+                f"🎲 **የወጣው ቁጥር:** `{num}`\n\n{card_text}\n\n⏳ ቀጣይ ቁጥር እየተጠበቀ ነው...",
+                user_id, 
+                msg_id, 
+                parse_mode="Markdown"
+            )
         except Exception:
             pass
 
-    # የጨዋታ ክፍሉን ለአዲስ ዙር ባዶ ማድረግ
-    active_room = []
-
-# =========================================================
-# 4. CHECK BALANCE
-# =========================================================
 @bot.message_handler(commands=['balance'])
 def check_balance(message):
     user_id = message.from_user.id
@@ -228,13 +227,11 @@ def check_balance(message):
     bot.send_message(user_id, f"💳 **የእርስዎ የሂሳብ መጠን:** {user['balance']} ብር", parse_mode="Markdown")
 
 # =========================================================
-# RUN BOT & SERVER
+# MAIN EXECUTION
 # =========================================================
 if __name__ == "__main__":
-    # 1. መጀመሪያ Web Serverሩን ከበስተጀርባ ማስነሳት
     print("🌐 Web Server እየተነሳ ነው...")
     keep_alive()
 
-    # 2. በመቀጠል የቴሌግራም ቦቱን ማስነሳት
     print("🤖 ቦቱ ስራ ጀምሯል...")
     bot.infinity_polling()
