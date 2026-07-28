@@ -31,7 +31,6 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 # Data Storage (In-Memory)
 user_balances = {}       # {user_id: balance}
 user_states = {}         # {user_id: state}
-pending_deposits = {}    # {deposit_id: {user_id, amount, tx_info}}
 
 # =========================================================
 # 3. HTML TEMPLATE (MINI APP)
@@ -351,14 +350,13 @@ def handle_deposit_submission(message):
     
     dep_id = f"DEP_{int(time.time())}_{uid}"
     
-    # ለአድሚን ማሳወቂያ መላክ (Inline Buttons ጋር)
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton("✅ Approve (20 Birr)", callback_data=f"app_20_{uid}_{dep_id}"),
         InlineKeyboardButton("✅ Approve (50 Birr)", callback_data=f"app_50_{uid}_{dep_id}")
     )
     markup.row(
-        InlineKeyboardButton("✅ Custom Approve", callback_data=f"app_custom_{uid}_{dep_id}"),
+        InlineKeyboardButton("✅ Custom Approve (100 ETB)", callback_data=f"app_custom_{uid}_{dep_id}"),
         InlineKeyboardButton("❌ Reject", callback_data=f"rej_{uid}_{dep_id}")
     )
 
@@ -402,9 +400,8 @@ def handle_admin_approval(call):
         elif amount_type == "50":
             amount = 50.0
         else:
-            amount = 100.0  # Default Custom
+            amount = 100.0
 
-        # ባላንስ መጨምር
         user_balances[target_uid] = user_balances.get(target_uid, 0.0) + amount
         new_bal = user_balances[target_uid]
 
@@ -463,11 +460,13 @@ def help_cmd(message):
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
+# 🛠️ የተስተካከለው የ Bot Running Function
 def run_bot():
     try:
-        bot.remove_webhook()
+        # የቆዩ Webhook እና Pending Updates ማጽጃ
+        bot.remove_webhook(drop_pending_updates=True)
         time.sleep(1)
-        bot.infinity_polling(timeout=10, long_polling_timeout=5, skip_pending_updates=True)
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
     except Exception as e:
         print(f"Bot Error: {e}")
 
