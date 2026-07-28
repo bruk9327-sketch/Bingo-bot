@@ -23,15 +23,15 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
 bot = telebot.TeleBot(API_TOKEN)
 
-# የ Render WebApp URL
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 
-# የቴሌግራም አድሚን ID (የዲፖዚት/ዊዝድሮው ማስታወቂያ የሚላክበት)
-ADMIN_ID = os.environ.get("ADMIN_ID", "123456789")
+# ⚠️ እዚህ ቦታ ላይ የራስህን Telegram ID ተካ! (ለአድሚን ማሳወቂያ)
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673")) 
 
-# ጊዜያዊ የደቡብ ተጫዋቾች መረጃ ቋት (In-memory Storage)
+# Data Storage (In-Memory)
 user_balances = {}       # {user_id: balance}
 user_states = {}         # {user_id: state}
+pending_deposits = {}    # {deposit_id: {user_id, amount, tx_info}}
 
 # =========================================================
 # 3. HTML TEMPLATE (MINI APP)
@@ -48,8 +48,6 @@ HTML_TEMPLATE = """
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         .bingo-bg { background-color: #1a2232; }
-        .card-bg { background-color: #242f42; }
-        .accent-green { background-color: #10b981; }
         .accent-purple { background-color: #8b5cf6; }
     </style>
 </head>
@@ -70,14 +68,14 @@ HTML_TEMPLATE = """
             <span id="timer" class="text-sm text-red-400">15s</span>
         </div>
         <div class="bg-emerald-600 rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[10px] opacity-80">BALANCE</span>
-            <span class="text-sm" id="user-balance-display">20.00 ETB</span>
+            <span class="text-[10px] opacity-80">BET</span>
+            <span class="text-sm">10 ETB</span>
         </div>
     </div>
 
     <!-- CARTELA SELECTION DASHBOARD (1-104) -->
     <div id="selection-screen" class="px-3">
-        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱባቸውን 2 የካርቴላ ቁጥሮች ይምረጡ (የጠቆሩት የተመረጡ ናቸው)፦</div>
+        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱባቸውን 2 የካርቴላ ቁጥሮች ይምረጡ፦</div>
         <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-800/60 p-2 rounded-2xl max-h-[55vh] overflow-y-auto">
         </div>
         <div class="text-center mt-3">
@@ -170,7 +168,6 @@ HTML_TEMPLATE = """
                 mySelectedCards.push(num);
             }
             initCartelaGrid();
-            socket.emit('select_card', { cards: mySelectedCards });
         }
 
         function updateSelectedInfo() {
@@ -219,8 +216,6 @@ HTML_TEMPLATE = """
             if(cell) {
                 cell.className = 'p-1 rounded bg-emerald-500 text-white font-black animate-bounce';
             }
-
-            highlightUserCards();
         });
 
         socket.on('winner_announced', (data) => {
@@ -265,22 +260,13 @@ HTML_TEMPLATE = """
                 sampleMatrix.forEach(row => {
                     row.forEach(val => {
                         const isHit = val === '★' || drawnNumbersSet.has(val);
-                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}" id="card-${cardId}-${val}">${val}</div>`;
+                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}">${val}</div>`;
                     });
                 });
                 
                 html += `</div><button class="w-full mt-2 py-1 bg-blue-600 text-white text-xs font-black rounded-xl">BINGO!</button>`;
                 cardDiv.innerHTML = html;
                 container.appendChild(cardDiv);
-            });
-        }
-
-        function highlightUserCards() {
-            drawnNumbersSet.forEach(num => {
-                const elements = document.querySelectorAll(`[id$='-${num}']`);
-                elements.forEach(el => {
-                    el.className = 'p-1 rounded bg-emerald-500 text-white font-black';
-                });
             });
         }
     </script>
@@ -296,7 +282,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM BOT HANDLERS & MENUS
+# 5. TELEGRAM BOT HANDLERS & LOGIC
 # =========================================================
 def main_menu_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -319,12 +305,12 @@ def main_menu_keyboard():
 def start_cmd(message):
     uid = message.from_user.id
     if uid not in user_balances:
-        user_balances[uid] = 20.00  # የሙከራ 20 ብር ስጦታ
+        user_balances[uid] = 0.00  # ባላንስ ከ 0 ይጀምራል
 
     welcome_txt = (
         f"👋 ሰላም **{message.from_user.first_name}**!\n\n"
         "ወደ **GoodBingo** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
-        "ከታች ያሉትን አዝራሮች በመጠቀም መጫወት፣ ሂሳብዎን ማስገባት (Deposit) ወይም ማውጣት (Withdraw) ይችላሉ።"
+        "⚠️ **ህግ:** ጨዋታ ለመጫወት ቢያንስ **20 ETB** ዲፖዚት ማድረግ ይኖርብዎታል!"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
 
@@ -337,24 +323,102 @@ def profile_cmd(message):
         f"━━━━━━━━━━━━━━━\n"
         f"🆔 User ID: `{uid}`\n"
         f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-        "ገንዘብ ለመጨመር **📥 ዲፖዚት** የሚለውን ይጫኑ።"
+        f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 20 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 20 ETB ዲፖዚት ያድርጉ!'}"
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text == "📥 ዲፖዚት (Deposit)")
 def deposit_cmd(message):
     uid = message.from_user.id
-    user_states[uid] = "WAITING_DEPOSIT_TX"
+    user_states[uid] = "WAITING_DEPOSIT_INFO"
     
     dep_text = (
         "📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
         "━━━━━━━━━━━━━━━\n"
         "እባክዎን ከታች ባሉት የክፍያ አማራጮች ገንዘብ ያስገቡ፦\n\n"
-        "📱 **Telebirr:** `0911223344` (Abebe Kebede)\n"
-        "🏦 **CBE (ኢትዮጵያ ንግድ ባንክ):** `1000123456789`\n\n"
-        "⚠️ ክፍያውን ከፈፀሙ በኋላ የሂሳብ ማረጋገጫ ቁጥር (**Transaction ID / Reference Number**) ወይም የክፍያ ስክሪንሾት ይላኩልን!"
+        "📱 **Telebirr:** `0991983522`\n"
+        "🏦 **CBE Birr:** `0991983522`\n\n"
+        "⚠️ **ከክፍያ በኋላ፦** ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር (Transaction ID) ወይም Screenshot ይላኩልን!\n"
+        "ምሳሌ: `50 ብር - TXN1234567`"
     )
     bot.send_message(message.chat.id, dep_text, parse_mode="Markdown")
+
+# የዲፖዚት መረጃ መቀበያ
+@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT_INFO", content_types=['text', 'photo'])
+def handle_deposit_submission(message):
+    uid = message.from_user.id
+    user_states[uid] = None
+    
+    dep_id = f"DEP_{int(time.time())}_{uid}"
+    
+    # ለአድሚን ማሳወቂያ መላክ (Inline Buttons ጋር)
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("✅ Approve (20 Birr)", callback_data=f"app_20_{uid}_{dep_id}"),
+        InlineKeyboardButton("✅ Approve (50 Birr)", callback_data=f"app_50_{uid}_{dep_id}")
+    )
+    markup.row(
+        InlineKeyboardButton("✅ Custom Approve", callback_data=f"app_custom_{uid}_{dep_id}"),
+        InlineKeyboardButton("❌ Reject", callback_data=f"rej_{uid}_{dep_id}")
+    )
+
+    admin_msg = (
+        f"🚨 **አዲስ የዲፖዚት ጥያቄ!**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
+        f"📝 መረጃ/ቁጥር: {message.text if message.text else 'Photo Sent'}\n\n"
+        "እባክዎን ያረጋግጡ፦"
+    )
+    
+    try:
+        if message.photo:
+            bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
+        else:
+            bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+            
+        bot.send_message(message.chat.id, "✅ **የዲፖዚት ጥያቄዎ ለአድሚን ተልኳል!**\nከተረጋገጠ በኋላ ባላንስዎ ላይ ይጨመራል።")
+    except Exception as e:
+        bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
+
+# ለአድሚን Approval Buttons
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('app_', 'rej_')))
+def handle_admin_approval(call):
+    parts = call.data.split('_')
+    action = parts[0]
+    
+    if action == "rej":
+        target_uid = int(parts[1])
+        bot.answer_callback_query(call.id, "ዲፖዚቱ ተሰርዟል (Rejected)!")
+        bot.edit_message_text(f"❌ **Deposit Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
+        bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**\nእባክዎን ትክክለኛውን የትራንዛክሽን መረጃ እንደገና ይላኩ።")
+    
+    elif action == "app":
+        amount_type = parts[1]
+        target_uid = int(parts[2])
+        
+        amount = 0.0
+        if amount_type == "20":
+            amount = 20.0
+        elif amount_type == "50":
+            amount = 50.0
+        else:
+            amount = 100.0  # Default Custom
+
+        # ባላንስ መጨምር
+        user_balances[target_uid] = user_balances.get(target_uid, 0.0) + amount
+        new_bal = user_balances[target_uid]
+
+        bot.answer_callback_query(call.id, f"{amount} ETB ፀድቋል!")
+        bot.edit_message_text(f"✅ **Deposit Approved!**\nUser: `{target_uid}`\nAmount: **+{amount} ETB**\nNew Balance: **{new_bal} ETB**", call.message.chat.id, call.message.message_id)
+        
+        bot.send_message(
+            target_uid, 
+            f"🎉 **ዲፖዚትዎ ፀድቋል!**\n\n"
+            f"📥 የተጨመረ: **+{amount:.2f} ETB**\n"
+            f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**\n\n"
+            f"{'🎮 አሁን ጨዋታ መጫወት ይችላሉ!' if new_bal >= 20 else '⚠️ ጨዋታ ለመክፈት ባላንስዎ 20 ETB መሙላት አለበት።'}",
+            parse_mode="Markdown"
+        )
 
 @bot.message_handler(func=lambda m: m.text == "📤 ዊዝድሮው (Withdraw)")
 def withdraw_cmd(message):
@@ -365,13 +429,11 @@ def withdraw_cmd(message):
         bot.send_message(message.chat.id, f"❌ **ዝቅተኛው የዊዝድሮው መጠን 50 ETB ነው።**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**")
         return
 
-    user_states[uid] = "WAITING_WITHDRAW_DETAILS"
     w_text = (
         "📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
         "━━━━━━━━━━━━━━━\n"
         f"💰 የእርስዎ ባላንስ: **{bal:.2f} ETB**\n\n"
-        "እባክዎን የሚያወጡትን መጠን እና ገንዘብ የሚላክበትን **Telebirr** ወይም **የባንክ አካውንት ቁጥር** በጽሁፍ ይላኩልን።\n"
-        "ለምሳሌ: `100 ETB - Telebirr 0911223344`"
+        "እባክዎን የሚያወጡትን መጠን እና የቴሌብር/ባንክ ሂሳብ ቁጥር ይላኩ።"
     )
     bot.send_message(message.chat.id, w_text, parse_mode="Markdown")
 
@@ -394,41 +456,28 @@ def help_cmd(message):
     help_txt = (
         "ℹ️ **የጨዋታ ህጎች እና መመሪያዎች**\n"
         "━━━━━━━━━━━━━━━\n"
-        "1. **ካርቴላ መምረጥ:** በጨዋታው መጀመሪያ 2 የካርቴላ ቁጥሮችን ይመርጣሉ።\n"
-        "2. **ደራሽ (Derash) ስሌት:** (የተጫዋቾች ብዛት × የካርቴላ ዋጋ) - 10% የቦት ኮሚሽን።\n"
-        "3. **ማሸነፍ:** የመጀመሪያውን BINGO የሞላ ተጫዋች አሸናፊ ይሆናል።\n"
-        "4. **መደጋገም:** አሸናፊ ከታወቀ በኋላ አዲስ ጨዋታ በራሱ ይጀምራል።"
+        "1. **አነስተኛ ባላንስ:** ጨዋታ ለመጫወት ባላንስዎ ቢያንስ **20 ETB** መሆን አለበት።\n"
+        "2. **የጨዋታ ክፍያ:** እያንዳንዱ ዙር **10 ETB** ያስከፍላል።\n"
+        "3. **ደራሽ (Derash) ስሌት:** (10 ተጫዋች × 10 ETB) - 10% የቦት ኮሚሽን = **90 ETB ለአሸናፊው**።\n"
+        "4. **ማሸነፍ:** BINGO የሞላ ተጫዋች አሸናፊ ሆኖ ደራሹ በራስ-ሰር ባላንሱ ላይ ይጨመራል።"
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
-# የዲፖዚት እና ዊዝድሮው መልእክት መቀበያ (State Handler)
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) in ["WAITING_DEPOSIT_TX", "WAITING_WITHDRAW_DETAILS"])
-def process_user_requests(message):
-    uid = message.from_user.id
-    state = user_states.get(uid)
-
-    if state == "WAITING_DEPOSIT_TX":
-        bot.send_message(message.chat.id, "✅ **የዲፖዚት ጥያቄዎ ተልኳል!**\nአድሚኑ መረጃውን አጣርቶ ባላንስዎን በቅርቡ ይጨምራል።")
-        user_states[uid] = None
-        
-    elif state == "WAITING_WITHDRAW_DETAILS":
-        bot.send_message(message.chat.id, "✅ **የዊዝድሮው ጥያቄዎ ለአድሚን ተልኳል!**\nከተረጋገጠ በኋላ ገንዘቡ ወደ አካውንትዎ ገቢ ይደረጋል።")
-        user_states[uid] = None
-
 def run_bot():
     try:
-        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.infinity_polling(timeout=10, long_polling_timeout=5, skip_pending_updates=True)
     except Exception as e:
         print(f"Bot Error: {e}")
 
 # =========================================================
-# 6. SOCKET.IO & GAME LOOP (DERASH & PLAYERS LOGIC)
+# 6. SOCKET.IO & GAME LOOP
 # =========================================================
 game_state = {
     "status": "WAITING",
     "time_left": 15,
-    "drawn_numbers": [],
-    "current_ball": None
+    "drawn_numbers": []
 }
 
 @socketio.on('connect')
@@ -438,7 +487,7 @@ def handle_connect():
 def game_loop():
     global game_state
     while True:
-        # 1. ቆጠራ (15 ሰከንድ)
+        # 1. ቆጠራ
         game_state["status"] = "WAITING"
         game_state["drawn_numbers"] = []
         
@@ -468,11 +517,11 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
-            # 10ኛው ቁጥር ሲወጣ አሸናፊ ማሳወቅ (Demo: 10 ተጫዋች * 10 ብር = 100 - 10% = 90 ብር ደራሽ)
+            # 10ኛው ቁጥር ሲወጣ አሸናፊ ማሳወቅ (Demo: 90 ብር ደራሽ)
             if len(game_state["drawn_numbers"]) == 10:
                 winner_data = {
                     "winner_name": "Abrshi",
-                    "prize": 90,  # የተስተካከለ የደራሽ መጠን
+                    "prize": 90,  # ደራሽ
                     "card_num": 62,
                     "card_matrix": [
                         [14, 26, 36, 58, 61],
