@@ -30,10 +30,10 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 # Data Storage & Validation Database
 user_balances = {}       # {user_id: balance}
 user_states = {}         # {user_id: state}
-used_txn_ids = set()     # 🛡️ ድጋሚ የገቡ የትራንዛክሽን ቁጥሮችን መያዣ (Duplicate Check)
+used_txn_ids = set()     # 🛡️ Duplicate Transaction Checker
 
 # =========================================================
-# 3. HTML TEMPLATE (MINI APP)
+# 3. MODERN & ATTRACTIVE HTML / CSS / JS TEMPLATE (MINI APP)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -41,62 +41,73 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GoodBingo Mini App</title>
+    <title>GoodBingo Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        .bingo-bg { background-color: #1a2232; }
-        .accent-purple { background-color: #8b5cf6; }
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%); color: #fff; min-height: 100vh; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .neon-glow { box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
+        .gold-glow { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+        .ball-gradient { background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); }
     </style>
 </head>
-<body class="bingo-bg text-white font-sans select-none pb-10">
+<body class="select-none pb-12 px-3">
 
-    <div class="grid grid-cols-4 gap-2 p-3 text-center text-xs font-bold">
-        <div class="bg-amber-500 text-slate-900 rounded-xl p-2 flex flex-col justify-center shadow">
-            <span class="text-[10px] opacity-80">ROOM</span>
-            <span>VIP 💰</span>
+    <!-- Top Status Bar -->
+    <div class="grid grid-cols-4 gap-2 py-3 text-center text-xs font-bold">
+        <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center border-amber-500/50 gold-glow">
+            <span class="text-[9px] text-amber-400 tracking-wider">ROOM</span>
+            <span class="text-sm font-black text-amber-300">VIP 👑</span>
         </div>
-        <div class="bg-slate-700 rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[10px] text-gray-400">PLAYERS</span>
-            <span class="text-sm" id="players-count">10</span>
+        <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center">
+            <span class="text-[9px] text-gray-400 tracking-wider">PLAYERS</span>
+            <span class="text-sm font-black text-white" id="players-count">10</span>
         </div>
-        <div class="bg-slate-700 rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[10px] text-red-400">TIME</span>
-            <span id="timer" class="text-sm text-red-400">15s</span>
+        <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center border-red-500/40">
+            <span class="text-[9px] text-red-400 tracking-wider">NEXT GAME</span>
+            <span id="timer" class="text-sm font-black text-red-400 animate-pulse">15s</span>
         </div>
-        <div class="bg-emerald-600 rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[10px] opacity-80">BET</span>
-            <span class="text-sm">10 ETB</span>
+        <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center border-emerald-500/40">
+            <span class="text-[9px] text-emerald-400 tracking-wider">BET</span>
+            <span class="text-sm font-black text-emerald-300">10 Br</span>
         </div>
     </div>
 
-    <div id="selection-screen" class="px-3">
-        <div class="text-center text-xs text-gray-300 mb-2">እባክዎን የሚጫወቱባቸውን 2 የካርቴላ ቁጥሮች ይምረጡ፦</div>
-        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-800/60 p-2 rounded-2xl max-h-[55vh] overflow-y-auto">
+    <!-- Selection Screen -->
+    <div id="selection-screen" class="mt-2">
+        <div class="glass-panel p-3 rounded-2xl mb-3 text-center">
+            <div class="text-xs font-semibold text-purple-300">🎲 እባክዎን የሚጫወቱባቸውን 2 ካርቴላ ይምረጡ</div>
         </div>
-        <div class="text-center mt-3">
-            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት ካርቴላዎች፦ #64, #80</span>
+        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-3xl max-h-[52vh] overflow-y-auto">
+        </div>
+        <div class="mt-4 text-center glass-panel py-2.5 rounded-2xl border-purple-500/40 neon-glow">
+            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት፦ #64, #80</span>
         </div>
     </div>
 
-    <div id="game-screen" class="hidden px-2">
-        <div class="flex justify-between items-center text-xs mb-2 px-2 text-gray-300">
-            <div>DERASH (ደራሽ): <span class="text-emerald-400 font-bold" id="derash-amount">90 ETB</span></div>
-            <div>BALLS: <span id="balls-count" class="font-bold text-white">0/75</span></div>
+    <!-- Active Game Screen -->
+    <div id="game-screen" class="hidden mt-2">
+        <div class="flex justify-between items-center text-xs mb-3 px-2 glass-panel py-2 rounded-xl">
+            <div>ደራሽ (POT): <span class="text-emerald-400 font-black text-sm" id="derash-amount">90 ETB</span></div>
+            <div>የወጡ ኳሶች: <span id="balls-count" class="font-black text-purple-400">0/75</span></div>
         </div>
 
         <div class="flex gap-2">
-            <div class="w-1/3 bg-slate-800 rounded-xl p-1 text-[10px] font-bold">
-                <div class="grid grid-cols-5 text-center text-purple-400 font-black mb-1">
+            <!-- 75 Board Mini View -->
+            <div class="w-1/3 glass-panel rounded-2xl p-2">
+                <div class="grid grid-cols-5 text-center text-[10px] text-purple-400 font-black mb-1">
                     <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
                 </div>
-                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center">
+                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center text-[9px]">
                 </div>
             </div>
 
+            <!-- Current Ball & User Cards -->
             <div class="w-2/3 flex flex-col items-center">
-                <div id="current-ball" class="w-20 h-20 rounded-full accent-purple flex items-center justify-center text-2xl font-black shadow-lg border-4 border-purple-300 mb-3 animate-pulse">
+                <div id="current-ball" class="w-24 h-24 rounded-full ball-gradient flex items-center justify-center text-2xl font-black shadow-2xl border-4 border-purple-300/60 mb-3 animate-bounce">
                     READY
                 </div>
                 <div id="my-cards-container" class="w-full space-y-3">
@@ -105,24 +116,27 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <div id="winner-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-white text-slate-900 rounded-3xl p-5 w-full max-w-sm text-center shadow-2xl relative border-4 border-amber-400">
-            <h2 class="text-3xl font-black text-red-600 mb-1">1 <span class="text-lg text-gray-700">አሸናፊ</span></h2>
-            <div id="winner-name" class="text-2xl font-black text-emerald-600 italic mb-2">Abrshi has won!</div>
+    <!-- Winner Modal Popup -->
+    <div id="winner-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm text-center shadow-2xl relative border-2 border-amber-400 gold-glow">
+            <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-amber-500 text-slate-900 font-black px-4 py-1 rounded-full text-xs shadow-lg">
+                🏆 አሸናፊ ወጣ!
+            </div>
+            <div id="winner-name" class="text-2xl font-black text-amber-400 italic mt-3 mb-1">Abrshi has won!</div>
             
-            <div class="bg-gray-100 rounded-2xl p-3 mb-4">
-                <div class="text-xs text-gray-500 font-bold">TOTAL DERASH (ደራሽ)</div>
-                <div id="winner-prize" class="text-2xl font-black text-emerald-600">90 ETB</div>
+            <div class="bg-slate-900/80 rounded-2xl p-3 mb-3 border border-amber-500/30">
+                <div class="text-[10px] text-gray-400 font-bold">የተወሰደው ደራሽ (PRIZE)</div>
+                <div id="winner-prize" class="text-2xl font-black text-emerald-400">90 ETB</div>
             </div>
 
-            <div class="text-left font-bold text-blue-600 text-sm mb-2" id="winner-card-title">CARD #62</div>
-            <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-gray-200 p-2 rounded-2xl text-center text-xs font-bold mb-4">
+            <div class="text-left font-bold text-purple-300 text-xs mb-1" id="winner-card-title">CARD #62</div>
+            <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-slate-900/90 p-2 rounded-2xl text-center text-xs font-bold mb-4">
             </div>
 
-            <div class="w-full bg-amber-400 h-2 rounded-full overflow-hidden">
-                <div class="bg-amber-600 h-full w-full animate-ping"></div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-amber-400 h-full w-full animate-ping"></div>
             </div>
-            <div class="text-[10px] text-gray-500 mt-2 font-bold">አዲስ ዙር በመጀመር ላይ...</div>
+            <div class="text-[10px] text-gray-400 mt-2 font-bold">አዲስ ዙር በሰከንዶች ውስጥ ይጀምራል...</div>
         </div>
     </div>
 
@@ -141,7 +155,7 @@ HTML_TEMPLATE = """
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
                 
-                btn.className = `p-2 text-xs font-bold rounded-lg border transition ${isSelected ? 'bg-slate-900 text-amber-400 border-amber-400 font-black shadow-lg scale-105' : 'bg-slate-700/80 text-gray-300 border-slate-600'}`;
+                btn.className = `p-2 text-xs font-bold rounded-xl transition-all duration-200 border ${isSelected ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 border-amber-300 font-black scale-105 shadow-lg' : 'bg-slate-800/80 text-gray-300 border-slate-700 hover:bg-slate-700'}`;
                 btn.innerText = i;
                 btn.onclick = () => toggleCardSelection(i);
                 gridContainer.appendChild(btn);
@@ -173,7 +187,7 @@ HTML_TEMPLATE = """
             for (let i = 1; i <= 75; i++) {
                 const cell = document.createElement('div');
                 cell.id = `ball-cell-${i}`;
-                cell.className = 'p-1 rounded bg-slate-700 text-gray-300';
+                cell.className = 'p-1 rounded bg-slate-800 text-gray-400 font-semibold';
                 cell.innerText = i;
                 board75.appendChild(cell);
             }
@@ -207,7 +221,7 @@ HTML_TEMPLATE = """
             
             const cell = document.getElementById(`ball-cell-${data.number}`);
             if(cell) {
-                cell.className = 'p-1 rounded bg-emerald-500 text-white font-black animate-bounce';
+                cell.className = 'p-1 rounded bg-emerald-500 text-slate-900 font-black animate-pulse shadow';
             }
         });
 
@@ -223,7 +237,7 @@ HTML_TEMPLATE = """
                 row.forEach(val => {
                     const div = document.createElement('div');
                     const isHit = val === 'FREE' || drawnNumbersSet.has(val);
-                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-white font-bold' : 'bg-gray-100 text-slate-800'}`;
+                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-slate-900 font-bold' : 'bg-slate-800 text-gray-300'}`;
                     div.innerText = val === 'FREE' ? '★' : val;
                     matrixContainer.appendChild(div);
                 });
@@ -238,8 +252,8 @@ HTML_TEMPLATE = """
             
             mySelectedCards.forEach(cardId => {
                 const cardDiv = document.createElement('div');
-                cardDiv.className = 'bg-white text-slate-900 rounded-2xl p-2 shadow-lg';
-                let html = `<div class="flex justify-between items-center text-xs font-bold text-blue-600 mb-1"><span>CARD #${cardId}</span><span class="text-[10px] bg-blue-100 px-1 rounded">LIVE</span></div>`;
+                cardDiv.className = 'glass-panel rounded-2xl p-2.5 shadow-xl border-purple-500/30';
+                let html = `<div class="flex justify-between items-center text-xs font-bold text-purple-300 mb-2"><span>CARD #${cardId}</span><span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-500/40">LIVE</span></div>`;
                 html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
                 
                 const sampleMatrix = [
@@ -253,11 +267,11 @@ HTML_TEMPLATE = """
                 sampleMatrix.forEach(row => {
                     row.forEach(val => {
                         const isHit = val === '★' || drawnNumbersSet.has(val);
-                        html += `<div class="p-1 rounded ${isHit ? 'bg-emerald-500 text-white font-black' : 'bg-gray-100 text-slate-800'}">${val}</div>`;
+                        html += `<div class="p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-slate-900 font-black shadow' : 'bg-slate-800/80 text-gray-200'}">${val}</div>`;
                     });
                 });
                 
-                html += `</div><button class="w-full mt-2 py-1 bg-blue-600 text-white text-xs font-black rounded-xl">BINGO!</button>`;
+                html += `</div><button class="w-full mt-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black rounded-xl shadow-lg active:scale-95 transition">BINGO!</button>`;
                 cardDiv.innerHTML = html;
                 container.appendChild(cardDiv);
             });
@@ -302,7 +316,7 @@ def start_cmd(message):
 
     welcome_txt = (
         f"👋 ሰላም **{message.from_user.first_name}**!\n\n"
-        "ወደ **GoodBingo** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
+        "ወደ **GoodBingo Pro** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
         "⚠️ **ህግ:** ጨዋታ ለመጫወት ቢያንስ **20 ETB** ዲፖዚት ማድረግ ይኖርብዎታል!"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
@@ -338,7 +352,6 @@ def deposit_cmd(message):
     )
     bot.send_message(message.chat.id, dep_text, parse_mode="Markdown")
 
-# 🛠️ የተሻሻለ የዲፖዚት ቫሊዴሽን (Deposit Validation Handler)
 @bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT_INFO", content_types=['text', 'photo'])
 def handle_deposit_submission(message):
     uid = message.from_user.id
@@ -352,20 +365,17 @@ def handle_deposit_submission(message):
     extracted_amount = 0
 
     if text_content:
-        # 1. የትራንዛክሽን ቁጥር ማወቂያ (Extract Txn ID e.g. TXN12345, 10293847, etc.)
         txn_match = re.search(r'([A-Za-z0-9]{6,20})', text_content)
         if txn_match:
             extracted_txn = txn_match.group(1).upper()
 
-        # 2. የብር መጠን ማወቂያ (Extract Amount)
         numbers = re.findall(r'\d+', text_content)
         for num in numbers:
             val = int(num)
-            if val >= 20: # አነስተኛው 20 ETB
+            if val >= 20:
                 extracted_amount = val
                 break
 
-    # 🛡️ VALIDATION 1: ድጋሚ የገባ የትራንዛክሽን ቁጥር መከላከል (Duplicate Txn Check)
     if extracted_txn and extracted_txn in used_txn_ids:
         bot.send_message(
             message.chat.id, 
@@ -375,7 +385,6 @@ def handle_deposit_submission(message):
         )
         return
 
-    # 🛡️ VALIDATION 2: አነስተኛ የብር መጠን ማረጋገጫ (Minimum Amount Check)
     if text_content and extracted_amount < 20 and not message.photo:
         bot.send_message(
             message.chat.id,
@@ -383,11 +392,9 @@ def handle_deposit_submission(message):
         )
         return
 
-    # የትራንዛክሽን ቁጥር ከተገኘ ወደ Used List እንጨምረዋለን
     if extracted_txn:
         used_txn_ids.add(extracted_txn)
 
-    # ቫሊዴሽኑን ካለፈ ወደ አድሚን ይላካል
     user_states[uid] = None
     dep_id = f"DEP_{int(time.time())}_{uid}"
     
@@ -495,7 +502,7 @@ def help_cmd(message):
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
-# 🛠️ 100% አስተማማኝ የ Bot Polling Loop
+# 🛠️ Bot Polling Loop
 def run_bot():
     while True:
         try:
