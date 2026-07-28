@@ -388,10 +388,11 @@ def game_loop():
             socketio.sleep(3)
 
 # =========================================================
-# MAIN EXECUTION
+# MAIN EXECUTION (FIXED FOR RENDER)
 # =========================================================
 if __name__ == "__main__":
     Thread(target=run_bot, daemon=True).start()
     socketio.start_background_task(game_loop)
     port = int(os.environ.get("PORT", 10000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    # Werkzeug Error እንዲጠፋ allow_unsafe_werkzeug=True ተጨምሯል
+    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
