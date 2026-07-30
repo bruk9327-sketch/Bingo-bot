@@ -7,8 +7,7 @@ from flask import Flask, render_template_string
 from flask_socketio import SocketIO, emit
 import telebot
 from telebot.types import (
-    InlineKeyboardMarkup, InlineKeyboardButton, 
-    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+    InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 )
 
 # =========================================================
@@ -441,24 +440,31 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM BOT HANDLERS & DEPOSIT/WITHDRAW SYSTEM
+# 5. TELEGRAM INLINE MENU & HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id=None):
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    """ዋናውን ሜኑ ሙሉ በሙሉ በ Inline Keyboard ቁልፎች ያዘጋጃል"""
+    markup = InlineKeyboardMarkup(row_width=2)
     app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
     web_app = WebAppInfo(url=app_url)
     
     markup.add(
-        KeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app),
-        KeyboardButton(text="👤 ፕሮፋይል / ባላንስ"),
-        KeyboardButton(text="📥 ዲፖዚት (Deposit)"),
-        KeyboardButton(text="📤 ዊዝድሮው (Withdraw)"),
-        KeyboardButton(text="👥 ሪፈራል / ግብዣ"),
-        KeyboardButton(text="ℹ️ እርዳታ እና ህጎች")
+        InlineKeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app)
+    )
+    markup.add(
+        InlineKeyboardButton(text="👤 ፕሮፋይል / ባላንስ", callback_data="btn_profile"),
+        InlineKeyboardButton(text="📥 ዲፖዚት (Deposit)", callback_data="btn_deposit")
+    )
+    markup.add(
+        InlineKeyboardButton(text="📤 ዊዝድሮው (Withdraw)", callback_data="btn_withdraw"),
+        InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
+    )
+    markup.add(
+        InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help")
     )
     return markup
 
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start', 'menu'])
 def start_cmd(message):
     uid = message.from_user.id
     if uid not in user_balances:
@@ -467,45 +473,90 @@ def start_cmd(message):
     welcome_txt = (
         f"👋 ሰላም **{message.from_user.first_name}**!\n\n"
         "ወደ **GoodBingo Pro** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
-        "⚠️ **ህግ:** ጨዋታ ለመጫወት ቢያንስ **10 ETB** ዲፖዚት ማድረግ ይኖርብዎታል!"
+        "ከታች ያሉትን **Inline Buttons** በመጫን አገልግሎቶቹን ማግኘት ይችላሉ፦"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: m.text and "ፕሮፋይል" in m.text)
-def profile_cmd(message):
-    uid = message.from_user.id
-    bal = user_balances.get(uid, 0.0)
-    msg = (
-        f"👤 **የተጫዋች ፕሮፋይል**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"🆔 User ID: `{uid}`\n"
-        f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-        f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 10 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 10 ETB ዲፖዚት ያድርጉ!'}"
-    )
-    bot.send_message(message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
+# ---------------------------------------------------------
+# 🎛 INLINE MAIN MENU CALLBACK HANDLERS
+# ---------------------------------------------------------
+@bot.callback_query_handler(func=lambda call: call.data.startswith('btn_'))
+def handle_main_menu_callbacks(call):
+    uid = call.from_user.id
+    action = call.data
+
+    bot.answer_callback_query(call.id)
+
+    if action == "btn_profile":
+        bal = user_balances.get(uid, 0.0)
+        msg = (
+            f"👤 **የተጫዋች ፕሮፋይል**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"🆔 User ID: `{uid}`\n"
+            f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
+            f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 10 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 10 ETB ዲፖዚት ያድርጉ!'}"
+        )
+        bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
+
+    elif action == "btn_deposit":
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
+            InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
+        )
+        bot.send_message(
+            call.message.chat.id,
+            f"📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"እባክዎን ክፍያ መፈፀም የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+
+    elif action == "btn_withdraw":
+        bal = user_balances.get(uid, 0.0)
+        if bal < MIN_WITHDRAWAL:
+            bot.send_message(
+                call.message.chat.id, 
+                f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\n\n"
+                f"💳 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**",
+                parse_mode="Markdown"
+            )
+            return
+
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
+            InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
+        )
+        bot.send_message(
+            call.message.chat.id,
+            f"📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
+            f"እባክዎን ገንዘብ መቀበል የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+
+    elif action == "btn_referral":
+        bot_name = bot.get_me().username
+        ref_link = f"https://t.me/{bot_name}?start={uid}"
+        bot.send_message(call.message.chat.id, f"👥 **የሪፈራል ፕሮግራም**\n🔗 የእርስዎ የግብዣ ሊንክ፦\n`{ref_link}`", parse_mode="Markdown")
+
+    elif action == "btn_help":
+        help_txt = (
+            "ℹ️ **የጨዋታ ህጎች**\n"
+            "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
+            "2. በአንድ ዙር ቢበዛ **2 ካርቴላ** ብቻ መያዝ ይቻላል።\n"
+            "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።\n"
+            "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።"
+        )
+        bot.send_message(call.message.chat.id, help_txt, parse_mode="Markdown")
 
 # ---------------------------------------------------------
-# 📥 ADVANCED DEPOSIT SYSTEM (በ Inline Buttons የሚሰራ ዲፖዚት)
+# 📥 DEPOSIT PROCESS HANDLERS
 # ---------------------------------------------------------
-@bot.message_handler(func=lambda m: m.text and "ዲፖዚት" in m.text)
-def deposit_cmd(message):
-    uid = message.from_user.id
-
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
-        InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
-    )
-
-    bot.send_message(
-        message.chat.id,
-        f"📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"እባክዎን ክፍያ መፈፀም የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
 def handle_deposit_method_selection(call):
     uid = call.from_user.id
@@ -603,38 +654,8 @@ def handle_deposit_submission(message):
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
 # ---------------------------------------------------------
-# 📤 ADVANCED WITHDRAWAL SYSTEM (ደረጃ በደረጃ የሚሰራ ዊዝድሮው)
+# 📤 WITHDRAWAL PROCESS HANDLERS
 # ---------------------------------------------------------
-@bot.message_handler(func=lambda m: m.text and "ዊዝድሮው" in m.text)
-def withdraw_cmd(message):
-    uid = message.from_user.id
-    bal = user_balances.get(uid, 0.0)
-
-    if bal < MIN_WITHDRAWAL:
-        bot.send_message(
-            message.chat.id, 
-            f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\n\n"
-            f"💳 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**",
-            parse_mode="Markdown"
-        )
-        return
-
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
-        InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
-    )
-
-    bot.send_message(
-        message.chat.id,
-        f"📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-        f"እባክዎን ገንዘብ መቀበል የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
 def handle_withdraw_method_selection(call):
     uid = call.from_user.id
@@ -800,24 +821,6 @@ def handle_admin_approval(call):
             reply_markup=main_menu_keyboard(target_uid),
             parse_mode="Markdown"
         )
-
-@bot.message_handler(func=lambda m: m.text and "ሪፈራል" in m.text)
-def referral_cmd(message):
-    uid = message.from_user.id
-    bot_name = bot.get_me().username
-    ref_link = f"https://t.me/{bot_name}?start={uid}"
-    bot.send_message(message.chat.id, f"👥 **የሪፈራል ፕሮግራም**\n🔗 የእርስዎ የግብዣ ሊንክ፦\n`{ref_link}`", parse_mode="Markdown")
-
-@bot.message_handler(func=lambda m: m.text and "እርዳታ" in m.text)
-def help_cmd(message):
-    help_txt = (
-        "ℹ️ **የጨዋታ ህጎች**\n"
-        "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
-        "2. በአንድ ዙር ቢበዛ **2 ካርቴላ** ብቻ መያዝ ይቻላል።\n"
-        "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።\n"
-        "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።"
-    )
-    bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
 def run_bot():
     while True:
