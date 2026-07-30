@@ -199,13 +199,25 @@ HTML_TEMPLATE = """
 
     <script>
         const socket = io();
-        const tg = window.Telegram ? window.Telegram.WebApp : null;
-        if(tg) tg.expand();
-        const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 12345;
+        let userId = null;
+
+        // የ Telegram User ID ን በትክክል ማምጣት
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            if (window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+                userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+            }
+        }
+
+        // ከቴሌግራም ውጭ ከተከፈተ ወይም ከURL parameter መውሰድ
+        if (!userId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = parseInt(urlParams.get('user_id')) || 12345;
+        }
 
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
-        let cardMatrices = {};
 
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
@@ -348,9 +360,12 @@ def index():
 # =========================================================
 # 5. TELEGRAM BOT HANDLERS & DEPOSIT/WITHDRAW SYSTEM
 # =========================================================
-def main_menu_keyboard():
+def main_menu_keyboard(user_id=None):
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    web_app = WebAppInfo(url=RENDER_WEBAPP_URL)
+    
+    # URL ላይ user_id ን አብሮ ማስተላለፍ
+    app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
+    web_app = WebAppInfo(url=app_url)
     
     markup.add(
         KeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app),
@@ -373,7 +388,7 @@ def start_cmd(message):
         "ወደ **GoodBingo Pro** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
         "⚠️ **ህግ:** ጨዋታ ለመጫወት ቢያንስ **20 ETB** ዲፖዚት ማድረግ ይኖርብዎታል!"
     )
-    bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+    bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text and "ፕሮፋይል" in m.text)
 def profile_cmd(message):
@@ -386,7 +401,7 @@ def profile_cmd(message):
         f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
         f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 10 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 10 ETB ዲፖዚት ያድርጉ!'}"
     )
-    bot.send_message(message.chat.id, msg, parse_mode="Markdown")
+    bot.send_message(message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text and "ዲፖዚት" in m.text)
 def deposit_cmd(message):
@@ -443,8 +458,9 @@ def handle_deposit_submission(message):
     )
     markup.row(
         InlineKeyboardButton("✅ Approve 100 ETB", callback_data=f"app_100_{uid}_{dep_id}"),
-        InlineKeyboardButton("❌ Reject", callback_data=f"rej_{uid}_{dep_id}")
+        InlineKeyboardButton("✅ Approve 150 ETB", callback_data=f"app_150_{uid}_{dep_id}")
     )
+    markup.row(InlineKeyboardButton("❌ Reject", callback_data=f"rej_{uid}_{dep_id}"))
 
     admin_msg = (
         f"🚨 **አዲስ የተረጋገጠ የዲፖዚት ጥያቄ!**\n"
@@ -491,6 +507,7 @@ def handle_admin_approval(call):
             f"🎉 **ዲፖዚትዎ ፀድቋል!**\n\n"
             f"📥 የተጨመረ: **+{amount_val:.2f} ETB**\n"
             f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**",
+            reply_markup=main_menu_keyboard(target_uid),
             parse_mode="Markdown"
         )
 
@@ -543,7 +560,7 @@ def handle_card_selection(data):
 
     bal = user_balances.get(uid, 0.0)
     if bal < CARD_PRICE:
-        emit('error_msg', {'msg': 'በቂ ባላንስ የሎትም። እባክዎን ዲፖዚት ያድርጉ!'})
+        emit('error_msg', {'msg': f'በቂ ባላንስ የሎትም። እባክዎን ዲፖዚት ያድርጉ! (የእርስዎ ባላንስ: {bal:.2f} ETB)'})
         return
 
     if card_id in game_state['selected_cards']:
