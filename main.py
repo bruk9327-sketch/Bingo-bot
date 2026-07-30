@@ -79,7 +79,7 @@ game_state = {
 }
 
 def check_bingo_winner(matrix, drawn_set):
-    """የ 5x5 መስመር (አግድም፣ ဒေါንግ ወይም ዲያጎናል) መሙላቱን ያረጋግጣል"""
+    """የ 5x5 መስመር (አግድም፣ ዶንግ ወይም ዲያጎናል) መሙላቱን ያረጋግጣል"""
     def is_hit(val):
         return val == 'FREE' or val in drawn_set
 
@@ -201,7 +201,6 @@ HTML_TEMPLATE = """
         const socket = io();
         let userId = null;
 
-        // የ Telegram User ID ን በትክክል ማምጣት
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -210,7 +209,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        // ከቴሌግራም ውጭ ከተከፈተ ወይም ከURL parameter መውሰድ
         if (!userId) {
             const urlParams = new URLSearchParams(window.location.search);
             userId = parseInt(urlParams.get('user_id')) || 12345;
@@ -317,7 +315,17 @@ HTML_TEMPLATE = """
             });
 
             document.getElementById('winner-modal').classList.remove('hidden');
+        });
+
+        // አዲስ ዙር ሲጀምር ሁልጊዜ Screen Clean የሚያደርግ Socket Event
+        socket.on('reset_game', () => {
             mySelectedCards = [];
+            drawnNumbersSet.clear();
+            document.getElementById('winner-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
+            document.getElementById('sold-count').innerText = '0';
+            initCartelaGrid();
         });
 
         function renderMyCards() {
@@ -362,8 +370,6 @@ def index():
 # =========================================================
 def main_menu_keyboard(user_id=None):
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    
-    # URL ላይ user_id ን አብሮ ማስተላለፍ
     app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
     web_app = WebAppInfo(url=app_url)
     
@@ -567,14 +573,12 @@ def handle_card_selection(data):
         emit('error_msg', {'msg': 'ይህ ካርቴላ በተခြား ተጫዋች ተይዟል!'})
         return
 
-    # ክፍያ መቀነስ እና ካርቴላ መመዝገብ
     user_balances[uid] -= CARD_PRICE
     game_state['selected_cards'][card_id] = uid
     if uid not in game_state['player_cards']:
         game_state['player_cards'][uid] = []
     game_state['player_cards'][uid].append(card_id)
 
-    # ደራሽ ማዘመን (10% ኮሚሽን)
     total_pool = len(game_state['selected_cards']) * CARD_PRICE
     game_state['derash'] = round(total_pool * (1 - COMMISSION_RATE), 2)
 
@@ -590,12 +594,15 @@ def handle_get_matrix(data):
 def game_loop():
     global game_state
     while True:
-        # 1. ማቆም/መጠበቅ
+        # 1. ማቆም/መጠበቅ እና ሪሴት ማድረግ
         game_state["status"] = "WAITING"
         game_state["drawn_numbers"] = []
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
         game_state["derash"] = 0.0
+
+        # Frontend ን ከቀደመ አሸናፊ እና ካርቴላዎች ማጽዳት
+        socketio.emit('reset_game')
 
         while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
@@ -633,13 +640,12 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
-            # እውነተኛ አሸናፊ መኖሩን መፈተሽ
+            # አሸናፊ መኖሩን መፈተሽ
             for uid, cards in game_state["player_cards"].items():
                 for card_id in cards:
                     matrix = cards_database[card_id]
                     if check_bingo_winner(matrix, drawn_set):
                         winner_found = True
-                        # አሸናፊውን ማበሰር እና ደራሹን በባላንሱ ላይ መጨመር
                         user_balances[uid] = user_balances.get(uid, 0.0) + game_state["derash"]
                         
                         socketio.emit('winner_announced', {
@@ -655,6 +661,7 @@ def game_loop():
             socketio.sleep(3)
 
         game_state["status"] = "FINISHED"
+        # አሸናፊ ከተበሰረ በኋላ ለ8 ሰከንዶች ፖፕአፑ እንዲታይ አድርጎ ቀጣዩን ዙር ማስጀመር
         socketio.sleep(8)
 
 # =========================================================
