@@ -151,7 +151,7 @@ HTML_TEMPLATE = """
             ⚠️ በአንድ ዙር መያዝ የሚቻለው ቢበዛ 2 ካርቴላ ብቻ ነው!
         </div>
 
-        <!-- Selected Preview Cards (Like the image) -->
+        <!-- Selected Preview Cards -->
         <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2">
         </div>
     </div>
@@ -284,7 +284,6 @@ HTML_TEMPLATE = """
 
             let html = `<div class="text-xs font-black text-blue-600 mb-1">#${data.card_id}</div>`;
             
-            // Header B I N G O
             html += `<div class="grid grid-cols-5 text-center text-[10px] font-black text-white mb-1">
                         <div class="bg-blue-600 rounded-s">B</div>
                         <div class="bg-red-600">I</div>
@@ -311,15 +310,22 @@ HTML_TEMPLATE = """
             alert(data.msg);
         });
 
+        /* =========================================================
+           የተስተካከለው 1-75 BINGO GRID (ቁጥሮቹ በ B, I, N, G, O አምድ ወደታች ይደረደራሉ)
+           ========================================================= */
         function init75Board() {
             const board75 = document.getElementById('bingo-75-grid');
             board75.innerHTML = '';
-            for (let i = 1; i <= 75; i++) {
-                const cell = document.createElement('div');
-                cell.id = `ball-cell-${i}`;
-                cell.className = 'p-1 rounded bg-slate-800 text-gray-400 font-semibold';
-                cell.innerText = i;
-                board75.appendChild(cell);
+            
+            for (let row = 0; row < 15; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const num = (col * 15) + row + 1;
+                    const cell = document.createElement('div');
+                    cell.id = `ball-cell-${num}`;
+                    cell.className = 'p-1 rounded bg-slate-800 text-gray-400 font-semibold';
+                    cell.innerText = num;
+                    board75.appendChild(cell);
+                }
             }
         }
 
@@ -647,7 +653,6 @@ def handle_card_selection(data):
         emit('error_msg', {'msg': 'ጨዋታ ተጀምሯል! እባክዎን አዲስ ዙር ይበቁ።'})
         return
 
-    # የ 2 ካርቴላ ገደብ ማረጋገጫ
     current_player_cards = game_state['player_cards'].get(uid, [])
     if len(current_player_cards) >= MAX_CARDS_PER_PLAYER:
         emit('error_msg', {'msg': '⚠️ በአንድ ዙር ከ 2 ካርቴላ በላይ መያዝ አይቻልም!'})
@@ -662,7 +667,6 @@ def handle_card_selection(data):
         emit('error_msg', {'msg': 'ይህ ካርቴላ በተခြား ተጫዋች ተይዟል!'})
         return
 
-    # ብር መቀነስ
     user_balances[uid] -= CARD_PRICE
     new_bal = user_balances[uid]
 
@@ -671,7 +675,6 @@ def handle_card_selection(data):
         game_state['player_cards'][uid] = []
     game_state['player_cards'][uid].append(card_id)
 
-    # የደራሽ ስሌት
     total_pool = len(game_state['selected_cards']) * CARD_PRICE
     game_state['derash'] = round(total_pool * (1 - COMMISSION_RATE), 2)
 
@@ -693,7 +696,6 @@ def handle_get_matrix(data):
 def game_loop():
     global game_state
     while True:
-        # 1. ሪሴት ማድረግ
         game_state["status"] = "WAITING"
         game_state["drawn_numbers"] = []
         game_state["selected_cards"] = {}
@@ -705,14 +707,12 @@ def game_loop():
         while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
 
-        # 2. ቆጠራ (Countdown)
         game_state["status"] = "COUNTDOWN"
         for t in range(15, 0, -1):
             game_state["time_left"] = t
             socketio.emit('timer_update', {'time_left': t, 'status': 'COUNTDOWN'})
             socketio.sleep(1)
 
-        # 3. ጨዋታ መጀመር
         game_state["status"] = "PLAYING"
         socketio.emit('game_started', {'status': 'PLAYING', 'derash': game_state['derash']})
 
@@ -738,7 +738,6 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
-            # አሸናፊ መኖሩን መፈተሽ
             for uid, cards in game_state["player_cards"].items():
                 for card_id in cards:
                     matrix = cards_database[card_id]
