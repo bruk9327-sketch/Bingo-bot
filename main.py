@@ -31,6 +31,7 @@ MIN_WITHDRAWAL = 50.0   # ዝቅተኛው የወጪ ብር መጠን
 
 user_balances = {}       
 user_states = {}         
+deposit_data = {}        # የዲፖዚት ጊዜያዊ መረጃ መያዣ {user_id: {'method': ''}}
 withdraw_data = {}       # የዊዝድሮው ጊዜያዊ መረጃ መያዣ {user_id: {'method': '', 'account': ''}}
 used_txn_ids = set()     
 
@@ -483,22 +484,54 @@ def profile_cmd(message):
     )
     bot.send_message(message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
+# ---------------------------------------------------------
+# 📥 ADVANCED DEPOSIT SYSTEM (በ Inline Buttons የሚሰራ ዲፖዚት)
+# ---------------------------------------------------------
 @bot.message_handler(func=lambda m: m.text and "ዲፖዚት" in m.text)
 def deposit_cmd(message):
     uid = message.from_user.id
+
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
+        InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
+    )
+
+    bot.send_message(
+        message.chat.id,
+        f"📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"እባክዎን ክፍያ መፈፀም የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
+def handle_deposit_method_selection(call):
+    uid = call.from_user.id
+    method = call.data.split('_', 1)[1].replace('_', ' ')
+    
+    deposit_data[uid] = {'method': method}
     user_states[uid] = "WAITING_DEPOSIT_INFO"
+
+    bot.answer_callback_query(call.id)
     
     dep_text = (
-        "📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
-        "━━━━━━━━━━━━━━━\n"
-        "እባክዎን ከታች ባሉት የክፍያ አማራጮች ገንዘብ ያስገቡ፦\n\n"
-        "📱 **Telebirr:** `0991983522`\n"
-        "🏦 **CBE Birr:** `0991983522`\n\n"
-        "⚠️ **ከክፍያ በኋላ መላክ ያለበት ፎርማት፦**\n"
-        "ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር በግልጽ ይጻፉ ወይም ስክሪንሾት ይላኩ።\n\n"
-        "📌 **ምሳሌ፦** `50 ETB - TXN98765432`"
+        f"✅ የተመረጠው አማራጭ፦ **{method}**\n\n"
+        f"📌 እባክዎን ወደ ታችኛው አካውንት ብር ያስገቡ፦\n"
+        f"📱 **የ{method} ቁጥር፦** `0991983522`\n\n"
+        f"ከክፍያው በኋላ፦\n"
+        f"1. **የብር መጠን**\n"
+        f"2. **የትራንዛክሽን ቁጥር (Txn ID)**\n"
+        f"ወይም የከፈሉበትን **ስክሪንሾት (Screenshot)** በፅሁፍ ይላኩልን።"
     )
-    bot.send_message(message.chat.id, dep_text, parse_mode="Markdown")
+    
+    bot.edit_message_text(
+        dep_text,
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown"
+    )
 
 @bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT_INFO", content_types=['text', 'photo'])
 def handle_deposit_submission(message):
@@ -527,6 +560,7 @@ def handle_deposit_submission(message):
     if extracted_txn:
         used_txn_ids.add(extracted_txn)
 
+    method = deposit_data.get(uid, {}).get('method', 'Telebirr')
     user_states[uid] = None
     dep_id = f"DEP_{int(time.time())}_{uid}"
     
@@ -546,6 +580,7 @@ def handle_deposit_submission(message):
         f"🚨 **አዲስ የተረጋገጠ የዲፖዚት ጥያቄ!**\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
+        f"🏦 አማራጭ: **{method}**\n"
         f"🔍 Txn ID: `{extracted_txn if extracted_txn else 'አልተገኘም'}`\n"
         f"💵 የታሰበው መጠን: **{suggested_amt} ETB**\n"
         f"📝 መልእክት: {text_content if text_content else 'Photo Sent'}"
@@ -557,7 +592,13 @@ def handle_deposit_submission(message):
         else:
             bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
             
-        bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ ተላክቷል!** አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።")
+        bot.send_message(
+            message.chat.id, 
+            f"✅ **የዲፖዚት መረጃዎ ተላክቷል!**\n\n"
+            f"🏦 የተመረጠው: **{method}**\n"
+            f"⏳ *አድሚኑ መረጃውን አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።*",
+            parse_mode="Markdown"
+        )
     except Exception as e:
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
@@ -578,7 +619,6 @@ def withdraw_cmd(message):
         )
         return
 
-    # ደረጃ 1፦ የክፍያ አማራጭ ማስመረጥ (Buttons)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
@@ -655,7 +695,6 @@ def handle_withdraw_amount(message):
     user_states[uid] = None
     wd_id = f"WD_{int(time.time())}_{uid}"
 
-    # ለአድሚን የሚላክ Button
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton(f"✅ Approve {req_amount:.2f} ETB", callback_data=f"wdapp_{req_amount}_{uid}_{wd_id}"),
@@ -675,7 +714,6 @@ def handle_withdraw_amount(message):
     try:
         bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
         
-        # ለተጫዋቹ የሚላክ የትግስቱ መልእክት
         bot.send_message(
             message.chat.id, 
             f"⏳ **የዊዝድሮው ጥያቄዎ በተሳካ ሁኔታ ተልኳል!**\n\n"
@@ -753,7 +791,6 @@ def handle_admin_approval(call):
             call.message.message_id
         )
         
-        # ለአሸናፊው/ተጫዋቹ የሚላከው የመጨረሻ የማረጋገጫ መልእክት
         bot.send_message(
             target_uid, 
             f"🎉 **ዊዝድሮው በተሳካ ሁኔታ ተቀባይነት አግኝቷል!**\n\n"
