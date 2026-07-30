@@ -23,8 +23,8 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# 🎧 የደንበኞች አገልግሎት ሊንክ (አድሚን፣ ሰፖርት ቦት ወይም ግሩፕ ሊንክ እዚህ ያድርጉ)
-SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/your_support_username")
+# 🎧 የደንበኞች አገልግሎት ሊንክ (አዲሱ የሰፖርት ቦት)
+SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/BKBINGOSUPPORT_bot")
 
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
@@ -33,8 +33,8 @@ MIN_WITHDRAWAL = 50.0   # ዝቅተኛው የወጪ ብር መጠን
 
 user_balances = {}       
 user_states = {}         
-deposit_data = {}        # የዲፖዚት ጊዜያዊ መረጃ መያዣ {user_id: {'method': ''}}
-withdraw_data = {}       # የዊዝድሮው ጊዜያዊ መረጃ መያዣ {user_id: {'method': '', 'account': ''}}
+deposit_data = {}        # የዲፖዚት ጊዜያዊ መረጃ መያዣ
+withdraw_data = {}       # የዊዝድሮው ጊዜያዊ መረጃ መያዣ
 used_txn_ids = set()     
 
 # =========================================================
@@ -464,7 +464,7 @@ def main_menu_keyboard(user_id=None):
     )
     markup.add(
         InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help"),
-        InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=SUPPORT_LINK) # 👈 Direct Telegram Link
+        InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=SUPPORT_LINK)
     )
     return markup
 
