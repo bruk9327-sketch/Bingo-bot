@@ -31,6 +31,7 @@ MIN_WITHDRAWAL = 50.0   # ዝቅተኛው የወጪ ብር መጠን
 
 user_balances = {}       
 user_states = {}         
+withdraw_data = {}       # የዊዝድሮው ጊዜያዊ መረጃ መያዣ {user_id: {'method': '', 'account': ''}}
 used_txn_ids = set()     
 
 # =========================================================
@@ -80,7 +81,7 @@ game_state = {
 }
 
 def check_bingo_winner(matrix, drawn_set):
-    """የ 5x5 መስመር (አግድም፣ ዶንግ ወይም ዲያጎናል) መሙላቱን ያረጋግጣል"""
+    """የ 5x5 መስመር መሙላቱን ያረጋግጣል"""
     def is_hit(val):
         return val == 'FREE' or val in drawn_set
 
@@ -561,7 +562,7 @@ def handle_deposit_submission(message):
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
 # ---------------------------------------------------------
-# 📤 WITHDRAWAL SYSTEM (የወጪ ገንዘብ ጥያቄ ማስተናገጃ)
+# 📤 ADVANCED WITHDRAWAL SYSTEM (ደረጃ በደረጃ የሚሰራ ዊዝድሮው)
 # ---------------------------------------------------------
 @bot.message_handler(func=lambda m: m.text and "ዊዝድሮው" in m.text)
 def withdraw_cmd(message):
@@ -572,49 +573,89 @@ def withdraw_cmd(message):
         bot.send_message(
             message.chat.id, 
             f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\n\n"
-            f"💳 የእርስዎ ባላንስ: **{bal:.2f} ETB**",
+            f"💳 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**",
             parse_mode="Markdown"
         )
         return
 
-    user_states[uid] = "WAITING_WITHDRAW_INFO"
-    
-    w_text = (
+    # ደረጃ 1፦ የክፍያ አማራጭ ማስመረጥ (Buttons)
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
+        InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
+    )
+
+    bot.send_message(
+        message.chat.id,
         f"📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n"
-        f"📌 ዝቅተኛው ማውጣት የሚችሉት: **{MIN_WITHDRAWAL:.2f} ETB**\n\n"
-        f"እባክዎን የሚያወጡትን **የብር መጠን** እና **የስልክ ቁጥር (Telebirr/CBE Birr)** ይላኩ።\n\n"
-        f"👉 **ምሳሌ፦** `100 ETB - 0911223344 Telebirr`"
+        f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
+        f"እባክዎን ገንዘብ መቀበል የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
+        reply_markup=markup,
+        parse_mode="Markdown"
     )
-    bot.send_message(message.chat.id, w_text, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_INFO")
-def handle_withdraw_submission(message):
+@bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
+def handle_withdraw_method_selection(call):
+    uid = call.from_user.id
+    method = call.data.split('_', 1)[1].replace('_', ' ')
+    
+    withdraw_data[uid] = {'method': method}
+    user_states[uid] = "WAITING_WITHDRAW_ACCOUNT"
+
+    bot.answer_callback_query(call.id)
+    bot.edit_message_text(
+        f"✅ የተመረጠው አማራጭ፦ **{method}**\n\n"
+        f"📌 እባክዎን ገንዘቡ የሚላክበትን **የስልክ ቁጥር** ወይም **የአካውንት ቁጥር** ያስገቡ፦",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_ACCOUNT")
+def handle_withdraw_account(message):
+    uid = message.from_user.id
+    account_num = message.text.strip()
+
+    withdraw_data[uid]['account'] = account_num
+    user_states[uid] = "WAITING_WITHDRAW_AMOUNT"
+
+    bal = user_balances.get(uid, 0.0)
+    
+    bot.send_message(
+        message.chat.id,
+        f"✅ አድራሻ አካውንት: `{account_num}`\n\n"
+        f"💵 እባክዎን ማውጣት የሚፈልጉትን **የብር መጠን** ያስገቡ፦\n"
+        f"(ዝቅተኛው: **{MIN_WITHDRAWAL:.2f} ETB** | ባላንስዎ: **{bal:.2f} ETB**)",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_AMOUNT")
+def handle_withdraw_amount(message):
     uid = message.from_user.id
     bal = user_balances.get(uid, 0.0)
-    text = message.text
+    
+    try:
+        req_amount = float(message.text.strip())
+    except ValueError:
+        bot.send_message(message.chat.id, "⚠️ **እባክዎን ትክክለኛ የቁጥር መጠን ብቻ ያስገቡ!** (ምሳሌ፦ 100)")
+        return
 
-    numbers = re.findall(r'\d+', text)
-    req_amount = 0
-
-    for num in numbers:
-        val = float(num)
-        if val >= MIN_WITHDRAWAL:
-            req_amount = val
-            break
-
-    if req_amount <= 0:
-        bot.send_message(message.chat.id, f"⚠️ **እባክዎን ትክክለኛ የብር መጠን ያስገቡ!** (ዝቅተኛው {MIN_WITHDRAWAL:.2f} ETB)")
+    if req_amount < MIN_WITHDRAWAL:
+        bot.send_message(message.chat.id, f"❌ **ዝቅተኛው ማውጣት የሚችሉት የብር መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**")
         return
 
     if req_amount > bal:
         bot.send_message(message.chat.id, f"❌ **የጠየቁት የብር መጠን ከባላንስዎ ይበልጣል!**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**", parse_mode="Markdown")
         return
 
+    method = withdraw_data[uid].get('method', 'Telebirr')
+    account = withdraw_data[uid].get('account', 'Unknown')
+
     user_states[uid] = None
     wd_id = f"WD_{int(time.time())}_{uid}"
 
+    # ለአድሚን የሚላክ Button
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton(f"✅ Approve {req_amount:.2f} ETB", callback_data=f"wdapp_{req_amount}_{uid}_{wd_id}"),
@@ -622,21 +663,26 @@ def handle_withdraw_submission(message):
     )
 
     admin_msg = (
-        f"📤 **አዲስ የዊዝድሮው (Withdrawal) ጥያቄ!**\n"
+        f"📤 **አዲስ የዊዝድሮው ጥያቄ!**\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
-        f"💵 የቀረበው መጠን: **{req_amount:.2f} ETB**\n"
-        f"💳 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n"
-        f"📝 የክፍያ መረጃ: `{text}`"
+        f"🏦 አማራጭ: **{method}**\n"
+        f"💳 አድራሻ አካውንት: `{account}`\n"
+        f"💵 የተጠየቀው መጠን: **{req_amount:.2f} ETB**\n"
+        f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**"
     )
 
     try:
         bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+        
+        # ለተጫዋቹ የሚላክ የትግስቱ መልእክት
         bot.send_message(
             message.chat.id, 
-            f"✅ **የዊዝድሮው ጥያቄዎ ተመዝግቧል!**\n\n"
-            f"💵 የተጠየቀው መጠን: **{req_amount:.2f} ETB**\n"
-            f"አድሚኑ መረጃውን አጣርቶ ክፍያውን በቅርቡ ይልካል!",
+            f"⏳ **የዊዝድሮው ጥያቄዎ በተሳካ ሁኔታ ተልኳል!**\n\n"
+            f"🏦 አማራጭ፦ **{method}**\n"
+            f"💳 አድራሻ አካውንት፦ `{account}`\n"
+            f"💵 የተጠየቀው መጠን፦ **{req_amount:.2f} ETB**\n\n"
+            f"ℹ️ *እስኪረጋገጥ ድረስ ጥቂት ደቂቃዎችን በትዕግስት ይጠብቁ...*",
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -707,12 +753,13 @@ def handle_admin_approval(call):
             call.message.message_id
         )
         
+        # ለአሸናፊው/ተጫዋቹ የሚላከው የመጨረሻ የማረጋገጫ መልእክት
         bot.send_message(
             target_uid, 
-            f"🎉 **የዊዝድሮው ጥያቄዎ ፀድቋል!**\n\n"
+            f"🎉 **ዊዝድሮው በተሳካ ሁኔታ ተቀባይነት አግኝቷል!**\n\n"
             f"💸 የተከፈለዎት መጠን: **{amount_val:.2f} ETB**\n"
-            f"💰 ቀሪ ባላንስዎ: **{new_bal:.2f} ETB**\n\n"
-            f"ገንዘቡ በተላከበት የክፍያ አማራጭ ገቢ ተደርጎልዎታል። እናመሰግናለን! 🙏",
+            f"💰 የቀረው ባላንስዎ: **{new_bal:.2f} ETB**\n\n"
+            f"ገንዘቡ በተላከበት የክፍያ አካውንት ገቢ ተደርጎልዎታል። እናመሰግናለን! 🙏",
             reply_markup=main_menu_keyboard(target_uid),
             parse_mode="Markdown"
         )
