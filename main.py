@@ -12,27 +12,92 @@ from telebot.types import (
 )
 
 # =========================================================
-# 1. FLASK & SOCKETIO SETUP
+# 1. SETUP & CONFIGURATION
 # =========================================================
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bingo_secret_key_123'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# =========================================================
-# 2. TELEGRAM BOT SETUP
-# =========================================================
 API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
 bot = telebot.TeleBot(API_TOKEN)
 
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673")) 
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
+
+CARD_PRICE = 10.0
+COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 
 user_balances = {}       
 user_states = {}         
 used_txn_ids = set()     
 
 # =========================================================
-# 3. HTML TEMPLATE WITH OFFICIAL BINGO 75 RULES
+# 2. BINGO CARDS DATABASE (1-104 CARDS)
+# =========================================================
+cards_database = {}
+
+def generate_official_bingo_card(card_id):
+    """ለእያንዳንዱ ካርቴላ ቋሚና ትክክለኛ Standard 75-Ball Bingo Grid ያመነጫል"""
+    seed = int(card_id) * 997
+    def get_col(min_v, max_v, count):
+        nums = list(range(min_v, max_v + 1))
+        nums.sort(key=lambda x: (abs(hash(str(seed + x)))))
+        return sorted(nums[:count])
+
+    b = get_col(1, 15, 5)
+    i = get_col(16, 30, 5)
+    n = get_col(31, 45, 4) 
+    g = get_col(46, 60, 5)
+    o = get_col(61, 75, 5)
+
+    matrix = []
+    for r in range(5):
+        row = [
+            b[r],
+            i[r],
+            'FREE' if r == 2 else (n[r] if r < 2 else n[r-1]),
+            g[r],
+            o[r]
+        ]
+        matrix.append(row)
+    return matrix
+
+# 104ቱን ካርቴላዎች አስቀድሞ ማዘጋጀት
+for c_num in range(1, 105):
+    cards_database[c_num] = generate_official_bingo_card(c_num)
+
+# =========================================================
+# 3. GAME STATE & BINGO WINNER CHECKER
+# =========================================================
+game_state = {
+    "status": "WAITING",  # WAITING, COUNTDOWN, PLAYING, FINISHED
+    "time_left": 15,
+    "drawn_numbers": [],
+    "selected_cards": {}, # card_id -> user_id
+    "player_cards": {},   # user_id -> list of card_ids
+    "derash": 0.0
+}
+
+def check_bingo_winner(matrix, drawn_set):
+    """የ 5x5 መስመር (አግድም፣ ဒေါንግ ወይም ዲያጎናል) መሙላቱን ያረጋግጣል"""
+    def is_hit(val):
+        return val == 'FREE' or val in drawn_set
+
+    # Rows (አግድም)
+    for row in matrix:
+        if all(is_hit(v) for v in row): return True
+    # Cols (ዶንግ)
+    for col in range(5):
+        if all(is_hit(matrix[row][col]) for row in range(5)): return True
+    # Diagonals (ዲያጎናል)
+    d1 = [matrix[i][i] for i in range(5)]
+    d2 = [matrix[i][4-i] for i in range(5)]
+    if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
+
+    return False
+
+# =========================================================
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -40,7 +105,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GoodBingo Rules Edition</title>
+    <title>GoodBingo Mini App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -61,8 +126,8 @@ HTML_TEMPLATE = """
             <span class="text-sm font-black text-amber-300">VIP 👑</span>
         </div>
         <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center">
-            <span class="text-[9px] text-gray-400 tracking-wider">PLAYERS</span>
-            <span class="text-sm font-black text-white" id="players-count">10</span>
+            <span class="text-[9px] text-gray-400 tracking-wider">SOLD</span>
+            <span class="text-sm font-black text-white" id="sold-count">0</span>
         </div>
         <div class="glass-panel rounded-2xl p-2.5 flex flex-col justify-center border-red-500/40">
             <span class="text-[9px] text-red-400 tracking-wider">NEXT GAME</span>
@@ -77,19 +142,16 @@ HTML_TEMPLATE = """
     <!-- Selection Screen -->
     <div id="selection-screen" class="mt-2">
         <div class="glass-panel p-3 rounded-2xl mb-3 text-center">
-            <div class="text-xs font-semibold text-purple-300">🎲 በህጉ መሰረት የሚጫወቱባቸውን 2 ካርቴላዎች ይምረጡ</div>
+            <div class="text-xs font-semibold text-purple-300">🎲 የሚጫወቱባቸውን ካርቴላዎች ይምረጡ</div>
         </div>
         <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-3xl max-h-[52vh] overflow-y-auto">
-        </div>
-        <div class="mt-4 text-center glass-panel py-2.5 rounded-2xl border-purple-500/40">
-            <span class="text-xs text-amber-400 font-bold" id="selected-info">የተመረጡት ካርቴላዎች፦ #64, #80</span>
         </div>
     </div>
 
     <!-- Active Game Screen -->
     <div id="game-screen" class="hidden mt-2">
         <div class="flex justify-between items-center text-xs mb-3 px-2 glass-panel py-2 rounded-xl">
-            <div>ደራሽ (POT): <span class="text-emerald-400 font-black text-sm" id="derash-amount">90 ETB</span></div>
+            <div>ደራሽ (POT): <span class="text-emerald-400 font-black text-sm" id="derash-amount">0 ETB</span></div>
             <div>የወጡ ኳሶች: <span id="balls-count" class="font-black text-purple-400">0/75</span></div>
         </div>
 
@@ -120,20 +182,17 @@ HTML_TEMPLATE = """
             <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-amber-500 text-slate-900 font-black px-4 py-1 rounded-full text-xs shadow-lg">
                 🏆 አሸናፊ ወጣ!
             </div>
-            <div id="winner-name" class="text-2xl font-black text-amber-400 italic mt-3 mb-1">Abrshi has won!</div>
+            <div id="winner-name" class="text-2xl font-black text-amber-400 italic mt-3 mb-1">Winner</div>
             
             <div class="bg-slate-900/80 rounded-2xl p-3 mb-3 border border-amber-500/30">
                 <div class="text-[10px] text-gray-400 font-bold">የተወሰደው ደራሽ (PRIZE)</div>
-                <div id="winner-prize" class="text-2xl font-black text-emerald-400">90 ETB</div>
+                <div id="winner-prize" class="text-2xl font-black text-emerald-400">0 ETB</div>
             </div>
 
-            <div class="text-left font-bold text-purple-300 text-xs mb-1" id="winner-card-title">CARD #62</div>
+            <div class="text-left font-bold text-purple-300 text-xs mb-1" id="winner-card-title">CARD #--</div>
             <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-slate-900/90 p-2 rounded-2xl text-center text-xs font-bold mb-4">
             </div>
 
-            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div class="bg-amber-400 h-full w-full animate-ping"></div>
-            </div>
             <div class="text-[10px] text-gray-400 mt-2 font-bold">አዲስ ዙር በሰከንዶች ውስጥ ይጀምራል...</div>
         </div>
     </div>
@@ -142,40 +201,11 @@ HTML_TEMPLATE = """
         const socket = io();
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) tg.expand();
+        const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 12345;
 
-        let mySelectedCards = [64, 80];
+        let mySelectedCards = [];
         let drawnNumbersSet = new Set();
         let cardMatrices = {};
-
-        // 🎲 በቢንጎ 75 ህግ መሰረት የካርቴላ ቁጥሮችን ማመንጫ (Standard Bingo 75 Rule Generator)
-        function generateOfficialBingoCard(cardId) {
-            const seed = cardId * 997;
-            const getCol = (min, max, count) => {
-                let nums = [];
-                for(let i = min; i <= max; i++) nums.push(i);
-                nums.sort((a, b) => (Math.sin(seed + a) - Math.sin(seed + b)));
-                return nums.slice(0, count).sort((a,b) => a - b);
-            };
-
-            const b = getCol(1, 15, 5);
-            const i = getCol(16, 30, 5);
-            const n = getCol(31, 45, 4); 
-            const g = getCol(46, 60, 5);
-            const o = getCol(61, 75, 5);
-
-            let matrix = [];
-            for(let r = 0; r < 5; r++) {
-                let row = [
-                    b[r],
-                    i[r],
-                    r === 2 ? 'FREE' : (r < 2 ? n[r] : n[r-1]),
-                    g[r],
-                    o[r]
-                ];
-                matrix.push(row);
-            }
-            return matrix;
-        }
 
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
@@ -184,31 +214,27 @@ HTML_TEMPLATE = """
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
                 
-                btn.className = `p-2 text-xs font-bold rounded-xl transition-all duration-200 border ${isSelected ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 border-amber-300 font-black scale-105 shadow-lg' : 'bg-slate-800/80 text-gray-300 border-slate-700'}`;
+                btn.className = `p-2 text-xs font-bold rounded-xl transition-all duration-200 border ${isSelected ? 'bg-amber-500 text-slate-900 border-amber-300 font-black scale-105 shadow-lg' : 'bg-slate-800/80 text-gray-300 border-slate-700'}`;
                 btn.innerText = i;
-                btn.onclick = () => toggleCardSelection(i);
+                btn.onclick = () => selectCard(i);
                 gridContainer.appendChild(btn);
             }
-            updateSelectedInfo();
         }
 
-        function toggleCardSelection(num) {
-            if (mySelectedCards.includes(num)) {
-                if (mySelectedCards.length > 1) {
-                    mySelectedCards = mySelectedCards.filter(c => c !== num);
-                }
-            } else {
-                if (mySelectedCards.length >= 2) {
-                    mySelectedCards.shift();
-                }
-                mySelectedCards.push(num);
+        function selectCard(cardId) {
+            socket.emit('select_card', { user_id: userId, card_id: cardId });
+        }
+
+        socket.on('card_confirmed', (data) => {
+            if(!mySelectedCards.includes(data.card_id)) {
+                mySelectedCards.push(data.card_id);
             }
             initCartelaGrid();
-        }
+        });
 
-        function updateSelectedInfo() {
-            document.getElementById('selected-info').innerText = `የተመረጡት ካርቴላዎች፦ #${mySelectedCards.join(', #')}`;
-        }
+        socket.on('error_msg', (data) => {
+            alert(data.msg);
+        });
 
         function init75Board() {
             const board75 = document.getElementById('bingo-75-grid');
@@ -227,23 +253,24 @@ HTML_TEMPLATE = """
 
         socket.on('timer_update', (data) => {
             document.getElementById('timer').innerText = `${data.time_left}s`;
-            if (data.status === 'WAITING') {
+            if (data.status === 'WAITING' || data.status === 'COUNTDOWN') {
                 document.getElementById('winner-modal').classList.add('hidden');
                 document.getElementById('game-screen').classList.add('hidden');
                 document.getElementById('selection-screen').classList.remove('hidden');
-                drawnNumbersSet.clear();
-                init75Board();
             }
         });
 
-        socket.on('game_started', () => {
+        socket.on('game_update', (data) => {
+            document.getElementById('sold-count').innerText = Object.keys(data.selected_cards).length;
+        });
+
+        socket.on('game_started', (data) => {
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
             document.getElementById('winner-modal').classList.add('hidden');
-            
-            mySelectedCards.forEach(cardId => {
-                cardMatrices[cardId] = generateOfficialBingoCard(cardId);
-            });
+            document.getElementById('derash-amount').innerText = `${data.derash} ETB`;
+            drawnNumbersSet.clear();
+            init75Board();
             renderMyCards();
         });
 
@@ -260,7 +287,7 @@ HTML_TEMPLATE = """
         });
 
         socket.on('winner_announced', (data) => {
-            document.getElementById('winner-name').innerText = `${data.winner_name} has won!`;
+            document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${data.prize} ETB`;
             document.getElementById('winner-card-title').innerText = `CARD #${data.card_num}`;
             
@@ -278,6 +305,7 @@ HTML_TEMPLATE = """
             });
 
             document.getElementById('winner-modal').classList.remove('hidden');
+            mySelectedCards = [];
         });
 
         function renderMyCards() {
@@ -285,66 +313,60 @@ HTML_TEMPLATE = """
             container.innerHTML = '';
             
             mySelectedCards.forEach(cardId => {
-                const matrix = cardMatrices[cardId] || generateOfficialBingoCard(cardId);
-                const cardDiv = document.createElement('div');
-                cardDiv.className = 'glass-panel rounded-2xl p-2.5 shadow-xl border-purple-500/30';
-                
-                let html = `<div class="flex justify-between items-center text-xs font-bold text-purple-300 mb-2"><span>CARD #${cardId}</span><span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-500/40">LIVE</span></div>`;
-                html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
-                
-                matrix.forEach(row => {
-                    row.forEach(val => {
-                        const isHit = val === 'FREE' || drawnNumbersSet.has(val);
-                        html += `<div class="p-1.5 rounded-lg transition-colors ${isHit ? 'bg-emerald-500 text-slate-900 font-black shadow-md' : 'bg-slate-800/80 text-gray-200'}">${val === 'FREE' ? '★' : val}</div>`;
-                    });
-                });
-                
-                html += `</div><button onclick="claimBingo(${cardId})" class="w-full mt-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black rounded-xl shadow-lg active:scale-95 transition">BINGO!</button>`;
-                cardDiv.innerHTML = html;
-                container.appendChild(cardDiv);
+                socket.emit('get_card_matrix', { card_id: cardId });
             });
         }
 
-        function claimBingo(cardId) {
-            socket.emit('check_bingo', { card_id: cardId, drawn: Array.from(drawnNumbersSet) });
-        }
+        socket.on('receive_card_matrix', (data) => {
+            const container = document.getElementById('my-cards-container');
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'glass-panel rounded-2xl p-2.5 shadow-xl border-purple-500/30';
+            
+            let html = `<div class="flex justify-between items-center text-xs font-bold text-purple-300 mb-2"><span>CARD #${data.card_id}</span><span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-500/40">LIVE</span></div>`;
+            html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
+            
+            data.matrix.forEach(row => {
+                row.forEach(val => {
+                    const isHit = val === 'FREE' || drawnNumbersSet.has(val);
+                    html += `<div class="p-1.5 rounded-lg transition-colors ${isHit ? 'bg-emerald-500 text-slate-900 font-black shadow-md' : 'bg-slate-800/80 text-gray-200'}">${val === 'FREE' ? '★' : val}</div>`;
+                });
+            });
+            
+            html += `</div>`;
+            cardDiv.innerHTML = html;
+            container.appendChild(cardDiv);
+        });
     </script>
 </body>
 </html>
 """
 
-# =========================================================
-# 4. FLASK ROUTES
-# =========================================================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM BOT HANDLERS & VALIDATION LOGIC
+# 5. TELEGRAM BOT HANDLERS & DEPOSIT/WITHDRAW SYSTEM
 # =========================================================
 def main_menu_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     web_app = WebAppInfo(url=RENDER_WEBAPP_URL)
     
-    btn_play = KeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app)
-    btn_profile = KeyboardButton(text="👤 ፕሮፋይል / ባላንስ")
-    btn_deposit = KeyboardButton(text="📥 ዲፖዚት (Deposit)")
-    btn_withdraw = KeyboardButton(text="📤 ዊዝድሮው (Withdraw)")
-    btn_referral = KeyboardButton(text="👥 ሪፈራል / ግብዣ")
-    btn_help = KeyboardButton(text="ℹ️ እርዳታ እና ህጎች")
-
-    markup.add(btn_play)
-    markup.add(btn_profile, btn_deposit)
-    markup.add(btn_withdraw, btn_referral)
-    markup.add(btn_help)
+    markup.add(
+        KeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app),
+        KeyboardButton(text="👤 ፕሮፋይል / ባላንስ"),
+        KeyboardButton(text="📥 ዲፖዚት (Deposit)"),
+        KeyboardButton(text="📤 ዊዝድሮው (Withdraw)"),
+        KeyboardButton(text="👥 ሪፈራል / ግብዣ"),
+        KeyboardButton(text="ℹ️ እርዳታ እና ህጎች")
+    )
     return markup
 
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     uid = message.from_user.id
     if uid not in user_balances:
-        user_balances[uid] = 0.00
+        user_balances[uid] = 0.0
 
     welcome_txt = (
         f"👋 ሰላም **{message.from_user.first_name}**!\n\n"
@@ -362,7 +384,7 @@ def profile_cmd(message):
         f"━━━━━━━━━━━━━━━\n"
         f"🆔 User ID: `{uid}`\n"
         f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-        f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 20 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 20 ETB ዲፖዚት ያድርጉ!'}"
+        f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 10 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 10 ETB ዲፖዚት ያድርጉ!'}"
     )
     bot.send_message(message.chat.id, msg, parse_mode="Markdown")
 
@@ -378,9 +400,8 @@ def deposit_cmd(message):
         "📱 **Telebirr:** `0991983522`\n"
         "🏦 **CBE Birr:** `0991983522`\n\n"
         "⚠️ **ከክፍያ በኋላ መላክ ያለበት ፎርማት፦**\n"
-        "ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር በግልጽ ይጻፉ።\n\n"
-        "📌 **ምሳሌ፦** `50 ETB - TXN98765432` ወይም `100 ብር - 7891234`\n\n"
-        "🔴 **ማሳሰቢያ:** አነስተኛ የዲፖዚት መጠን **20 ETB** ሲሆን፣ ድጋሚ የተላከ የደረሰኝ ቁጥር አይቀበልም!"
+        "ያስገቡትን የብር መጠን እና የትራንዛክሽን ቁጥር በግልጽ ይጻፉ ወይም ስክሪንሾት ይላኩ።\n\n"
+        "📌 **ምሳሌ፦** `50 ETB - TXN98765432`"
     )
     bot.send_message(message.chat.id, dep_text, parse_mode="Markdown")
 
@@ -388,10 +409,6 @@ def deposit_cmd(message):
 def handle_deposit_submission(message):
     uid = message.from_user.id
     text_content = message.text if message.text else message.caption
-
-    if not text_content and not message.photo:
-        bot.send_message(message.chat.id, "❌ **እባክዎን ትክክለኛ የትራንዛክሽን መረጃ ወይም ስክሪንሾት (Screenshot) ይላኩ!**")
-        return
 
     extracted_txn = None
     extracted_amount = 0
@@ -409,19 +426,7 @@ def handle_deposit_submission(message):
                 break
 
     if extracted_txn and extracted_txn in used_txn_ids:
-        bot.send_message(
-            message.chat.id, 
-            f"❌ **ይህ የትራንዛክሽን ቁጥር (`{extracted_txn}`) ከዚህ ቀደም አገልግሎት ላይ ውሏል!**\n\n"
-            "እባክዎን አዲስ እና ትክክለኛ የደረሰኝ ቁጥር ይላኩ።",
-            parse_mode="Markdown"
-        )
-        return
-
-    if text_content and extracted_amount < 20 and not message.photo:
-        bot.send_message(
-            message.chat.id,
-            "⚠️ **አነስተኛው የዲፖዚት መጠን 20 ETB ነው።**\nእባክዎን ከ20 ETB በላይ አስገብተው እንደገና ይላኩ።"
-        )
+        bot.send_message(message.chat.id, f"❌ **ይህ የትራንዛክሽን ቁጥር (`{extracted_txn}`) ከዚህ ቀደም አገልግሎት ላይ ውሏል!**", parse_mode="Markdown")
         return
 
     if extracted_txn:
@@ -445,10 +450,9 @@ def handle_deposit_submission(message):
         f"🚨 **አዲስ የተረጋገጠ የዲፖዚት ጥያቄ!**\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
-        f"🔍 የተለየ Txn ID: `{extracted_txn if extracted_txn else 'መረጃ አልተገኘም'}`\n"
+        f"🔍 Txn ID: `{extracted_txn if extracted_txn else 'አልተገኘም'}`\n"
         f"💵 የታሰበው መጠን: **{suggested_amt} ETB**\n"
-        f"📝 ሙሉ መልእክት: {text_content if text_content else 'Photo Sent'}\n\n"
-        "ማረጋገጫ ይስጡ፦"
+        f"📝 መልእክት: {text_content if text_content else 'Photo Sent'}"
     )
     
     try:
@@ -457,7 +461,7 @@ def handle_deposit_submission(message):
         else:
             bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
             
-        bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ በስኬት ተላክቷል!**\nአድሚኑ መረጃውን አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።")
+        bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ ተላክቷል!** አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።")
     except Exception as e:
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
@@ -470,7 +474,7 @@ def handle_admin_approval(call):
         target_uid = int(parts[1])
         bot.answer_callback_query(call.id, "ዲፖዚቱ ተሰርዟል!")
         bot.edit_message_text(f"❌ **Deposit Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
-        bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**\nእባክዎን ትክክለኛውን የትራንዛክሽን መረጃ እንደገና ይላኩ።")
+        bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**")
     
     elif action == "app":
         amount_val = float(parts[1])
@@ -486,8 +490,7 @@ def handle_admin_approval(call):
             target_uid, 
             f"🎉 **ዲፖዚትዎ ፀድቋል!**\n\n"
             f"📥 የተጨመረ: **+{amount_val:.2f} ETB**\n"
-            f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**\n\n"
-            f"{'🎮 አሁን ጨዋታ መጫወት ይችላሉ!' if new_bal >= 20 else '⚠️ ጨዋታ ለመክፈት ባላንስዎ 20 ETB መሙላት አለበት።'}",
+            f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**",
             parse_mode="Markdown"
         )
 
@@ -495,46 +498,27 @@ def handle_admin_approval(call):
 def withdraw_cmd(message):
     uid = message.from_user.id
     bal = user_balances.get(uid, 0.0)
-    
     if bal < 50:
         bot.send_message(message.chat.id, f"❌ **ዝቅተኛው የዊዝድሮው መጠን 50 ETB ነው።**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**")
         return
-
-    w_text = (
-        "📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
-        "━━━━━━━━━━━━━━━\n"
-        f"💰 የእርስዎ ባላንስ: **{bal:.2f} ETB**\n\n"
-        "እባክዎን የሚያወጡትን መጠን እና የቴሌብር/ባንክ ሂሳብ ቁጥር ይላኩ።"
-    )
-    bot.send_message(message.chat.id, w_text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"📤 **ገንዘብ ማውጫ**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**\nእባክዎን የሚያወጡትን መጠን እና የቴሌብር/ባንክ ቁጥር ይላኩ።", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text and "ሪፈራል" in m.text)
 def referral_cmd(message):
     uid = message.from_user.id
     bot_name = bot.get_me().username
     ref_link = f"https://t.me/{bot_name}?start={uid}"
-    
-    msg = (
-        "👥 **የሪፈራል ፕሮግራም**\n"
-        "━━━━━━━━━━━━━━━\n"
-        "ጓደኞችዎን በመጋበዝ የእያንዳንዱን ሰው የመጀመሪያ ዲፖዚት 10% ያግኙ!\n\n"
-        f"🔗 የእርስዎ የግብዣ ሊንክ፦\n`{ref_link}`"
-    )
-    bot.send_message(message.chat.id, msg, parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"👥 **የሪፈራል ፕሮግራም**\n🔗 የእርስዎ የግብዣ ሊንክ፦\n`{ref_link}`", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.text and "እርዳታ" in m.text)
 def help_cmd(message):
     help_txt = (
-        "ℹ️ **የጨዋታ ህጎች እና መመሪያዎች**\n"
-        "━━━━━━━━━━━━━━━\n"
-        "1. **አነስተኛ ባላንስ:** ጨዋታ ለመጫወት ባላንስዎ ቢያንስ **20 ETB** መሆን አለበት።\n"
-        "2. **የጨዋታ ክፍያ:** እያንዳንዱ ዙር **10 ETB** ያስከፍላል።\n"
-        "3. **ደራሽ (Derash) ስሌት:** (10 ተጫዋች × 10 ETB) - 10% የቦት ኮሚሽን = **90 ETB ለአሸናፊው**።\n"
-        "4. **ማሸነፍ:** BINGO የሞላ ተጫዋች አሸናፊ ሆኖ ደራሹ በራስ-ሰር ባላንሱ ላይ ይጨመራል።"
+        "ℹ️ **የጨዋታ ህጎች**\n"
+        "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
+        "2. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።"
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
-# 🛠️ Bot Polling Loop
 def run_bot():
     while True:
         try:
@@ -546,40 +530,83 @@ def run_bot():
             time.sleep(3)
 
 # =========================================================
-# 6. SOCKET.IO & GAME LOOP
+# 6. SOCKET.IO EVENTS & REAL GAME LOOP
 # =========================================================
-game_state = {
-    "status": "WAITING",
-    "time_left": 15,
-    "drawn_numbers": []
-}
+@socketio.on('select_card')
+def handle_card_selection(data):
+    uid = int(data.get('user_id'))
+    card_id = int(data.get('card_id'))
 
-@socketio.on('connect')
-def handle_connect():
-    emit('init_game', game_state)
+    if game_state['status'] not in ['WAITING', 'COUNTDOWN']:
+        emit('error_msg', {'msg': 'ጨዋታ ተጀምሯል! እባክዎን አዲስ ዙር ይበቁ።'})
+        return
+
+    bal = user_balances.get(uid, 0.0)
+    if bal < CARD_PRICE:
+        emit('error_msg', {'msg': 'በቂ ባላንስ የሎትም። እባክዎን ዲፖዚት ያድርጉ!'})
+        return
+
+    if card_id in game_state['selected_cards']:
+        emit('error_msg', {'msg': 'ይህ ካርቴላ በተခြား ተጫዋች ተይዟል!'})
+        return
+
+    # ክፍያ መቀነስ እና ካርቴላ መመዝገብ
+    user_balances[uid] -= CARD_PRICE
+    game_state['selected_cards'][card_id] = uid
+    if uid not in game_state['player_cards']:
+        game_state['player_cards'][uid] = []
+    game_state['player_cards'][uid].append(card_id)
+
+    # ደራሽ ማዘመን (10% ኮሚሽን)
+    total_pool = len(game_state['selected_cards']) * CARD_PRICE
+    game_state['derash'] = round(total_pool * (1 - COMMISSION_RATE), 2)
+
+    emit('card_confirmed', {'card_id': card_id}, broadcast=False)
+    socketio.emit('game_update', game_state)
+
+@socketio.on('get_card_matrix')
+def handle_get_matrix(data):
+    c_id = int(data.get('card_id'))
+    if c_id in cards_database:
+        emit('receive_card_matrix', {'card_id': c_id, 'matrix': cards_database[c_id]})
 
 def game_loop():
     global game_state
     while True:
+        # 1. ማቆም/መጠበቅ
         game_state["status"] = "WAITING"
         game_state["drawn_numbers"] = []
-        
-        for t in range(15, 0, -1):
-            game_state["time_left"] = t
-            socketio.emit('timer_update', {'time_left': t, 'status': 'WAITING'})
+        game_state["selected_cards"] = {}
+        game_state["player_cards"] = {}
+        game_state["derash"] = 0.0
+
+        while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
 
+        # 2. ቆጠራ (Countdown)
+        game_state["status"] = "COUNTDOWN"
+        for t in range(15, 0, -1):
+            game_state["time_left"] = t
+            socketio.emit('timer_update', {'time_left': t, 'status': 'COUNTDOWN'})
+            socketio.sleep(1)
+
+        # 3. ጨዋታ መጀመር
         game_state["status"] = "PLAYING"
-        socketio.emit('game_started', {'status': 'PLAYING'})
+        socketio.emit('game_started', {'status': 'PLAYING', 'derash': game_state['derash']})
 
         all_numbers = list(range(1, 76))
         random.shuffle(all_numbers)
 
+        drawn_set = set()
+        winner_found = False
+
         for num in all_numbers:
-            if game_state["status"] != "PLAYING":
+            if winner_found:
                 break
-                
+
+            drawn_set.add(num)
             game_state["drawn_numbers"].append(num)
+
             letter = 'B' if num <= 15 else 'I' if num <= 30 else 'N' if num <= 45 else 'G' if num <= 60 else 'O'
             ball_str = f"{letter}-{num}"
 
@@ -589,25 +616,29 @@ def game_loop():
                 'drawn_list': game_state["drawn_numbers"]
             })
 
-            if len(game_state["drawn_numbers"]) == 12:
-                winner_data = {
-                    "winner_name": "Abrshi",
-                    "prize": 90,
-                    "card_num": 62,
-                    "card_matrix": [
-                        [14, 26, 36, 58, 61],
-                        [5,  28, 40, 57, 68],
-                        [15, 17, "FREE", 56, 71],
-                        [2,  27, 38, 59, 72],
-                        [11, 16, 43, 54, 73]
-                    ]
-                }
-                socketio.emit('winner_announced', winner_data)
-                game_state["status"] = "FINISHED"
-                socketio.sleep(6)
-                break
+            # እውነተኛ አሸናፊ መኖሩን መፈተሽ
+            for uid, cards in game_state["player_cards"].items():
+                for card_id in cards:
+                    matrix = cards_database[card_id]
+                    if check_bingo_winner(matrix, drawn_set):
+                        winner_found = True
+                        # አሸናፊውን ማበሰር እና ደራሹን በባላንሱ ላይ መጨመር
+                        user_balances[uid] = user_balances.get(uid, 0.0) + game_state["derash"]
+                        
+                        socketio.emit('winner_announced', {
+                            "winner_name": f"User_{uid}",
+                            "prize": game_state["derash"],
+                            "card_num": card_id,
+                            "card_matrix": matrix
+                        })
+                        break
+                if winner_found:
+                    break
 
             socketio.sleep(3)
+
+        game_state["status"] = "FINISHED"
+        socketio.sleep(8)
 
 # =========================================================
 # 7. MAIN EXECUTION
