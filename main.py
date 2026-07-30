@@ -23,8 +23,8 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# 🎧 የደንበኞች አገልግሎት ሊንክ (አዲሱ የሰፖርት ቦት)
-SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/BKBINGOSUPPORT_bot")
+# 🎧 የደንበኞች አገልግሎት ሊንክ (የተስተካከለ አዲስ Support Bot Username)
+SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/BkbingosupportBot")
 
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
