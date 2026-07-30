@@ -23,6 +23,9 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
+# 🎧 የደንበኞች አገልግሎት ሊንክ (አድሚን፣ ሰፖርት ቦት ወይም ግሩፕ ሊንክ እዚህ ያድርጉ)
+SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/your_support_username")
+
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 # በአንድ ዙር የሚፈቀደው ከፍተኛ የካርቴላ ብዛት
@@ -443,7 +446,7 @@ def index():
 # 5. TELEGRAM INLINE MENU & HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id=None):
-    """ዋናውን ሜኑ ሙሉ በሙሉ በ Inline Keyboard ቁልፎች ያዘጋጃል"""
+    """ዋናውን ሜኑ በ Inline Keyboard ያዘጋጃል (የ Support ሊንክ ጨምሮ)"""
     markup = InlineKeyboardMarkup(row_width=2)
     app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
     web_app = WebAppInfo(url=app_url)
@@ -460,7 +463,8 @@ def main_menu_keyboard(user_id=None):
         InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
     )
     markup.add(
-        InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help")
+        InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help"),
+        InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=SUPPORT_LINK) # 👈 Direct Telegram Link
     )
     return markup
 
@@ -550,7 +554,8 @@ def handle_main_menu_callbacks(call):
             "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
             "2. በአንድ ዙር ቢበዛ **2 ካርቴላ** ብቻ መያዝ ይቻላል።\n"
             "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።\n"
-            "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።"
+            "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።\n\n"
+            f"💬 ማንኛውም የዲፖዚት ወይም የዊዝድሮው ችግር ካጋጠመዎት **🎧 የደንበኞች አገልግሎት** ቁልፍን በመጫን ያናግሩን!"
         )
         bot.send_message(call.message.chat.id, help_txt, parse_mode="Markdown")
 
