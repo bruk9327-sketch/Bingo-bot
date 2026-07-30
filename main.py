@@ -190,6 +190,11 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="text-left font-bold text-purple-300 text-xs mb-1" id="winner-card-title">CARD #--</div>
+            
+            <!-- B I N G O Header added for Winner Modal -->
+            <div class="grid grid-cols-5 text-center text-amber-400 font-black text-xs mb-1">
+                <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+            </div>
             <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-slate-900/90 p-2 rounded-2xl text-center text-xs font-bold mb-4">
             </div>
 
@@ -317,7 +322,6 @@ HTML_TEMPLATE = """
             document.getElementById('winner-modal').classList.remove('hidden');
         });
 
-        // አዲስ ዙር ሲጀምር ሁልጊዜ Screen Clean የሚያደርግ Socket Event
         socket.on('reset_game', () => {
             mySelectedCards = [];
             drawnNumbersSet.clear();
@@ -343,6 +347,10 @@ HTML_TEMPLATE = """
             cardDiv.className = 'glass-panel rounded-2xl p-2.5 shadow-xl border-purple-500/30';
             
             let html = `<div class="flex justify-between items-center text-xs font-bold text-purple-300 mb-2"><span>CARD #${data.card_id}</span><span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-500/40">LIVE</span></div>`;
+            
+            // B I N G O Header added for User Cards
+            html += `<div class="grid grid-cols-5 text-center text-purple-300 font-black text-xs mb-1"><div>B</div><div>I</div><div>N</div><div>G</div><div>O</div></div>`;
+            
             html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
             
             data.matrix.forEach(row => {
@@ -601,7 +609,6 @@ def game_loop():
         game_state["player_cards"] = {}
         game_state["derash"] = 0.0
 
-        # Frontend ን ከቀደመ አሸናፊ እና ካርቴላዎች ማጽዳት
         socketio.emit('reset_game')
 
         while len(game_state["selected_cards"]) == 0:
@@ -661,7 +668,6 @@ def game_loop():
             socketio.sleep(3)
 
         game_state["status"] = "FINISHED"
-        # አሸናፊ ከተበሰረ በኋላ ለ8 ሰከንዶች ፖፕአፑ እንዲታይ አድርጎ ቀጣዩን ዙር ማስጀመር
         socketio.sleep(8)
 
 # =========================================================
