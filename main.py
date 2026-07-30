@@ -27,6 +27,7 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 # በአንድ ዙር የሚፈቀደው ከፍተኛ የካርቴላ ብዛት
+MIN_WITHDRAWAL = 50.0   # ዝቅተኛው የወጪ ብር መጠን
 
 user_balances = {}       
 user_states = {}         
@@ -83,13 +84,10 @@ def check_bingo_winner(matrix, drawn_set):
     def is_hit(val):
         return val == 'FREE' or val in drawn_set
 
-    # Rows (አግድም)
     for row in matrix:
         if all(is_hit(v) for v in row): return True
-    # Cols (ዶንግ)
     for col in range(5):
         if all(is_hit(matrix[row][col]) for row in range(5)): return True
-    # Diagonals (ዲያጎናል)
     d1 = [matrix[i][i] for i in range(5)]
     d2 = [matrix[i][4-i] for i in range(5)]
     if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
@@ -143,7 +141,6 @@ HTML_TEMPLATE = """
 
     <!-- Selection Screen -->
     <div id="selection-screen" class="mt-1">
-        <!-- 104 Cartela Number Grid -->
         <div id="cartela-grid" class="grid grid-cols-8 gap-1 bg-white p-2 rounded-2xl max-h-[38vh] overflow-y-auto">
         </div>
         
@@ -151,7 +148,6 @@ HTML_TEMPLATE = """
             ⚠️ በአንድ ዙር መያዝ የሚቻለው ቢበዛ 2 ካርቴላ ብቻ ነው!
         </div>
 
-        <!-- Selected Preview Cards -->
         <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2">
         </div>
     </div>
@@ -164,7 +160,6 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
-            <!-- 75 Board View -->
             <div class="w-1/3 glass-panel rounded-2xl p-2">
                 <div class="grid grid-cols-5 text-center text-[10px] text-purple-400 font-black mb-1">
                     <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
@@ -173,7 +168,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- Current Drawn Ball & Active Cards -->
             <div class="w-2/3 flex flex-col items-center">
                 <div id="current-ball" class="w-20 h-20 rounded-full ball-gradient flex items-center justify-center text-xl font-black shadow-2xl border-4 border-purple-300/60 mb-3 animate-bounce">
                     READY
@@ -310,9 +304,6 @@ HTML_TEMPLATE = """
             alert(data.msg);
         });
 
-        /* =========================================================
-           የተስተካከለው 1-75 BINGO GRID (ቁጥሮቹ በ B, I, N, G, O አምድ ወደታች ይደረደራሉ)
-           ========================================================= */
         function init75Board() {
             const board75 = document.getElementById('bingo-75-grid');
             board75.innerHTML = '';
@@ -569,17 +560,104 @@ def handle_deposit_submission(message):
     except Exception as e:
         bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(('app_', 'rej_')))
+# ---------------------------------------------------------
+# 📤 WITHDRAWAL SYSTEM (የወጪ ገንዘብ ጥያቄ ማስተናገጃ)
+# ---------------------------------------------------------
+@bot.message_handler(func=lambda m: m.text and "ዊዝድሮው" in m.text)
+def withdraw_cmd(message):
+    uid = message.from_user.id
+    bal = user_balances.get(uid, 0.0)
+
+    if bal < MIN_WITHDRAWAL:
+        bot.send_message(
+            message.chat.id, 
+            f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\n\n"
+            f"💳 የእርስዎ ባላንስ: **{bal:.2f} ETB**",
+            parse_mode="Markdown"
+        )
+        return
+
+    user_states[uid] = "WAITING_WITHDRAW_INFO"
+    
+    w_text = (
+        f"📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n"
+        f"📌 ዝቅተኛው ማውጣት የሚችሉት: **{MIN_WITHDRAWAL:.2f} ETB**\n\n"
+        f"እባክዎን የሚያወጡትን **የብር መጠን** እና **የስልክ ቁጥር (Telebirr/CBE Birr)** ይላኩ።\n\n"
+        f"👉 **ምሳሌ፦** `100 ETB - 0911223344 Telebirr`"
+    )
+    bot.send_message(message.chat.id, w_text, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_INFO")
+def handle_withdraw_submission(message):
+    uid = message.from_user.id
+    bal = user_balances.get(uid, 0.0)
+    text = message.text
+
+    numbers = re.findall(r'\d+', text)
+    req_amount = 0
+
+    for num in numbers:
+        val = float(num)
+        if val >= MIN_WITHDRAWAL:
+            req_amount = val
+            break
+
+    if req_amount <= 0:
+        bot.send_message(message.chat.id, f"⚠️ **እባክዎን ትክክለኛ የብር መጠን ያስገቡ!** (ዝቅተኛው {MIN_WITHDRAWAL:.2f} ETB)")
+        return
+
+    if req_amount > bal:
+        bot.send_message(message.chat.id, f"❌ **የጠየቁት የብር መጠን ከባላንስዎ ይበልጣል!**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**", parse_mode="Markdown")
+        return
+
+    user_states[uid] = None
+    wd_id = f"WD_{int(time.time())}_{uid}"
+
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton(f"✅ Approve {req_amount:.2f} ETB", callback_data=f"wdapp_{req_amount}_{uid}_{wd_id}"),
+        InlineKeyboardButton("❌ Reject", callback_data=f"wdrej_{uid}_{wd_id}")
+    )
+
+    admin_msg = (
+        f"📤 **አዲስ የዊዝድሮው (Withdrawal) ጥያቄ!**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
+        f"💵 የቀረበው መጠን: **{req_amount:.2f} ETB**\n"
+        f"💳 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n"
+        f"📝 የክፍያ መረጃ: `{text}`"
+    )
+
+    try:
+        bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(
+            message.chat.id, 
+            f"✅ **የዊዝድሮው ጥያቄዎ ተመዝግቧል!**\n\n"
+            f"💵 የተጠየቀው መጠን: **{req_amount:.2f} ETB**\n"
+            f"አድሚኑ መረጃውን አጣርቶ ክፍያውን በቅርቡ ይልካል!",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        bot.send_message(message.chat.id, "❌ ጥያቄውን ማስተናገድ አልተቻለም። እባክዎን በኋላ ደግመው ይሞክሩ።")
+
+# ---------------------------------------------------------
+# 🎛 ADMIN CALLBACK HANDLERS (DEPOSIT & WITHDRAW APPROVALS)
+# ---------------------------------------------------------
+@bot.callback_query_handler(func=lambda call: call.data.startswith(('app_', 'rej_', 'wdapp_', 'wdrej_')))
 def handle_admin_approval(call):
     parts = call.data.split('_')
     action = parts[0]
     
+    # 1. DEPOSIT REJECT
     if action == "rej":
         target_uid = int(parts[1])
         bot.answer_callback_query(call.id, "ዲፖዚቱ ተሰርዟል!")
         bot.edit_message_text(f"❌ **Deposit Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
         bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**")
     
+    # 2. DEPOSIT APPROVE
     elif action == "app":
         amount_val = float(parts[1])
         target_uid = int(parts[2])
@@ -599,14 +677,45 @@ def handle_admin_approval(call):
             parse_mode="Markdown"
         )
 
-@bot.message_handler(func=lambda m: m.text and "ዊዝድሮው" in m.text)
-def withdraw_cmd(message):
-    uid = message.from_user.id
-    bal = user_balances.get(uid, 0.0)
-    if bal < 50:
-        bot.send_message(message.chat.id, f"❌ **ዝቅተኛው የዊዝድሮው መጠን 50 ETB ነው።**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**")
-        return
-    bot.send_message(message.chat.id, f"📤 **ገንዘብ ማውጫ**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**\nእባክዎን የሚያወጡትን መጠን እና የቴሌብር/ባንክ ቁጥር ይላኩ።", parse_mode="Markdown")
+    # 3. WITHDRAW REJECT
+    elif action == "wdrej":
+        target_uid = int(parts[1])
+        bot.answer_callback_query(call.id, "ዊዝድሮው ተሰርዟል!")
+        bot.edit_message_text(f"❌ **Withdrawal Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
+        bot.send_message(target_uid, "❌ **የዊዝድሮው ጥያቄዎ አልተቀበለም!** ተጨማሪ መረጃ ካስፈለገ አድሚኑን ያናግሩ።")
+
+    # 4. WITHDRAW APPROVE
+    elif action == "wdapp":
+        amount_val = float(parts[1])
+        target_uid = int(parts[2])
+        current_bal = user_balances.get(target_uid, 0.0)
+
+        if current_bal < amount_val:
+            bot.answer_callback_query(call.id, "⚠️ ተጫዋቹ በቂ ባላንስ የለውም!", show_alert=True)
+            return
+
+        user_balances[target_uid] -= amount_val
+        new_bal = user_balances[target_uid]
+
+        bot.answer_callback_query(call.id, f"{amount_val} ETB ዊዝድሮው ፀድቋል!")
+        bot.edit_message_text(
+            f"✅ **Withdrawal Approved & Paid!**\n"
+            f"User: `{target_uid}`\n"
+            f"Amount Paid: **-{amount_val:.2f} ETB**\n"
+            f"Remaining Balance: **{new_bal:.2f} ETB**", 
+            call.message.chat.id, 
+            call.message.message_id
+        )
+        
+        bot.send_message(
+            target_uid, 
+            f"🎉 **የዊዝድሮው ጥያቄዎ ፀድቋል!**\n\n"
+            f"💸 የተከፈለዎት መጠን: **{amount_val:.2f} ETB**\n"
+            f"💰 ቀሪ ባላንስዎ: **{new_bal:.2f} ETB**\n\n"
+            f"ገንዘቡ በተላከበት የክፍያ አማራጭ ገቢ ተደርጎልዎታል። እናመሰግናለን! 🙏",
+            reply_markup=main_menu_keyboard(target_uid),
+            parse_mode="Markdown"
+        )
 
 @bot.message_handler(func=lambda m: m.text and "ሪፈራል" in m.text)
 def referral_cmd(message):
@@ -621,7 +730,8 @@ def help_cmd(message):
         "ℹ️ **የጨዋታ ህጎች**\n"
         "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
         "2. በአንድ ዙር ቢበዛ **2 ካርቴላ** ብቻ መያዝ ይቻላል።\n"
-        "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።"
+        "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።\n"
+        "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።"
     )
     bot.send_message(message.chat.id, help_txt, parse_mode="Markdown")
 
