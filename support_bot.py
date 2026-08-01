@@ -1,139 +1,85 @@
 import os
-import time
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# =========================================================
-# 1. CONFIGURATION & BOT SETUP
-# =========================================================
-# የ BKBINGOSUPPORT_bot API Token
-SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8912812512:AAHL9OPDgGNa2QS9YHqY5c6KDKuB7OlF-3M")
-
-# የእንተ (የአድሚኑ) እውነተኛ Telegram User ID (ከምስሉ ያረጋገጥነው)
+# የ Support Bot Token እዚህ ጋር አስገባ
+SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "የ_SUPPORT_BOT_TOKEN_እዚህ_አስገባ")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
+support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 
-user_states = {}
+# የተጫዋቾች ጊዜያዊ ሁኔታ መያዣ
+user_tickets = {}
 
-# =========================================================
-# 2. PLAYER SIDE HANDLERS (የተጫዋቾች ክፍል)
-# =========================================================
-
-@bot.message_handler(commands=['start'])
-def handle_start(message):
+@support_bot.message_handler(commands=['start'])
+def start_support(message):
     uid = message.from_user.id
-    first_name = message.from_user.first_name
-    args = message.text.split()
-    
-    bkb_info = ""
-    if len(args) > 1 and "USER_" in args[1]:
+    text = message.text
+
+    # ከ Main Bot በ Deep Link የመጣ መረጃ መኖሩን ማረጋገጥ (USER_12345_BAL_100)
+    user_info = ""
+    if "USER_" in text and "_BAL_" in text:
         try:
-            parts = args[1].split('_')
-            bkb_user_id = parts[1]
-            bkb_bal = parts[3]
-            bkb_info = f"\n🆔 **BKBINGO ID:** `{bkb_user_id}`\n💰 **ባላንስ:** `{bkb_bal} ETB`"
+            parts = text.split("USER_")[1].split("_BAL_")
+            user_id = parts[0]
+            balance = parts[1]
+            user_info = f"\n\n👤 **የተጫዋች መረጃ፦**\n🆔 ID: `{user_id}`\n💰 ባላንስ: **{balance} ETB**"
         except Exception:
             pass
 
-    user_states[uid] = "WAITING_FOR_QUESTION"
-    
-    welcome_text = (
-        f"👋 ሰላም **{first_name}**!\n\n"
-        f"ወደ **BKBINGO Pro** ኦፊሴላዊ የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧\n"
-        f"{bkb_info}\n\n"
-        f"እባክዎን የገጠመዎትን ችግር፣ የዲፖዚት/ወጪ ጥያቄ ወይም መልእክት አሁን በፅሁፍ ወይም በምስል (Screenshot) ይላኩልን።\n"
-        f"የቡድናችን አባል ጥያቄዎን ተቀብሎ በቅርቡ ምላሽ ይሰጥዎታል።"
+    welcome_msg = (
+        f"👋 ሰላም **{message.from_user.first_name}**!\n"
+        f"ወደ **BKBINGO Pro** የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
+        f"ያጋጠመዎትን ችግር፣ የዲፖዚት/ዊዝድሮው ጥያቄ ወይም አስተያየት በአንድ መልእክት ፅፈው ይላኩልን።"
     )
-    bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown")
+    
+    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="Markdown")
 
-
-@bot.message_handler(func=lambda m: m.from_user.id != ADMIN_ID, content_types=['text', 'photo', 'document'])
-def handle_user_question(message):
+@support_bot.message_handler(func=lambda m: m.from_user.id != ADMIN_ID, content_types=['text', 'photo'])
+def handle_user_inquiry(message):
     uid = message.from_user.id
-    first_name = message.from_user.first_name
-    username = f"@{message.from_user.username}" if message.from_user.username else "የለውም"
+    user_tickets[uid] = message.chat.id
 
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton(text=f"✉️ ለ {first_name} ምላሽ ስጥ", callback_data=f"reply_to_{uid}"))
+    markup.add(InlineKeyboardButton("✍️ መልስ ስጥ (Reply)", callback_data=f"reply_{uid}"))
 
-    admin_msg = (
-        f"🎧 **አዲስ የድጋፍ ጥያቄ ደርሷል!**\n"
+    admin_notification = (
+        f"📩 **አዲስ የደንበኞች ጥያቄ!**\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"👤 ተጫዋች: **{first_name}** ({username})\n"
-        f"🆔 Telegram ID: `{uid}`\n\n"
-        f"💬 **የተጠየቀው ጥያቄ/መልእክት፦**\n"
-        f"{message.text if message.text else (message.caption if message.caption else '📷 [ምስል/ፋይል ተልኳል]')}"
+        f"👤 ከ: {message.from_user.first_name} (`{uid}`)\n"
+        f"💬 መልእክት: {message.text if message.text else 'Photo Sent'}"
     )
 
-    try:
-        if message.photo:
-            bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
-        elif message.document:
-            bot.send_document(ADMIN_ID, message.document.file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+    if message.photo:
+        support_bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_notification, reply_markup=markup, parse_mode="Markdown")
+    else:
+        support_bot.send_message(ADMIN_ID, admin_notification, reply_markup=markup, parse_mode="Markdown")
 
-        bot.send_message(
-            message.chat.id,
-            "✅ **ጥያቄዎ ለድጋፍ ሰጪዎቻችን ተልኳል!**\n\n"
-            "አድሚኑ ጥያቄዎን ተመልክቶ በቅርቡ እዚሁ ምላሽ ይሰጥዎታል። በትዕግስት ይጠብቁ! 🙏",
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        print(f"❌ Error sending to admin: {e}")
-        bot.send_message(message.chat.id, f"❌ መልእክቱን መላክ አልተቻለም።")
+    support_bot.send_message(message.chat.id, "✅ **መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!**\nአድሚኑ መረጃውን አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።")
 
+# የአድሚን ምላሽ መስጫ (Admin Reply Handler)
+admin_reply_state = {}
 
-# =========================================================
-# 3. ADMIN SIDE HANDLERS (የአድሚን ምላሽ መስጫ ክፍል)
-# =========================================================
+@support_bot.callback_query_handler(func=lambda call: call.data.startswith('reply_'))
+def prepare_admin_reply(call):
+    target_uid = int(call.data.split('_')[1])
+    admin_reply_state[ADMIN_ID] = target_uid
+    support_bot.answer_callback_query(call.id)
+    support_bot.send_message(ADMIN_ID, f"✍️ ለ ተጫዋች `{target_uid}` የሚላከውን መልስ አሁን ይጻፉ፦", parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('reply_to_'))
-def handle_reply_button(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "ይህ ለአድሚን ብቻ የተፈቀደ ነው!", show_alert=True)
-        return
-        
-    target_uid = call.data.split('_')[2]
-    user_states[ADMIN_ID] = f"SENDING_REPLY_TO_{target_uid}"
-    
-    bot.answer_callback_query(call.id)
-    bot.send_message(ADMIN_ID, f"✍️ ለተጫዋች ID `{target_uid}` የሚልኩትን ምላሽ ይፃፉ፦", parse_mode="Markdown")
+@support_bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and ADMIN_ID in admin_reply_state)
+def send_admin_reply(message):
+    target_uid = admin_reply_state.pop(ADMIN_ID, None)
+    if target_uid:
+        try:
+            support_bot.send_message(
+                target_uid,
+                f"🎧 **ከደንበኞች አገልግሎት የተሰጠ መልስ፦**\n━━━━━━━━━━━━━━━\n{message.text}"
+            )
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች `{target_uid}` ተልኳል!")
+        except Exception as e:
+            support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
 
-
-@bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and str(user_states.get(ADMIN_ID, '')).startswith("SENDING_REPLY_TO_"), content_types=['text', 'photo', 'document'])
-def send_admin_reply_to_user(message):
-    target_uid = int(user_states[ADMIN_ID].split('_')[3])
-    user_states[ADMIN_ID] = None
-
-    reply_header = (
-        f"🎧 **ከ BKBINGO Pro የደንበኞች አገልግሎት የተሰጠ ምላሽ፦**\n"
-        f"━━━━━━━━━━━━━━━\n"
-    )
-
-    try:
-        if message.photo:
-            caption = reply_header + (message.caption if message.caption else "")
-            bot.send_photo(target_uid, message.photo[-1].file_id, caption=caption, parse_mode="Markdown")
-        elif message.document:
-            caption = reply_header + (message.caption if message.caption else "")
-            bot.send_document(target_uid, message.document.file_id, caption=caption, parse_mode="Markdown")
-        else:
-            bot.send_message(target_uid, reply_header + message.text, parse_mode="Markdown")
-
-        bot.send_message(ADMIN_ID, f"✅ ምላሽዎ ለተጫዋች `{target_uid}` በተሳካ ሁኔታ ተልኳል!", parse_mode="Markdown")
-    except Exception as e:
-        bot.send_message(ADMIN_ID, f"❌ ምላሹን መላክ አልተቻለም፦ {e}", parse_mode="Markdown")
-
-# =========================================================
-# 4. BOT EXECUTION
-# =========================================================
-if __name__ == '__main__':
-    print("🚀 BkbingosupportBot በስኬት ተነስቷል...")
-    try:
-        bot.remove_webhook()
-        time.sleep(1)
-    except Exception:
-        pass
-    bot.infinity_polling(skip_pending=True)
+if __name__ == "__main__":
+    print("Support Bot is running...")
+    support_bot.infinity_polling(skip_pending=True)
