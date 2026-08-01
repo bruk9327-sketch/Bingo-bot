@@ -17,30 +17,35 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bingo_secret_key_123'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-API_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
-bot = telebot.TeleBot(API_TOKEN)
+# BOT TOKENS & ENV VARIABLES
+MAIN_BOT_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
+SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8912812512:AAHL9OPDgGNa2QS9YHqY5c6KDKuB7OlF-3M")
+
+bot = telebot.TeleBot(MAIN_BOT_TOKEN)
+support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
-MAX_CARDS_PER_PLAYER = 2 # በአንድ ዙር የሚፈቀደው ከፍተኛ የካርቴላ ብዛት
-MIN_WITHDRAWAL = 50.0   # ዝቅተኛው የወጪ ብር መጠን
+MAX_CARDS_PER_PLAYER = 2 
+MIN_WITHDRAWAL = 50.0   
 
-user_balances = {}       
+# DATABASE & USER STATES
+users_db = {}            # User Registration Data
 user_states = {}         
-deposit_data = {}        # የዲፖዚት ጊዜያዊ መረጃ መያዣ
-withdraw_data = {}       # የዊዝድሮው ጊዜያዊ መረጃ መያዣ
+deposit_data = {}        
+withdraw_data = {}       
+admin_reply_state = {}   # Support Bot Admin State
 used_txn_ids = set()     
 
 # =========================================================
-# 2. BINGO CARDS DATABASE (1-104 CARDS)
+# 2. BINGO CARDS DATABASE (1-104 CARDS GENERATOR)
 # =========================================================
 cards_database = {}
 
 def generate_official_bingo_card(card_id):
-    """ለእያንዳንዱ ካርቴላ ቋሚና ትክክለኛ Standard 75-Ball Bingo Grid ያመነጫል"""
     seed = int(card_id) * 997
     def get_col(min_v, max_v, count):
         nums = list(range(min_v, max_v + 1))
@@ -69,26 +74,28 @@ for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
 # =========================================================
-# 3. GAME STATE & BINGO WINNER CHECKER
+# 3. GAME STATE & WINNER CHECKER
 # =========================================================
 game_state = {
-    "status": "WAITING",  # WAITING, COUNTDOWN, PLAYING, FINISHED
+    "status": "WAITING",
     "time_left": 15,
     "drawn_numbers": [],
-    "selected_cards": {}, # card_id -> user_id
-    "player_cards": {},   # user_id -> list of card_ids
+    "selected_cards": {}, 
+    "player_cards": {},   
     "derash": 0.0
 }
 
 def check_bingo_winner(matrix, drawn_set):
-    """የ 5x5 መስመር መሙላቱን ያረጋግጣል"""
     def is_hit(val):
         return val == 'FREE' or val in drawn_set
 
+    # Rows Check
     for row in matrix:
         if all(is_hit(v) for v in row): return True
+    # Columns Check
     for col in range(5):
         if all(is_hit(matrix[row][col]) for row in range(5)): return True
+    # Diagonals Check
     d1 = [matrix[i][i] for i in range(5)]
     d2 = [matrix[i][4-i] for i in range(5)]
     if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
@@ -109,141 +116,62 @@ HTML_TEMPLATE = """
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
     <style>
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            background: #090d16;
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.25) 0%, transparent 60%),
-                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.15) 0%, transparent 50%);
-            color: #fff; 
-            min-height: 100vh;
-        }
+        body { font-family: 'Poppins', sans-serif; background: #090d16; color: #fff; min-height: 100vh; }
         .font-header { font-family: 'Montserrat', sans-serif; }
-        .glass-card { 
-            background: rgba(30, 41, 59, 0.75); 
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        .gold-gradient-text {
-            background: linear-gradient(135deg, #fde047 0%, #eab308 50%, #ca8a04 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .ball-gradient { 
-            background: radial-gradient(circle at 35% 35%, #c084fc 0%, #7e22ce 60%, #581c87 100%);
-            box-shadow: inset -5px -5px 12px rgba(0,0,0,0.5), 0 10px 25px rgba(126, 34, 206, 0.5);
-        }
-        .card-btn-selected {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-            color: #ffffff !important;
-            border-color: #34d399 !important;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-        }
+        .glass-card { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .gold-gradient-text { background: linear-gradient(135deg, #fde047 0%, #eab308 50%, #ca8a04 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .ball-gradient { background: radial-gradient(circle at 35% 35%, #c084fc 0%, #7e22ce 60%, #581c87 100%); }
+        .card-btn-selected { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: #ffffff !important; }
     </style>
 </head>
 <body class="select-none pb-12 px-3">
-
-    <!-- Hero Banner -->
     <div class="relative overflow-hidden rounded-2xl mt-2 mb-3 border border-purple-500/30 shadow-2xl">
-        <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=600&auto=format&fit=crop" class="w-full h-24 object-cover opacity-40 brightness-75">
-        <div class="absolute inset-0 bg-gradient-to-r from-purple-900/90 via-slate-900/80 to-slate-950/90 flex justify-between items-center px-4">
+        <div class="p-4 bg-slate-900/90 flex justify-between items-center">
             <div>
-                <h1 class="font-header text-xl font-black gold-gradient-text tracking-wider uppercase">BKBINGO PRO</h1>
-                <p class="text-[10px] text-purple-200 font-semibold tracking-wide">🏆 የኢትዮጵያ ቁጥር 1 የቀጥታ ቢንጎ ጨዋታ</p>
+                <h1 class="font-header text-xl font-black gold-gradient-text">BKBINGO PRO</h1>
+                <p class="text-[10px] text-purple-200">🏆 የኢትዮጵያ ቁጥር 1 የቀጥታ ቢንጎ ጨዋታ</p>
             </div>
-            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-black text-slate-950 text-base shadow-lg border-2 border-amber-200">
-                🎰
-            </div>
+            <div class="text-2xl">🎰</div>
         </div>
     </div>
 
-    <!-- Top Status Bar -->
     <div class="grid grid-cols-5 gap-1.5 mb-3 text-center text-xs font-bold">
-        <div class="glass-card rounded-xl p-2 flex flex-col justify-center border-amber-500/40">
-            <span class="text-[8px] text-amber-400 font-extrabold tracking-wider">ROOM VIP 💰</span>
-        </div>
-        <div class="glass-card rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[8px] text-slate-400 font-semibold">SOLD</span>
-            <span class="text-xs font-black text-white" id="sold-count">0</span>
-        </div>
-        <div class="glass-card rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[8px] text-slate-400 font-semibold">TIME</span>
-            <span id="timer" class="text-xs font-black text-rose-400">15s</span>
-        </div>
-        <div class="glass-card rounded-xl p-2 flex flex-col justify-center">
-            <span class="text-[8px] text-slate-400 font-semibold">CALL</span>
-            <span id="balls-count" class="text-xs font-black text-purple-300">0</span>
-        </div>
-        <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-2 flex flex-col justify-center text-white shadow-lg shadow-emerald-900/40">
-            <span class="text-[8px] opacity-90 font-semibold">BALANCE</span>
-            <span class="text-xs font-black" id="user-balance-disp">0.00 ETB</span>
-        </div>
+        <div class="glass-card rounded-xl p-2 text-amber-400">VIP 💰</div>
+        <div class="glass-card rounded-xl p-2"><span class="text-[8px] text-slate-400">SOLD</span><br><span id="sold-count">0</span></div>
+        <div class="glass-card rounded-xl p-2"><span class="text-[8px] text-slate-400">TIME</span><br><span id="timer" class="text-rose-400">15s</span></div>
+        <div class="glass-card rounded-xl p-2"><span class="text-[8px] text-slate-400">CALL</span><br><span id="balls-count" class="text-purple-300">0</span></div>
+        <div class="bg-emerald-600 rounded-xl p-2"><span class="text-[8px]">BAL</span><br><span id="user-balance-disp">0.00</span></div>
     </div>
 
-    <!-- Selection Screen -->
-    <div id="selection-screen" class="mt-1">
-        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-900/90 p-2.5 rounded-2xl max-h-[36vh] overflow-y-auto border border-slate-800 shadow-inner">
-        </div>
-        
-        <div class="text-center text-[11px] text-amber-300 font-bold my-2 py-1 px-3 bg-amber-500/10 rounded-full border border-amber-500/20">
-            ⚠️ በአንድ ዙር መያዝ የሚቻለው ቢበዛ 2 ካርቴላ ብቻ ነው!
-        </div>
-
-        <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2">
-        </div>
+    <div id="selection-screen">
+        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 bg-slate-900/90 p-2.5 rounded-2xl max-h-[36vh] overflow-y-auto border border-slate-800"></div>
+        <div class="text-center text-[11px] text-amber-300 my-2 py-1 px-3 bg-amber-500/10 rounded-full">⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ ይፈቀዳል።</div>
+        <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2"></div>
     </div>
 
-    <!-- Active Game Screen -->
     <div id="game-screen" class="hidden mt-2">
-        <div class="flex justify-between items-center text-xs mb-3 px-3 glass-card py-2.5 rounded-xl border-emerald-500/30">
-            <div class="font-bold">ደራሽ (POT): <span class="text-emerald-400 font-black text-sm drop-shadow" id="derash-amount">0 ETB</span></div>
-            <div class="font-bold">የወጡ ኳሶች: <span id="game-balls-count" class="font-black text-purple-300">0/75</span></div>
+        <div class="flex justify-between items-center text-xs mb-3 px-3 glass-card py-2.5 rounded-xl">
+            <div>ደራሽ: <span class="text-emerald-400 font-bold" id="derash-amount">0 ETB</span></div>
+            <div>የወጡ: <span id="game-balls-count" class="text-purple-300">0/75</span></div>
         </div>
-
         <div class="flex gap-2">
-            <div class="w-1/3 glass-card rounded-2xl p-2 border-slate-700">
-                <div class="grid grid-cols-5 text-center text-[10px] font-black mb-1">
-                    <span class="text-blue-400">B</span><span class="text-rose-400">I</span><span class="text-amber-400">N</span><span class="text-emerald-400">G</span><span class="text-purple-400">O</span>
-                </div>
-                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center text-[9px]">
-                </div>
+            <div class="w-1/3 glass-card rounded-2xl p-2">
+                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center text-[9px]"></div>
             </div>
-
             <div class="w-2/3 flex flex-col items-center">
-                <div id="current-ball" class="w-20 h-20 rounded-full ball-gradient flex items-center justify-center text-xl font-black text-white shadow-2xl border-4 border-purple-300/40 mb-3 animate-bounce font-header">
-                    READY
-                </div>
-                <div id="my-cards-container" class="w-full space-y-3">
-                </div>
+                <div id="current-ball" class="w-20 h-20 rounded-full ball-gradient flex items-center justify-center text-xl font-black mb-3">READY</div>
+                <div id="my-cards-container" class="w-full space-y-3"></div>
             </div>
         </div>
     </div>
 
-    <!-- Winner Modal Popup -->
-    <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-card text-white rounded-3xl p-5 w-full max-w-sm text-center shadow-2xl relative border-2 border-amber-400">
-            <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black px-5 py-1 rounded-full text-xs shadow-xl uppercase tracking-wider">
-                🏆 አሸናፊ ወጣ!
-            </div>
-            <div id="winner-name" class="text-2xl font-black gold-gradient-text italic mt-3 mb-1 font-header">Winner</div>
-            
-            <div class="bg-slate-900/90 rounded-2xl p-3 mb-3 border border-amber-500/30">
-                <div class="text-[10px] text-slate-400 font-semibold uppercase">የተወሰደው ደራሽ (PRIZE)</div>
-                <div id="winner-prize" class="text-2xl font-black text-emerald-400">0 ETB</div>
-            </div>
-
-            <div class="text-left font-bold text-purple-300 text-xs mb-1" id="winner-card-title">CARD #--</div>
-            
-            <div class="grid grid-cols-5 text-center text-amber-400 font-black text-xs mb-1">
-                <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
-            </div>
-            <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-slate-950 p-2 rounded-2xl text-center text-xs font-bold mb-4">
-            </div>
-
-            <div class="text-[10px] text-slate-400 mt-2 font-semibold">አዲስ ዙር በሰከንዶች ውስጥ ይጀምራል...</div>
+    <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-card text-white rounded-3xl p-5 w-full max-w-sm text-center border-2 border-amber-400">
+            <div class="text-xl font-black gold-gradient-text mt-2" id="winner-name">Winner</div>
+            <div id="winner-prize" class="text-2xl font-black text-emerald-400 my-2">0 ETB</div>
+            <div id="winner-card-matrix" class="grid grid-cols-5 gap-1 bg-slate-950 p-2 rounded-2xl text-xs font-bold my-3"></div>
+            <div class="text-[10px] text-slate-400">አዲስ ዙር በቅርቡ ይጀምራል...</div>
         </div>
     </div>
 
@@ -251,28 +179,19 @@ HTML_TEMPLATE = """
         const socket = io();
         let userId = null;
 
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            if (window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
-                userId = window.Telegram.WebApp.initDataUnsafe.user.id;
-            }
-        }
-
-        if (!userId) {
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe.user) {
+            userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+        } else {
             const urlParams = new URLSearchParams(window.location.search);
             userId = parseInt(urlParams.get('user_id')) || 12345;
         }
 
         let mySelectedCards = [];
-        let drawnNumbersSet = new Set();
 
         socket.emit('get_user_balance', { user_id: userId });
 
         socket.on('balance_update', (data) => {
-            if(data.user_id === userId) {
-                document.getElementById('user-balance-disp').innerText = `${data.balance.toFixed(2)} ETB`;
-            }
+            if(data.user_id === userId) document.getElementById('user-balance-disp').innerText = `${data.balance.toFixed(2)} ETB`;
         });
 
         function initCartelaGrid() {
@@ -281,198 +200,51 @@ HTML_TEMPLATE = """
             for (let i = 1; i <= 104; i++) {
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
-                
-                btn.className = `p-1.5 text-xs font-bold rounded-xl border text-center transition-all duration-200 ${isSelected ? 'card-btn-selected' : 'bg-slate-800/90 text-slate-200 border-slate-700 hover:bg-slate-700'}`;
+                btn.className = `p-1.5 text-xs font-bold rounded-xl border ${isSelected ? 'card-btn-selected' : 'bg-slate-800 text-slate-200'}`;
                 btn.innerText = i;
-                btn.onclick = () => selectCard(i);
+                btn.onclick = () => {
+                    if (mySelectedCards.length >= 2 && !isSelected) return alert("⚠️ ቢበዛ 2 ካርቴላ ብቻ!");
+                    socket.emit('select_card', { user_id: userId, card_id: i });
+                };
                 gridContainer.appendChild(btn);
             }
         }
 
-        function selectCard(cardId) {
-            if (mySelectedCards.includes(cardId)) return;
-            if (mySelectedCards.length >= 2) {
-                alert("⚠️ በአንድ ዙር ከ 2 ካርቴላ በላይ መያዝ አይቻልም!");
-                return;
-            }
-            socket.emit('select_card', { user_id: userId, card_id: cardId });
-        }
-
         socket.on('card_confirmed', (data) => {
-            if(!mySelectedCards.includes(data.card_id)) {
-                mySelectedCards.push(data.card_id);
-            }
+            if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             initCartelaGrid();
-            renderSelectionPreviews();
             document.getElementById('user-balance-disp').innerText = `${data.new_balance.toFixed(2)} ETB`;
         });
 
-        function renderSelectionPreviews() {
-            const container = document.getElementById('preview-cards-container');
-            container.innerHTML = '';
-            mySelectedCards.forEach(cardId => {
-                socket.emit('get_preview_matrix', { card_id: cardId });
-            });
-        }
-
-        socket.on('receive_preview_matrix', (data) => {
-            const container = document.getElementById('preview-cards-container');
-            const cardBox = document.createElement('div');
-            cardBox.className = 'glass-card rounded-2xl p-2 text-white border-2 border-purple-500/40 shadow-lg';
-
-            let html = `<div class="text-xs font-black text-amber-400 mb-1 font-header">#${data.card_id}</div>`;
-            
-            html += `<div class="grid grid-cols-5 text-center text-[10px] font-black text-white mb-1">
-                        <div class="bg-blue-600 rounded-s">B</div>
-                        <div class="bg-rose-600">I</div>
-                        <div class="bg-amber-500">N</div>
-                        <div class="bg-emerald-600">G</div>
-                        <div class="bg-purple-600 rounded-e">O</div>
-                     </div>`;
-            
-            html += `<div class="grid grid-cols-5 gap-0.5 text-center text-[10px] font-bold">`;
-            data.matrix.forEach(row => {
-                row.forEach(val => {
-                    html += `<div class="p-1 rounded ${val === 'FREE' ? 'bg-emerald-500 text-white font-black' : 'bg-slate-800 text-slate-200'}">${val === 'FREE' ? '★' : val}</div>`;
-                });
-            });
-            html += `</div>`;
-            
-            html += `<button class="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] py-1 rounded-lg shadow">BKBINGO!</button>`;
-
-            cardBox.innerHTML = html;
-            container.appendChild(cardBox);
-        });
-
-        socket.on('error_msg', (data) => {
-            alert(data.msg);
-        });
-
-        function init75Board() {
-            const board75 = document.getElementById('bingo-75-grid');
-            board75.innerHTML = '';
-            
-            for (let row = 0; row < 15; row++) {
-                for (let col = 0; col < 5; col++) {
-                    const num = (col * 15) + row + 1;
-                    const cell = document.createElement('div');
-                    cell.id = `ball-cell-${num}`;
-                    cell.className = 'p-1 rounded bg-slate-800/80 text-slate-400 font-semibold';
-                    cell.innerText = num;
-                    board75.appendChild(cell);
-                }
-            }
-        }
-
-        initCartelaGrid();
-        init75Board();
-
         socket.on('timer_update', (data) => {
             document.getElementById('timer').innerText = `${data.time_left}s`;
-            if (data.status === 'WAITING' || data.status === 'COUNTDOWN') {
-                document.getElementById('winner-modal').classList.add('hidden');
-                document.getElementById('game-screen').classList.add('hidden');
-                document.getElementById('selection-screen').classList.remove('hidden');
-            }
-        });
-
-        socket.on('game_update', (data) => {
-            document.getElementById('sold-count').innerText = Object.keys(data.selected_cards).length;
         });
 
         socket.on('game_started', (data) => {
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('derash-amount').innerText = `${data.derash} ETB`;
-            drawnNumbersSet.clear();
-            init75Board();
-            renderMyCards();
         });
 
         socket.on('new_number', (data) => {
-            drawnNumbersSet.add(data.number);
             document.getElementById('current-ball').innerText = data.ball;
-            document.getElementById('balls-count').innerText = data.drawn_list.length;
-            document.getElementById('game-balls-count').innerText = `${data.drawn_list.length}/75`;
-            
-            const cell = document.getElementById(`ball-cell-${data.number}`);
-            if(cell) {
-                cell.className = 'p-1 rounded bg-emerald-500 text-white font-black animate-pulse shadow-lg';
-            }
-            renderMyCards();
         });
 
         socket.on('winner_announced', (data) => {
             document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${data.prize} ETB`;
-            document.getElementById('winner-card-title').innerText = `CARD #${data.card_num}`;
-            
-            const matrixContainer = document.getElementById('winner-card-matrix');
-            matrixContainer.innerHTML = '';
-            
-            data.card_matrix.forEach(row => {
-                row.forEach(val => {
-                    const div = document.createElement('div');
-                    const isHit = val === 'FREE' || drawnNumbersSet.has(val);
-                    div.className = `p-1.5 rounded-lg ${isHit ? 'bg-emerald-500 text-white font-bold shadow' : 'bg-slate-800 text-slate-400'}`;
-                    div.innerText = val === 'FREE' ? '★' : val;
-                    matrixContainer.appendChild(div);
-                });
-            });
-
             document.getElementById('winner-modal').classList.remove('hidden');
-            socket.emit('get_user_balance', { user_id: userId });
         });
 
         socket.on('reset_game', () => {
             mySelectedCards = [];
-            drawnNumbersSet.clear();
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
-            document.getElementById('sold-count').innerText = '0';
-            document.getElementById('preview-cards-container').innerHTML = '';
             initCartelaGrid();
-            socket.emit('get_user_balance', { user_id: userId });
         });
 
-        function renderMyCards() {
-            const container = document.getElementById('my-cards-container');
-            container.innerHTML = '';
-            mySelectedCards.forEach(cardId => {
-                socket.emit('get_card_matrix', { card_id: cardId });
-            });
-        }
-
-        socket.on('receive_card_matrix', (data) => {
-            const container = document.getElementById('my-cards-container');
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-card rounded-2xl p-2.5 shadow-xl text-white border-2 border-purple-500/40';
-            
-            let html = `<div class="flex justify-between items-center text-xs font-bold text-amber-400 mb-2 font-header"><span>CARD #${data.card_id}</span><span class="text-[9px] bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full border border-purple-400/30">LIVE</span></div>`;
-            
-            html += `<div class="grid grid-cols-5 text-center text-white font-black text-xs mb-1">
-                        <div class="bg-blue-600 rounded-s">B</div>
-                        <div class="bg-rose-600">I</div>
-                        <div class="bg-amber-500">N</div>
-                        <div class="bg-emerald-600">G</div>
-                        <div class="bg-purple-600 rounded-e">O</div>
-                     </div>`;
-            
-            html += `<div class="grid grid-cols-5 gap-1 text-center font-bold text-xs">`;
-            
-            data.matrix.forEach(row => {
-                row.forEach(val => {
-                    const isHit = val === 'FREE' || drawnNumbersSet.has(val);
-                    html += `<div class="p-1.5 rounded-lg transition-colors ${isHit ? 'bg-emerald-500 text-white font-black shadow-md' : 'bg-slate-800/80 text-slate-200'}">${val === 'FREE' ? '★' : val}</div>`;
-                });
-            });
-            
-            html += `</div>`;
-            cardDiv.innerHTML = html;
-            container.appendChild(cardDiv);
-        });
+        initCartelaGrid();
     </script>
 </body>
 </html>
@@ -483,21 +255,16 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM INLINE MENU & HANDLERS
+# 5. TELEGRAM MAIN BOT HANDLERS & USER REGISTRATION
 # =========================================================
-def main_menu_keyboard(user_id=None):
-    """ዋናውን ሜኑ በ Inline Keyboard ያዘጋጃል"""
+def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
-    app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
-    web_app = WebAppInfo(url=app_url)
+    app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}"
     
-    # ተጫዋቹ የደንበኞች አገልግሎትን ሲነካ ID እና ባላንሱን ይዞ እንዲሄድ
-    user_bal = user_balances.get(user_id, 0.0) if user_id else 0.0
-    support_deep_link = f"https://t.me/BkbingosupportBot?start=USER_{user_id}_BAL_{int(user_bal)}" if user_id else "https://t.me/BkbingosupportBot"
+    user_bal = users_db.get(user_id, {}).get("balance", 0.0)
+    support_deep_link = f"https://t.me/BkbingosupportBot?start=USER_{user_id}_BAL_{int(user_bal)}"
 
-    markup.add(
-        InlineKeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app)
-    )
+    markup.add(InlineKeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=WebAppInfo(url=app_url)))
     markup.add(
         InlineKeyboardButton(text="👤 ፕሮፋይል / ባላንስ", callback_data="btn_profile"),
         InlineKeyboardButton(text="📥 ዲፖዚት (Deposit)", callback_data="btn_deposit")
@@ -515,35 +282,39 @@ def main_menu_keyboard(user_id=None):
 @bot.message_handler(commands=['start', 'menu'])
 def start_cmd(message):
     uid = message.from_user.id
-    if uid not in user_balances:
-        user_balances[uid] = 0.0
+    first_name = message.from_user.first_name
+    username = message.from_user.username or "የለውም"
+
+    # USER REGISTRATION SYSTEM
+    if uid not in users_db:
+        users_db[uid] = {
+            "id": uid,
+            "name": first_name,
+            "username": username,
+            "balance": 0.0
+        }
 
     welcome_txt = (
-        f"👋 ሰላም **{message.from_user.first_name}**!\n\n"
-        "ወደ **BKBingo Pro** ኦፊሴላዊ የጨዋታ ቦት እንኳን ደህና መጡ! 🎲\n\n"
-        "ከታች ያሉትን **Inline Buttons** በመጫን አገልግሎቶቹን ማግኘት ይችላሉ፦"
+        f"👋 ሰላም **{first_name}**!\n\n"
+        f"ወደ **BKBINGO Pro** እንኳን ደህና መጡ! 🎲\n"
+        f"💰 ባላንስዎ፦ **{users_db[uid]['balance']:.2f} ETB**\n\n"
+        "ለመጫወት ከታች ያለውን **'🎲 ጨዋታ ጀምር'** የሚለውን ይጫኑ።"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
-# ---------------------------------------------------------
-# 🎛 INLINE MAIN MENU CALLBACK HANDLERS
-# ---------------------------------------------------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith('btn_'))
 def handle_main_menu_callbacks(call):
     uid = call.from_user.id
     action = call.data
-
     bot.answer_callback_query(call.id)
 
+    if uid not in users_db:
+        users_db[uid] = {"id": uid, "name": call.from_user.first_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
+
+    bal = users_db[uid]["balance"]
+
     if action == "btn_profile":
-        bal = user_balances.get(uid, 0.0)
-        msg = (
-            f"👤 **የተጫዋች ፕሮፋይል**\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"🆔 User ID: `{uid}`\n"
-            f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-            f"{'✅ ጨዋታ መጫወት ይችላሉ!' if bal >= 10 else '⚠️ ጨዋታ ለመክፈት ቢያንስ 10 ETB ዲፖዚት ያድርጉ!'}"
-        )
+        msg = f"👤 **የተጫዋች ፕሮፋይል**\n🆔 ID: `{uid}`\n💰 ባላንስ: **{bal:.2f} ETB**"
         bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
 
     elif action == "btn_deposit":
@@ -552,338 +323,132 @@ def handle_main_menu_callbacks(call):
             InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
             InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
         )
-        bot.send_message(
-            call.message.chat.id,
-            f"📥 **ገንዘብ ማስገቢያ (Deposit)**\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"እባክዎን ክፍያ መፈፀም የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
+        bot.send_message(call.message.chat.id, "📥 **የክፍያ አማራጭ ይምረጡ፦**", reply_markup=markup, parse_mode="Markdown")
 
     elif action == "btn_withdraw":
-        bal = user_balances.get(uid, 0.0)
         if bal < MIN_WITHDRAWAL:
-            bot.send_message(
-                call.message.chat.id, 
-                f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\n\n"
-                f"💳 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**",
-                parse_mode="Markdown"
-            )
+            bot.send_message(call.message.chat.id, f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\nየእርስዎ ባላንስ፦ **{bal:.2f} ETB**", parse_mode="Markdown")
             return
-
         markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
-            InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
-        )
-        bot.send_message(
-            call.message.chat.id,
-            f"📤 **ገንዘብ ማውጫ (Withdrawal)**\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"💰 የእርስዎ ወቅታዊ ባላንስ: **{bal:.2f} ETB**\n\n"
-            f"እባክዎን ገንዘብ መቀበል የሚፈልጉበትን **የክፍያ አማራጭ** ይምረጡ፦",
-            reply_markup=markup,
-            parse_mode="Markdown"
-        )
+        markup.add(InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"))
+        bot.send_message(call.message.chat.id, "📤 **ገንዘብ መቀበያ ይምረጡ፦**", reply_markup=markup, parse_mode="Markdown")
 
     elif action == "btn_referral":
-        bot_name = bot.get_me().username
-        ref_link = f"https://t.me/{bot_name}?start={uid}"
-        bot.send_message(call.message.chat.id, f"👥 **የሪፈራል ፕሮግራም**\n🔗 የእርስዎ የግብዣ ሊንክ፦\n`{ref_link}`", parse_mode="Markdown")
+        ref_link = f"https://t.me/BkbingosupportBot?start=ref_{uid}"
+        bot.send_message(call.message.chat.id, f"👥 **የእርስዎ የሪፈራል ሊንክ፦**\n{ref_link}\n\nጓደኞችዎን በመጋበዝ የኮሚሽን ቦነስ ያግኙ!", parse_mode="Markdown")
 
     elif action == "btn_help":
-        help_txt = (
-            "ℹ️ **የጨዋታ ህጎች**\n"
-            "1. እያንዳንዱ ካርቴላ **10 ETB** ያወጣል።\n"
-            "2. በአንድ ዙር ቢበዛ **2 ካርቴላ** ብቻ መያዝ ይቻላል።\n"
-            "3. አሸናፊው ከጠቅላላው የካርቴላ ሽያጭ 10% የቦት ኮሚሽን ተቀንሶ **ደራሹን በሙሉ** ይወስዳል።\n"
-            "4. ዝቅተኛው የወጪ (Withdrawal) መጠን **50 ETB** ነው።\n\n"
-            f"💬 ማንኛውም የዲፖዚት ወይም የዊዝድሮው ችግር ካጋጠመዎት **🎧 የደንበኞች አገልግሎት** ቁልፍን በመጫን ያናግሩን!"
-        )
-        bot.send_message(call.message.chat.id, help_txt, parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, "ℹ️ **የቢንጎ ህጎች**\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="Markdown")
 
 # ---------------------------------------------------------
-# 📥 DEPOSIT PROCESS HANDLERS
+# DEPOSIT & WITHDRAWAL LOGIC
 # ---------------------------------------------------------
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
-def handle_deposit_method_selection(call):
+def handle_dep_method(call):
     uid = call.from_user.id
-    method = call.data.split('_', 1)[1].replace('_', ' ')
-    
+    method = call.data.split('_', 1)[1]
     deposit_data[uid] = {'method': method}
-    user_states[uid] = "WAITING_DEPOSIT_INFO"
+    user_states[uid] = "WAITING_DEPOSIT"
+    bot.edit_message_text(f"✅ የተመረጠው፦ **{method}**\n📌 የክፍያ ቁጥር፦ `0991983522`\n\nገንዘቡን ገቢ ካደረጉ በኋላ የትራንዛክሽን ቁጥሩን ወይም ደረሰኙን (Screenshot) እዚህ ይላኩ።", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
 
-    bot.answer_callback_query(call.id)
-    
-    dep_text = (
-        f"✅ የተመረጠው አማራጭ፦ **{method}**\n\n"
-        f"📌 እባክዎን ወደ ታችኛው አካውንት ብር ያስገቡ፦\n"
-        f"📱 **የ{method} ቁጥር፦** `0991983522`\n\n"
-        f"ከክፍያው በኋላ፦\n"
-        f"1. **የብር መጠን**\n"
-        f"2. **የትራንዛክሽን ቁጥር (Txn ID)**\n"
-        f"ወይም የከፈሉበትን **ስክሪንሾት (Screenshot)** በፅሁፍ ይላኩልን።"
-    )
-    
-    bot.edit_message_text(
-        dep_text,
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown"
-    )
-
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT_INFO", content_types=['text', 'photo'])
-def handle_deposit_submission(message):
+@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_DEPOSIT", content_types=['text', 'photo'])
+def handle_deposit_sub(message):
     uid = message.from_user.id
-    text_content = message.text if message.text else message.caption
-
-    extracted_txn = None
-    extracted_amount = 0
-
-    if text_content:
-        txn_match = re.search(r'([A-Za-z0-9]{6,20})', text_content)
-        if txn_match:
-            extracted_txn = txn_match.group(1).upper()
-
-        numbers = re.findall(r'\d+', text_content)
-        for num in numbers:
-            val = int(num)
-            if val >= 20:
-                extracted_amount = val
-                break
-
-    if extracted_txn and extracted_txn in used_txn_ids:
-        bot.send_message(message.chat.id, f"❌ **ይህ የትራንዛክሽን ቁጥር (`{extracted_txn}`) ከዚህ ቀደም አገልግሎት ላይ ውሏል!**", parse_mode="Markdown")
-        return
-
-    if extracted_txn:
-        used_txn_ids.add(extracted_txn)
-
-    method = deposit_data.get(uid, {}).get('method', 'Telebirr')
     user_states[uid] = None
-    dep_id = f"DEP_{int(time.time())}_{uid}"
     
     markup = InlineKeyboardMarkup()
-    suggested_amt = extracted_amount if extracted_amount >= 20 else 20
     markup.row(
-        InlineKeyboardButton(f"✅ Approve {suggested_amt} ETB", callback_data=f"app_{suggested_amt}_{uid}_{dep_id}"),
-        InlineKeyboardButton("✅ Approve 50 ETB", callback_data=f"app_50_{uid}_{dep_id}")
+        InlineKeyboardButton("✅ Approve 50 ETB", callback_data=f"app_50_{uid}"),
+        InlineKeyboardButton("✅ Approve 100 ETB", callback_data=f"app_100_{uid}")
     )
-    markup.row(
-        InlineKeyboardButton("✅ Approve 100 ETB", callback_data=f"app_100_{uid}_{dep_id}"),
-        InlineKeyboardButton("✅ Approve 150 ETB", callback_data=f"app_150_{uid}_{dep_id}")
-    )
-    markup.row(InlineKeyboardButton("❌ Reject", callback_data=f"rej_{uid}_{dep_id}"))
+    bot.send_message(ADMIN_ID, f"🚨 **አዲስ የዲፖዚት ጥያቄ ከ ተጫዋች `{uid}`**\nየተላከው መረጃ፦ {message.text if message.text else 'Image Attachment'}", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ ለአድሚን ተልኳል!** አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ይጨምራል።")
 
-    admin_msg = (
-        f"🚨 **አዲስ የተረጋገጠ የዲፖዚት ጥያቄ!**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
-        f"🏦 አማራጭ: **{method}**\n"
-        f"🔍 Txn ID: `{extracted_txn if extracted_txn else 'አልተገኘም'}`\n"
-        f"💵 የታሰበው መጠን: **{suggested_amt} ETB**\n"
-        f"📝 መልእክት: {text_content if text_content else 'Photo Sent'}"
-    )
-    
-    try:
-        if message.photo:
-            bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
-        else:
-            bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
-            
-        bot.send_message(
-            message.chat.id, 
-            f"✅ **የዲፖዚት መረጃዎ ተላክቷል!**\n\n"
-            f"🏦 የተመረጠው: **{method}**\n"
-            f"⏳ *አድሚኑ መረጃውን አጣርቶ በቅርቡ ባላንስዎን ያዘምነዋል።*",
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        bot.send_message(message.chat.id, "✅ ጥያቄዎ ተመዝግቧል! አድሚኑ አጣርቶ ያጸድቅሎታል።")
-
-# ---------------------------------------------------------
-# 📤 WITHDRAWAL PROCESS HANDLERS
-# ---------------------------------------------------------
-@bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
-def handle_withdraw_method_selection(call):
-    uid = call.from_user.id
-    method = call.data.split('_', 1)[1].replace('_', ' ')
-    
-    withdraw_data[uid] = {'method': method}
-    user_states[uid] = "WAITING_WITHDRAW_ACCOUNT"
-
-    bot.answer_callback_query(call.id)
-    bot.edit_message_text(
-        f"✅ የተመረጠው አማራጭ፦ **{method}**\n\n"
-        f"📌 እባክዎን ገንዘቡ የሚላክበትን **የስልክ ቁጥር** ወይም **የአካውንት ቁጥር** ያስገቡ፦",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown"
-    )
-
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_ACCOUNT")
-def handle_withdraw_account(message):
-    uid = message.from_user.id
-    account_num = message.text.strip()
-
-    withdraw_data[uid]['account'] = account_num
-    user_states[uid] = "WAITING_WITHDRAW_AMOUNT"
-
-    bal = user_balances.get(uid, 0.0)
-    
-    bot.send_message(
-        message.chat.id,
-        f"✅ አድራሻ አካውንት: `{account_num}`\n\n"
-        f"💵 እባክዎን ማውጣት የሚፈልጉትን **የብር መጠን** ያስገቡ፦\n"
-        f"(ዝቅተኛው: **{MIN_WITHDRAWAL:.2f} ETB** | ባላንስዎ: **{bal:.2f} ETB**)",
-        parse_mode="Markdown"
-    )
-
-@bot.message_handler(func=lambda m: user_states.get(m.from_user.id) == "WAITING_WITHDRAW_AMOUNT")
-def handle_withdraw_amount(message):
-    uid = message.from_user.id
-    bal = user_balances.get(uid, 0.0)
-    
-    try:
-        req_amount = float(message.text.strip())
-    except ValueError:
-        bot.send_message(message.chat.id, "⚠️ **እባክዎን ትክክለኛ የቁጥር መጠን ብቻ ያስገቡ!** (ምሳሌ፦ 100)")
-        return
-
-    if req_amount < MIN_WITHDRAWAL:
-        bot.send_message(message.chat.id, f"❌ **ዝቅተኛው ማውጣት የሚችሉት የብር መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**")
-        return
-
-    if req_amount > bal:
-        bot.send_message(message.chat.id, f"❌ **የጠየቁት የብር መጠን ከባላንስዎ ይበልጣል!**\nየእርስዎ ባላንስ: **{bal:.2f} ETB**", parse_mode="Markdown")
-        return
-
-    method = withdraw_data[uid].get('method', 'Telebirr')
-    account = withdraw_data[uid].get('account', 'Unknown')
-
-    user_states[uid] = None
-    wd_id = f"WD_{int(time.time())}_{uid}"
-
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton(f"✅ Approve {req_amount:.2f} ETB", callback_data=f"wdapp_{req_amount}_{uid}_{wd_id}"),
-        InlineKeyboardButton("❌ Reject", callback_data=f"wdrej_{uid}_{wd_id}")
-    )
-
-    admin_msg = (
-        f"📤 **አዲስ የዊዝድሮው ጥያቄ!**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"👤 ተጫዋች: {message.from_user.first_name} (`{uid}`)\n"
-        f"🏦 አማራጭ: **{method}**\n"
-        f"💳 አድራሻ አካውንት: `{account}`\n"
-        f"💵 የተጠየቀው መጠን: **{req_amount:.2f} ETB**\n"
-        f"💰 ወቅታዊ ባላንስ: **{bal:.2f} ETB**"
-    )
-
-    try:
-        bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
-        
-        bot.send_message(
-            message.chat.id, 
-            f"⏳ **የዊዝድሮው ጥያቄዎ በተሳካ ሁኔታ ተልኳል!**\n\n"
-            f"🏦 አማራጭ፦ **{method}**\n"
-            f"💳 አድራሻ አካውንት፦ `{account}`\n"
-            f"💵 የተጠየቀው መጠን፦ **{req_amount:.2f} ETB**\n\n"
-            f"ℹ️ *እስኪረጋገጥ ድረስ ጥቂት ደቂቃዎችን በትዕግስት ይጠብቁ...*",
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        bot.send_message(message.chat.id, "❌ ጥያቄውን ማስተናገድ አልተቻለም። እባክዎን በኋላ ደግመው ይሞክሩ።")
-
-# ---------------------------------------------------------
-# 🎛 ADMIN CALLBACK HANDLERS
-# ---------------------------------------------------------
-@bot.callback_query_handler(func=lambda call: call.data.startswith(('app_', 'rej_', 'wdapp_', 'wdrej_')))
-def handle_admin_approval(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith('app_'))
+def handle_deposit_approve(call):
     parts = call.data.split('_')
-    action = parts[0]
-    
-    if action == "rej":
-        target_uid = int(parts[1])
-        bot.answer_callback_query(call.id, "ዲፖዚቱ ተሰርዟል!")
-        bot.edit_message_text(f"❌ **Deposit Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
-        bot.send_message(target_uid, "❌ **የዲፖዚት ጥያቄዎ አልተቀበለም!**")
-    
-    elif action == "app":
-        amount_val = float(parts[1])
-        target_uid = int(parts[2])
+    amt = float(parts[1])
+    target_uid = int(parts[2])
 
-        user_balances[target_uid] = user_balances.get(target_uid, 0.0) + amount_val
-        new_bal = user_balances[target_uid]
+    if target_uid not in users_db:
+        users_db[target_uid] = {"id": target_uid, "balance": 0.0}
 
-        bot.answer_callback_query(call.id, f"{amount_val} ETB ፀድቋል!")
-        bot.edit_message_text(f"✅ **Deposit Approved!**\nUser: `{target_uid}`\nAmount: **+{amount_val} ETB**\nNew Balance: **{new_bal} ETB**", call.message.chat.id, call.message.message_id)
-        
-        bot.send_message(
-            target_uid, 
-            f"🎉 **ዲፖዚትዎ ፀድቋል!**\n\n"
-            f"📥 የተጨመረ: **+{amount_val:.2f} ETB**\n"
-            f"💰 አጠቃላይ ባላንስ: **{new_bal:.2f} ETB**",
-            reply_markup=main_menu_keyboard(target_uid),
-            parse_mode="Markdown"
-        )
-
-    elif action == "wdrej":
-        target_uid = int(parts[1])
-        bot.answer_callback_query(call.id, "ዊዝድሮው ተሰርዟል!")
-        bot.edit_message_text(f"❌ **Withdrawal Rejected** for User `{target_uid}`", call.message.chat.id, call.message.message_id)
-        bot.send_message(target_uid, "❌ **የዊዝድሮው ጥያቄዎ አልተቀበለም!** ተጨማሪ መረጃ ካስፈለገ አድሚኑን ያናግሩ።")
-
-    elif action == "wdapp":
-        amount_val = float(parts[1])
-        target_uid = int(parts[2])
-        current_bal = user_balances.get(target_uid, 0.0)
-
-        if current_bal < amount_val:
-            bot.answer_callback_query(call.id, "⚠️ ተጫዋቹ በቂ ባላንስ የለውም!", show_alert=True)
-            return
-
-        user_balances[target_uid] -= amount_val
-        new_bal = user_balances[target_uid]
-
-        bot.answer_callback_query(call.id, f"{amount_val} ETB ዊዝድሮው ፀድቋል!")
-        bot.edit_message_text(
-            f"✅ **Withdrawal Approved & Paid!**\n"
-            f"User: `{target_uid}`\n"
-            f"Amount Paid: **-{amount_val:.2f} ETB**\n"
-            f"Remaining Balance: **{new_bal:.2f} ETB**", 
-            call.message.chat.id, 
-            call.message.message_id
-        )
-        
-        bot.send_message(
-            target_uid, 
-            f"🎉 **ዊዝድሮው በተሳካ ሁኔታ ተቀባይነት አግኝቷል!**\n\n"
-            f"💸 የተከፈለዎት መጠን: **{amount_val:.2f} ETB**\n"
-            f"💰 የቀረው ባላንስዎ: **{new_bal:.2f} ETB**\n\n"
-            f"ገንዘቡ በተላከበት የክፍያ አካውንት ገቢ ተደርጎልዎታል። እናመሰግናለን! 🙏",
-            reply_markup=main_menu_keyboard(target_uid),
-            parse_mode="Markdown"
-        )
-
-def run_bot():
-    while True:
-        try:
-            bot.remove_webhook()
-            time.sleep(1)
-            bot.infinity_polling(skip_pending=True)
-        except Exception as e:
-            print(f"Bot Polling Error: {e}")
-            time.sleep(3)
+    users_db[target_uid]["balance"] += amt
+    bot.edit_message_text(f"✅ **ዲፖዚት ፀድቋል!** +{amt} ETB ለተጫዋች `{target_uid}` ተጨምሯል።", call.message.chat.id, call.message.message_id)
+    bot.send_message(target_uid, f"🎉 **ዲፖዚትዎ ፀድቋል!**\n💰 አዲሱ ባላንስዎ፦ **{users_db[target_uid]['balance']:.2f} ETB**", parse_mode="Markdown")
 
 # =========================================================
-# 6. SOCKET.IO EVENTS & REAL GAME LOOP
+# 6. SUPPORT BOT HANDLERS (የደንበኞች አገልግሎት)
+# =========================================================
+@support_bot.message_handler(commands=['start'])
+def start_support_bot(message):
+    text = message.text
+    user_info = ""
+    
+    if "USER_" in text and "_BAL_" in text:
+        try:
+            parts = text.split("USER_")[1].split("_BAL_")
+            u_id = parts[0]
+            bal = parts[1]
+            user_info = f"\n\n👤 **የተጫዋች መረጃ፦**\n🆔 ID: `{u_id}`\n💰 ባላንስ: **{bal} ETB**"
+        except Exception:
+            pass
+
+    welcome_msg = (
+        f"👋 ሰላም **{message.from_user.first_name}**!\n"
+        f"ወደ **BKBINGO Pro** የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
+        f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን።"
+    )
+    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="Markdown")
+
+@support_bot.message_handler(func=lambda m: m.from_user.id != ADMIN_ID, content_types=['text', 'photo'])
+def handle_support_inquiry(message):
+    uid = message.from_user.id
+    
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("✍️ መልስ ስጥ (Reply)", callback_data=f"suppreply_{uid}"))
+
+    admin_msg = (
+        f"📩 **አዲስ የደንበኞች ጥያቄ!**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"👤 ከ: {message.from_user.first_name} (`{uid}`)\n"
+        f"💬 መልእክት፦ {message.text if message.text else 'Photo Sent'}"
+    )
+
+    if message.photo:
+        support_bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
+    else:
+        support_bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+
+    support_bot.send_message(message.chat.id, "✅ **መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!** አድሚኑ አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።")
+
+@support_bot.callback_query_handler(func=lambda call: call.data.startswith('suppreply_'))
+def prepare_support_reply(call):
+    target_uid = int(call.data.split('_')[1])
+    admin_reply_state[ADMIN_ID] = target_uid
+    support_bot.answer_callback_query(call.id)
+    support_bot.send_message(ADMIN_ID, f"✍️ ለ ተጫዋች `{target_uid}` የሚላከውን መልስ አሁን ይጻፉ፦", parse_mode="Markdown")
+
+@support_bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and ADMIN_ID in admin_reply_state)
+def send_support_reply(message):
+    target_uid = admin_reply_state.pop(ADMIN_ID, None)
+    if target_uid:
+        try:
+            support_bot.send_message(
+                target_uid,
+                f"🎧 **ከደንበኞች አገልግሎት የተሰጠ መልስ፦**\n━━━━━━━━━━━━━━━\n{message.text}"
+            )
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች `{target_uid}` ተልኳል!")
+        except Exception as e:
+            support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
+
+# =========================================================
+# 7. SOCKET.IO REAL-TIME BINGO GAME LOOP
 # =========================================================
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
     uid = int(data.get('user_id'))
-    bal = user_balances.get(uid, 0.0)
+    bal = users_db.get(uid, {}).get("balance", 0.0)
     emit('balance_update', {'user_id': uid, 'balance': bal})
 
 @socketio.on('select_card')
@@ -891,59 +456,28 @@ def handle_card_selection(data):
     uid = int(data.get('user_id'))
     card_id = int(data.get('card_id'))
 
-    if game_state['status'] not in ['WAITING', 'COUNTDOWN']:
-        emit('error_msg', {'msg': 'ጨዋታ ተጀምሯል! እባክዎን አዲስ ዙር ይበቁ።'})
-        return
+    if uid not in users_db:
+        users_db[uid] = {"id": uid, "balance": 0.0}
 
-    current_player_cards = game_state['player_cards'].get(uid, [])
-    if len(current_player_cards) >= MAX_CARDS_PER_PLAYER:
-        emit('error_msg', {'msg': '⚠️ በአንድ ዙር ከ 2 ካርቴላ በላይ መያዝ አይቻልም!'})
-        return
-
-    bal = user_balances.get(uid, 0.0)
+    bal = users_db[uid]["balance"]
     if bal < CARD_PRICE:
-        emit('error_msg', {'msg': f'በቂ ባላንስ የሎትም። እባክዎን በቦቱ ዲፖዚት ያድርጉ! (ባላንስዎ: {bal:.2f} ETB)'})
+        emit('error_msg', {'msg': 'በቂ ባላንስ የሎትም።'})
         return
 
-    if card_id in game_state['selected_cards']:
-        emit('error_msg', {'msg': 'ይህ ካርቴላ በተခြား ተጫዋች ተይዟል!'})
-        return
-
-    user_balances[uid] -= CARD_PRICE
-    new_bal = user_balances[uid]
-
+    users_db[uid]["balance"] -= CARD_PRICE
     game_state['selected_cards'][card_id] = uid
     if uid not in game_state['player_cards']:
         game_state['player_cards'][uid] = []
     game_state['player_cards'][uid].append(card_id)
 
-    total_pool = len(game_state['selected_cards']) * CARD_PRICE
-    game_state['derash'] = round(total_pool * (1 - COMMISSION_RATE), 2)
-
-    emit('card_confirmed', {'card_id': card_id, 'new_balance': new_bal}, broadcast=False)
-    socketio.emit('game_update', game_state)
-
-@socketio.on('get_preview_matrix')
-def handle_preview_matrix(data):
-    c_id = int(data.get('card_id'))
-    if c_id in cards_database:
-        emit('receive_preview_matrix', {'card_id': c_id, 'matrix': cards_database[c_id]})
-
-@socketio.on('get_card_matrix')
-def handle_get_matrix(data):
-    c_id = int(data.get('card_id'))
-    if c_id in cards_database:
-        emit('receive_card_matrix', {'card_id': c_id, 'matrix': cards_database[c_id]})
+    emit('card_confirmed', {'card_id': card_id, 'new_balance': users_db[uid]["balance"]}, broadcast=False)
 
 def game_loop():
     global game_state
     while True:
         game_state["status"] = "WAITING"
-        game_state["drawn_numbers"] = []
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
-        game_state["derash"] = 0.0
-
         socketio.emit('reset_game')
 
         while len(game_state["selected_cards"]) == 0:
@@ -951,77 +485,38 @@ def game_loop():
 
         game_state["status"] = "COUNTDOWN"
         for t in range(15, 0, -1):
-            game_state["time_left"] = t
-            socketio.emit('timer_update', {'time_left': t, 'status': 'COUNTDOWN'})
+            socketio.emit('timer_update', {'time_left': t})
             socketio.sleep(1)
 
         game_state["status"] = "PLAYING"
-        socketio.emit('game_started', {'status': 'PLAYING', 'derash': game_state['derash']})
-
-        all_numbers = list(range(1, 76))
-        random.shuffle(all_numbers)
-
-        drawn_set = set()
-        winner_found = False
-
-        for num in all_numbers:
-            if winner_found:
-                break
-
-            drawn_set.add(num)
-            game_state["drawn_numbers"].append(num)
-
-            letter = 'B' if num <= 15 else 'I' if num <= 30 else 'N' if num <= 45 else 'G' if num <= 60 else 'O'
-            ball_str = f"{letter}-{num}"
-
-            socketio.emit('new_number', {
-                'number': num,
-                'ball': ball_str,
-                'drawn_list': game_state["drawn_numbers"]
-            })
-
-            for uid, cards in game_state["player_cards"].items():
-                for card_id in cards:
-                    matrix = cards_database[card_id]
-                    if check_bingo_winner(matrix, drawn_set):
-                        winner_found = True
-                        prize = game_state["derash"]
-
-                        user_balances[uid] = user_balances.get(uid, 0.0) + prize
-                        
-                        socketio.emit('winner_announced', {
-                            "winner_name": f"User_{uid}",
-                            "prize": prize,
-                            "card_num": card_id,
-                            "card_matrix": matrix
-                        })
-
-                        try:
-                            bot.send_message(
-                                uid,
-                                f"🎉 **እንኳን ደስ አለዎት! ሎተሪው ደርሶዎታል!** 🏆\n\n"
-                                f"🃏 ያሸነፉበት ካርቴላ: **#{card_id}**\n"
-                                f"💰 ያሸነፉት ደራሽ: **+{prize:.2f} ETB**\n"
-                                f"💳 አዲሱ ባላንስዎ: **{user_balances[uid]:.2f} ETB**",
-                                parse_mode="Markdown"
-                            )
-                        except Exception as e:
-                            print(f"Winner Bot Message Failed: {e}")
-
-                        break
-                if winner_found:
-                    break
-
-            socketio.sleep(3)
-
-        game_state["status"] = "FINISHED"
-        socketio.sleep(8)
+        socketio.emit('game_started', {'status': 'PLAYING', 'derash': len(game_state["selected_cards"]) * CARD_PRICE * 0.9})
+        socketio.sleep(10)
 
 # =========================================================
-# 7. MAIN EXECUTION
+# 8. THREAD RUNNERS & MAIN EXECUTION
 # =========================================================
+def run_main_bot():
+    while True:
+        try:
+            bot.remove_webhook()
+            time.sleep(1)
+            bot.infinity_polling(skip_pending=True)
+        except Exception as e:
+            time.sleep(3)
+
+def run_support_bot():
+    while True:
+        try:
+            support_bot.remove_webhook()
+            time.sleep(1)
+            support_bot.infinity_polling(skip_pending=True)
+        except Exception as e:
+            time.sleep(3)
+
 if __name__ == "__main__":
-    Thread(target=run_bot, daemon=True).start()
+    Thread(target=run_main_bot, daemon=True).start()
+    Thread(target=run_support_bot, daemon=True).start()
     socketio.start_background_task(game_loop)
+    
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
