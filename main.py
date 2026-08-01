@@ -89,13 +89,10 @@ def check_bingo_winner(matrix, drawn_set):
     def is_hit(val):
         return val == 'FREE' or val in drawn_set
 
-    # 1. Horizontal Rows
     for row in matrix:
         if all(is_hit(v) for v in row): return True
-    # 2. Vertical Columns
     for col in range(5):
         if all(is_hit(matrix[row][col]) for row in range(5)): return True
-    # 3. Diagonals
     d1 = [matrix[i][i] for i in range(5)]
     d2 = [matrix[i][4-i] for i in range(5)]
     if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
@@ -252,7 +249,6 @@ HTML_TEMPLATE = """
         const socket = io();
         let userId = null;
 
-        // FETCH TELEGRAM USER ID ACCURATELY
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
         } else {
@@ -457,7 +453,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & USER REGISTRATION
+# 5. TELEGRAM MAIN BOT & USER REGISTRATION (HTML SAFE FORMATTING)
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -484,8 +480,8 @@ def main_menu_keyboard(user_id):
 @bot.message_handler(commands=['start', 'menu'])
 def start_cmd(message):
     uid = int(message.from_user.id)
-    first_name = message.from_user.first_name
-    username = message.from_user.username or "የለውም"
+    first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
+    username = (message.from_user.username or "የለውም").replace('<', '&lt;').replace('>', '&gt;')
 
     if uid not in users_db:
         users_db[uid] = {
@@ -496,12 +492,12 @@ def start_cmd(message):
         }
 
     welcome_txt = (
-        f"👋 ሰላም **{first_name}**!\n\n"
-        f"ወደ **BKBINGO Pro** እንኳን ደህና መጡ! 🎲\n"
-        f"💰 ባላንስዎ፦ **{users_db[uid]['balance']:.2f} ETB**\n\n"
-        "ለመጫወት ከታች ያለውን **'🎲 ጨዋታ ጀምር'** የሚለውን ይጫኑ።"
+        f"👋 ሰላም <b>{first_name}</b>!\n\n"
+        f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
+        f"💰 ባላንስዎ፦ <b>{users_db[uid]['balance']:.2f} ETB</b>\n\n"
+        "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
     )
-    bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
+    bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('btn_'))
 def handle_main_menu_callbacks(call):
@@ -509,14 +505,15 @@ def handle_main_menu_callbacks(call):
     action = call.data
     bot.answer_callback_query(call.id)
 
+    safe_name = call.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
     if uid not in users_db:
-        users_db[uid] = {"id": uid, "name": call.from_user.first_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
+        users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
 
     bal = users_db[uid]["balance"]
 
     if action == "btn_profile":
-        msg = f"👤 **የተጫዋች ፕሮፋይል**\n🆔 ID: `{uid}`\n💰 ባላንስ: **{bal:.2f} ETB**"
-        bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="Markdown")
+        msg = f"👤 <b>የተጫዋች ፕሮፋይል</b>\n🆔 ID: <code>{uid}</code>\n💰 ባላንስ: <b>{bal:.2f} ETB</b>"
+        bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_deposit":
         markup = InlineKeyboardMarkup(row_width=2)
@@ -524,22 +521,22 @@ def handle_main_menu_callbacks(call):
             InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
             InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
         )
-        bot.send_message(call.message.chat.id, "📥 **የክፍያ አማራጭ ይምረጡ፦**", reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, "📥 <b>የክፍያ አማራጭ ይምረጡ፦</b>", reply_markup=markup, parse_mode="HTML")
 
     elif action == "btn_withdraw":
         if bal < MIN_WITHDRAWAL:
-            bot.send_message(call.message.chat.id, f"❌ **ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።**\nየእርስዎ ባላንስ፦ **{bal:.2f} ETB**", parse_mode="Markdown")
+            bot.send_message(call.message.chat.id, f"❌ <b>ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
             return
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"))
-        bot.send_message(call.message.chat.id, "📤 **ገንዘብ መቀበያ ይምረጡ፦**", reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, "📤 <b>ገንዘብ መቀበያ ይምረጡ፦</b>", reply_markup=markup, parse_mode="HTML")
 
     elif action == "btn_referral":
         ref_link = f"https://t.me/BkbingosupportBot?start=ref_{uid}"
-        bot.send_message(call.message.chat.id, f"👥 **የእርስዎ የሪፈራል ሊንክ፦**\n{ref_link}\n\nጓደኞችዎን በመጋበዝ የኮሚሽን ቦነስ ያግኙ!", parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, f"👥 <b>የእርስዎ የሪፈራል ሊንክ፦</b>\n{ref_link}\n\nጓደኞችዎን በመጋበዝ የኮሚሽን ቦነስ ያግኙ!", parse_mode="HTML")
 
     elif action == "btn_help":
-        bot.send_message(call.message.chat.id, "ℹ️ **የ BKBINGO Pro ህጎች**\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # DEPOSIT HANDLERS & APPROVAL
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
@@ -548,7 +545,7 @@ def handle_dep_method(call):
     method = call.data.split('_', 1)[1]
     deposit_data[uid] = {'method': method}
     user_states[uid] = "WAITING_DEPOSIT"
-    bot.edit_message_text(f"✅ የተመረጠው፦ **{method}**\n📌 የክፍያ ቁጥር፦ `0991983522`\n\nገንዘቡን ገቢ ካደረጉ በኋላ የትራንዛክሽን ቁጥሩን ወይም ደረሰኙን (Screenshot) እዚህ ይላኩ።", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
+    bot.edit_message_text(f"✅ የተመረጠው፦ <b>{method}</b>\n📌 የክፍያ ቁጥር፦ <code>0991983522</code>\n\nገንዘቡን ገቢ ካደረጉ በኋላ የትራንዛክሽን ቁጥሩን ወይም ደረሰኙን (Screenshot) እዚህ ይላኩ።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
 
 @bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_DEPOSIT", content_types=['text', 'photo'])
 def handle_deposit_sub(message):
@@ -560,8 +557,9 @@ def handle_deposit_sub(message):
         InlineKeyboardButton("✅ Approve 50 ETB", callback_data=f"app_50_{uid}"),
         InlineKeyboardButton("✅ Approve 100 ETB", callback_data=f"app_100_{uid}")
     )
-    bot.send_message(ADMIN_ID, f"🚨 **አዲስ የዲፖዚት ጥያቄ ከ ተጫዋች `{uid}`**\nየተላከው መረጃ፦ {message.text if message.text else 'Image Attachment'}", reply_markup=markup, parse_mode="Markdown")
-    bot.send_message(message.chat.id, "✅ **የዲፖዚት መረጃዎ ለአድሚን ተልኳል!** አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ይጨምራል።")
+    sub_text = message.text.replace('<', '&lt;').replace('>', '&gt;') if message.text else 'Image Attachment'
+    bot.send_message(ADMIN_ID, f"🚨 <b>አዲስ የዲፖዚት ጥያቄ ከ ተጫዋች <code>{uid}</code></b>\nየተላከው መረጃ፦ {sub_text}", reply_markup=markup, parse_mode="HTML")
+    bot.send_message(message.chat.id, "✅ <b>የዲፖዚት መረጃዎ ለአድሚን ተልኳል!</b> አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ይጨምራል።", parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('app_'))
 def handle_deposit_approve(call):
@@ -574,74 +572,78 @@ def handle_deposit_approve(call):
 
     users_db[target_uid]["balance"] += amt
     
-    # Broadcast Balance Update via SocketIO
     socketio.emit('balance_update', {'user_id': target_uid, 'balance': users_db[target_uid]["balance"]})
 
-    bot.edit_message_text(f"✅ **ዲፖዚት ፀድቋል!** +{amt} ETB ለተጫዋች `{target_uid}` ተጨምሯል።", call.message.chat.id, call.message.message_id)
-    bot.send_message(target_uid, f"🎉 **ዲፖዚትዎ ፀድቋል!**\n💰 አዲሱ ባላንስዎ፦ **{users_db[target_uid]['balance']:.2f} ETB**", parse_mode="Markdown")
+    bot.edit_message_text(f"✅ <b>ዲፖዚት ፀድቋል!</b> +{amt} ETB ለተጫዋች <code>{target_uid}</code> ተጨምሯል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
+    bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS
+# 6. SUPPORT BOT HANDLERS (HTML SAFE FORMATTING)
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
     text = message.text
     user_info = ""
+    safe_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
     
     if "USER_" in text and "_BAL_" in text:
         try:
             parts = text.split("USER_")[1].split("_BAL_")
             u_id = parts[0]
             bal = parts[1]
-            user_info = f"\n\n👤 **የተጫዋች መረጃ፦**\n🆔 ID: `{u_id}`\n💰 ባላንስ: **{bal} ETB**"
+            user_info = f"\n\n👤 <b>የተጫዋች መረጃ፦</b>\n🆔 ID: <code>{u_id}</code>\n💰 ባላንስ: <b>{bal} ETB</b>"
         except Exception:
             pass
 
     welcome_msg = (
-        f"👋 ሰላም **{message.from_user.first_name}**!\n"
-        f"ወደ **BKBINGO Pro** የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
+        f"👋 ሰላም <b>{safe_name}</b>!\n"
+        f"ወደ <b>BKBINGO Pro</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
         f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን።"
     )
-    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="Markdown")
+    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="HTML")
 
 @support_bot.message_handler(func=lambda m: int(m.from_user.id) != ADMIN_ID, content_types=['text', 'photo'])
 def handle_support_inquiry(message):
     uid = int(message.from_user.id)
+    safe_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
+    safe_msg = message.text.replace('<', '&lt;').replace('>', '&gt;') if message.text else 'Photo Sent'
     
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("✍️ መልስ ስጥ (Reply)", callback_data=f"suppreply_{uid}"))
 
     admin_msg = (
-        f"📩 **አዲስ የደንበኞች ጥያቄ!**\n"
+        f"📩 <b>አዲስ የደንበኞች ጥያቄ!</b>\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"👤 ከ: {message.from_user.first_name} (`{uid}`)\n"
-        f"💬 መልእክት፦ {message.text if message.text else 'Photo Sent'}"
+        f"👤 ከ: {safe_name} (<code>{uid}</code>)\n"
+        f"💬 መልእክት፦ {safe_msg}"
     )
 
     if message.photo:
-        support_bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="Markdown")
+        support_bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_msg, reply_markup=markup, parse_mode="HTML")
     else:
-        support_bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="Markdown")
+        support_bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
 
-    support_bot.send_message(message.chat.id, "✅ **መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!** አድሚኑ አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።")
+    support_bot.send_message(message.chat.id, "✅ <b>መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!</b> አድሚኑ አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።", parse_mode="HTML")
 
 @support_bot.callback_query_handler(func=lambda call: call.data.startswith('suppreply_'))
 def prepare_support_reply(call):
     target_uid = int(call.data.split('_')[1])
     admin_reply_state[ADMIN_ID] = target_uid
     support_bot.answer_callback_query(call.id)
-    support_bot.send_message(ADMIN_ID, f"✍️ ለ ተጫዋች `{target_uid}` የሚላከውን መልስ አሁን ይጻፉ፦", parse_mode="Markdown")
+    support_bot.send_message(ADMIN_ID, f"✍️ ለ ተጫዋች <code>{target_uid}</code> የሚላከውን መልስ አሁን ይጻፉ፦", parse_mode="HTML")
 
 @support_bot.message_handler(func=lambda m: int(m.from_user.id) == ADMIN_ID and ADMIN_ID in admin_reply_state)
 def send_support_reply(message):
     target_uid = admin_reply_state.pop(ADMIN_ID, None)
     if target_uid:
         try:
+            safe_text = message.text.replace('<', '&lt;').replace('>', '&gt;')
             support_bot.send_message(
                 target_uid,
-                f"🎧 **ከደንበኞች አገልግሎት የተሰጠ መልስ፦**\n━━━━━━━━━━━━━━━\n{message.text}"
+                f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n━━━━━━━━━━━━━━━\n{safe_text}",
+                parse_mode="HTML"
             )
-            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች `{target_uid}` ተልኳል!")
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ተልኳል!", parse_mode="HTML")
         except Exception as e:
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
 
@@ -675,7 +677,6 @@ def handle_card_selection(data):
     if card_id in game_state['selected_cards']:
         return
 
-    # Deduct Card Price & Update Realtime Balance
     users_db[uid]["balance"] -= CARD_PRICE
     game_state['selected_cards'][card_id] = uid
     if uid not in game_state['player_cards']:
