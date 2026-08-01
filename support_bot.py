@@ -5,8 +5,8 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 # =========================================================
 # 1. CONFIGURATION & BOT SETUP
 # =========================================================
-# የ BkbingosupportBot Token (ከ BotFather ያገኘኸው)
-SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8623843462:AAG7e74RbOdQX5N4lsT2EsO8XJ0Hy5TYjkM")
+# የ BkbingosupportBot API Token (የተሰጠውን ቶከን አቀናጅተናል)
+SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8912812512:AAHL9OPDgGNa2QS9YHqY5c6KDKuB7OlF-3M")
 
 # የ BKBINGO Pro አድሚን Telegram User ID
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
@@ -139,7 +139,7 @@ def send_admin_reply_to_user(message):
         # ለአድሚኑ ማረጋገጫ መስጠት
         bot.send_message(ADMIN_ID, f"✅ ምላሽዎ ለተጫዋች `{target_uid}` በተሳካ ሁኔታ ተልኳል!", parse_mode="Markdown")
     except Exception as e:
-        bot.send_message(ADMIN_ID, f"❌ ምላሹን ለተጫዋቹ መላክ አልተቻለም (ተጫዋቹ ቦቱን ብሎክ አድርጎት ሊሆን ይችላል)፦ {e}", parse_mode="Markdown")
+        bot.send_message(ADMIN_ID, f"❌ ምላሹን ለተጫዋቹ መላክ አልተቻለም፦ {e}", parse_mode="Markdown")
 
 # =========================================================
 # 4. BOT EXECUTION
