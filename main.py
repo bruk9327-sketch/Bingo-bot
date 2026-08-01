@@ -23,9 +23,6 @@ bot = telebot.TeleBot(API_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# የደንበኞች አገልግሎት ሊንክ
-SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/BkbingosupportBot")
-
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 # በአንድ ዙር የሚፈቀደው ከፍተኛ የካርቴላ ብዛት
@@ -99,7 +96,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (DESIGN ENHANCED)
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -149,7 +146,7 @@ HTML_TEMPLATE = """
 </head>
 <body class="select-none pb-12 px-3">
 
-    <!-- Hero Banner with Image & Logo -->
+    <!-- Hero Banner -->
     <div class="relative overflow-hidden rounded-2xl mt-2 mb-3 border border-purple-500/30 shadow-2xl">
         <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=600&auto=format&fit=crop" class="w-full h-24 object-cover opacity-40 brightness-75">
         <div class="absolute inset-0 bg-gradient-to-r from-purple-900/90 via-slate-900/80 to-slate-950/90 flex justify-between items-center px-4">
@@ -494,6 +491,10 @@ def main_menu_keyboard(user_id=None):
     app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}" if user_id else RENDER_WEBAPP_URL
     web_app = WebAppInfo(url=app_url)
     
+    # ተጫዋቹ የደንበኞች አገልግሎትን ሲነካ ID እና ባላንሱን ይዞ እንዲሄድ
+    user_bal = user_balances.get(user_id, 0.0) if user_id else 0.0
+    support_deep_link = f"https://t.me/BkbingosupportBot?start=USER_{user_id}_BAL_{int(user_bal)}" if user_id else "https://t.me/BkbingosupportBot"
+
     markup.add(
         InlineKeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=web_app)
     )
@@ -507,7 +508,7 @@ def main_menu_keyboard(user_id=None):
     )
     markup.add(
         InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help"),
-        InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=SUPPORT_LINK)
+        InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=support_deep_link)
     )
     return markup
 
@@ -871,7 +872,7 @@ def run_bot():
         try:
             bot.remove_webhook()
             time.sleep(1)
-            bot.polling(none_stop=True)
+            bot.infinity_polling(skip_pending=True)
         except Exception as e:
             print(f"Bot Polling Error: {e}")
             time.sleep(3)
