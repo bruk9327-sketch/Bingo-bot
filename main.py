@@ -3,9 +3,11 @@ import re
 import random
 import time
 import uuid
+import hmac
+import hashlib
 import requests
 import json
-from threading import Thread
+from threading import Thread, Lock
 from flask import Flask, render_template_string, request, jsonify
 from flask_socketio import SocketIO, emit
 import telebot
@@ -32,8 +34,8 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
 # CHAPA KEYS
 CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-GK2tyiVjfHkyMFz70ngJS4E85IAXhLPe")
-CHAPA_PUBLIC_KEY = os.environ.get("CHAPA_PUBLIC_KEY", "CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
-CHAPA_ENCRYPTION_KEY = os.environ.get("CHAPA_ENCRYPTION_KEY", "EBGLgzM9JVjRgtKX5SWg0Dvo")
+CHAPA_PUBLIC_KEY = os.environ.get("CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
+CHAPA_ENCRYPTION_KEY = os.environ.get("EBGLgzM9JVjRgtKX5SWg0Dvo")
 CHAPA_BASE_URL = "https://api.chapa.co/v1"
 
 CARD_PRICE = 10.0
@@ -43,7 +45,8 @@ MIN_WITHDRAWAL = 50.0   # ዝቅተኛው ዊዝድሮው
 
 OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
-# DATABASE & USER STATES
+# DATABASE, LOCKS & USER STATES
+db_lock = Lock()
 users_db = {}            
 user_states = {}         
 deposit_data = {}        
@@ -52,7 +55,7 @@ admin_reply_state = {}
 used_txn_ids = set()     
 
 # =========================================================
-# 2. CHAPA INTEGRATION HELPER FUNCTIONS (DEPOSIT & PAYOUT)
+# 2. CHAPA INTEGRATION HELPER FUNCTIONS
 # =========================================================
 def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
     """የ Chapa የክፍያ ሊንክ ማፍሪያ (Deposit)"""
@@ -76,19 +79,17 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
     }
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=10)
-        res_data = response.json()
-        print(f"Chapa Deposit Response: {res_data}")
-        return res_data
+        return response.json()
     except Exception as e:
         print(f"Chapa Init Error: {e}")
         return None
 
 def get_chapa_bank_code(raw_code):
-    """TEST Mode እና LIVE Mode ላይ የባንክ ኮድ ማስተካከያ"""
+    """TEST Mode እና LIVE Mode ላይ የባንክ ኮድ ማስተካከያ (በ Chapa ቴስት ሲስተም 'TEST' የሚለውን መጠቀም ይመረጣል)"""
     is_test_mode = "TEST" in CHAPA_SECRET_KEY
     if is_test_mode:
-        # በ Chapa Sandbox/Test Mode ላይ Transation/Transfer እንዲያልፍ 'TEST' ወይም ትክክለኛ String ID መሆን አለበት
-        return "TEST" if raw_code not in ["853", "851"] else str(raw_code)
+        # በ Chapa Test Environment ውስጥ የባንክ ማስተላለፊያ ሲፈተሽ 'TEST' የሚለው ኮድ በአስተማማኝ ሁኔታ ይሰራል
+        return "TEST"
     return str(raw_code)
 
 def process_chapa_transfer(account_number, amount, bank_code):
@@ -111,9 +112,7 @@ def process_chapa_transfer(account_number, amount, bank_code):
     }
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
-        res_data = response.json()
-        print(f"Chapa Payout Response: {res_data}")
-        return res_data
+        return response.json()
     except Exception as e:
         print(f"Chapa Transfer Error: {e}")
         return {"status": "failed", "message": str(e)}
@@ -220,6 +219,13 @@ HTML_TEMPLATE = """
             border-color: #34d399 !important;
             box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
         }
+        .card-btn-taken {
+            background: #334155 !important;
+            color: #64748b !important;
+            border-color: #475569 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
         .bingo-hit { 
             background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; 
             color: #ffffff !important; 
@@ -324,6 +330,7 @@ HTML_TEMPLATE = """
     <script>
         const socket = io();
         let userId = null;
+        let takenCards = [];
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
@@ -371,15 +378,29 @@ HTML_TEMPLATE = """
             for (let i = 1; i <= 104; i++) {
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
-                btn.className = `p-2 text-xs font-black rounded-xl border transition-all ${isSelected ? 'card-btn-selected' : 'bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95'}`;
+                const isTaken = takenCards.includes(i) && !isSelected;
+
+                if (isTaken) {
+                    btn.className = 'p-2 text-xs font-black rounded-xl border card-btn-taken';
+                    btn.disabled = true;
+                } else if (isSelected) {
+                    btn.className = 'p-2 text-xs font-black rounded-xl border card-btn-selected';
+                } else {
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
+                    btn.onclick = () => {
+                        if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                        socket.emit('select_card', { user_id: userId, card_id: i });
+                    };
+                }
                 btn.innerText = i;
-                btn.onclick = () => {
-                    if (mySelectedCards.length >= 2 && !isSelected) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                    socket.emit('select_card', { user_id: userId, card_id: i });
-                };
                 gridContainer.appendChild(btn);
             }
         }
+
+        socket.on('update_selected_cards', (data) => {
+            takenCards = data.taken_cards || [];
+            initCartelaGrid();
+        });
 
         socket.on('card_confirmed', (data) => {
             if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
@@ -496,7 +517,7 @@ HTML_TEMPLATE = """
             document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
             
-            if(parseInt(data.winner_id) === userId) {
+            if(data.winner_ids && data.winner_ids.includes(userId)) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
 
@@ -510,9 +531,10 @@ HTML_TEMPLATE = """
 
         socket.on('reset_game', () => {
             mySelectedCards = [];
+            takenCards = [];
             drawnNumbersSet.clear();
             document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('preview-cards-container').innerHTML = '';
             initCartelaGrid();
@@ -535,8 +557,9 @@ def index():
 @app.route('/chapa-webhook', methods=['GET', 'POST'])
 def chapa_webhook():
     """Chapa ክፍያው ሲጠናቀቅ አውቶማቲክ ባላንስ መጨመሪያ"""
-    data = request.args if request.method == 'GET' else request.json
+    chapa_signature = request.headers.get('x-chapa-signature') or request.headers.get('Chapa-Signature')
     
+    data = request.args if request.method == 'GET' else request.json
     if not data:
         return jsonify({"status": "no data"}), 400
 
@@ -550,24 +573,27 @@ def chapa_webhook():
                 
                 verify_url = f"{CHAPA_BASE_URL}/transaction/verify/{tx_ref}"
                 headers = {'Authorization': f'Bearer {CHAPA_SECRET_KEY}'}
-                res = requests.get(verify_url, headers=headers).json()
+                res = requests.get(verify_url, headers=headers, timeout=10).json()
 
                 if res.get('status') == 'success' and res.get('data', {}).get('status') == 'success':
                     amount = float(res['data']['amount'])
-                    used_txn_ids.add(tx_ref)
-
-                    if user_id not in users_db:
-                        users_db[user_id] = {"id": user_id, "name": f"User {user_id}", "balance": 0.0}
-
-                    users_db[user_id]["balance"] += amount
                     
-                    socketio.emit('balance_update', {'user_id': user_id, 'balance': users_db[user_id]["balance"]})
+                    with db_lock:
+                        used_txn_ids.add(tx_ref)
+
+                        if user_id not in users_db:
+                            users_db[user_id] = {"id": user_id, "name": f"User {user_id}", "balance": 0.0}
+
+                        users_db[user_id]["balance"] += amount
+                        new_bal = users_db[user_id]["balance"]
+
+                    socketio.emit('balance_update', {'user_id': user_id, 'balance': new_bal})
 
                     bot.send_message(
                         user_id,
                         f"🎉 <b>ክፍያዎ በተሳካ ሁኔታ ተጠናቋል!</b>\n\n"
                         f"💰 የተጨመረ: <b>+{amount:.2f} ETB</b>\n"
-                        f"💳 አዲሱ ባላንስዎ: <b>{users_db[user_id]['balance']:.2f} ETB</b>",
+                        f"💳 አዲሱ ባላንስዎ: <b>{new_bal:.2f} ETB</b>",
                         parse_mode="HTML"
                     )
                     return jsonify({"status": "success"}), 200
@@ -583,7 +609,8 @@ def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
     app_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}"
     
-    user_bal = users_db.get(int(user_id), {}).get("balance", 0.0)
+    with db_lock:
+        user_bal = users_db.get(int(user_id), {}).get("balance", 0.0)
     support_deep_link = f"https://t.me/BkbingosupportBot?start=USER_{user_id}_BAL_{int(user_bal)}"
 
     markup.add(InlineKeyboardButton(text="🎲 ጨዋታ ጀምር (Open App)", web_app=WebAppInfo(url=app_url)))
@@ -607,18 +634,20 @@ def start_cmd(message):
     first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
     username = (message.from_user.username or "የለውም").replace('<', '&lt;').replace('>', '&gt;')
 
-    if uid not in users_db:
-        users_db[uid] = {
-            "id": uid,
-            "name": first_name,
-            "username": username,
-            "balance": 0.0
-        }
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {
+                "id": uid,
+                "name": first_name,
+                "username": username,
+                "balance": 0.0
+            }
+        bal = users_db[uid]['balance']
 
     welcome_txt = (
         f"👋 ሰላም <b>{first_name}</b>!\n\n"
         f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
-        f"💰 ባላንስዎ፦ <b>{users_db[uid]['balance']:.2f} ETB</b>\n\n"
+        f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
         "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
@@ -630,10 +659,11 @@ def handle_main_menu_callbacks(call):
     bot.answer_callback_query(call.id)
 
     safe_name = call.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
-    if uid not in users_db:
-        users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
-
-    bal = users_db[uid]["balance"]
+    
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
+        bal = users_db[uid]["balance"]
 
     if action == "btn_profile":
         msg = f"👤 <b>የተጫዋች ፕሮፋይል</b>\n🆔 ID: <code>{uid}</code>\n💰 ባላንስ: <b>{bal:.2f} ETB</b>"
@@ -726,7 +756,9 @@ def handle_withdraw_method(call):
     uid = int(call.from_user.id)
     bank_code = call.data.split('_')[1]
     
-    bal = users_db.get(uid, {}).get("balance", 0.0)
+    with db_lock:
+        bal = users_db.get(uid, {}).get("balance", 0.0)
+
     if bal < MIN_WITHDRAWAL:
         bot.answer_callback_query(call.id, f"ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL} ETB ነው!", show_alert=True)
         return
@@ -737,7 +769,7 @@ def handle_withdraw_method(call):
     
     bot.edit_message_text(
         f"✅ የተመረጠው ማውጫ፦ <b>{method_name}</b>\n\n"
-        f"📱 እባክዎን ገንዘቡ የሚላክበትን <b>የ{method_name} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር</b> ያስገቡ፦", 
+        f"📱 እባክዎን ገንዘቡ የሚላክበትን ትክክለኛ <b>የ{method_name} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር (ከ 4 እስከ 18 አሃዝ ያለው)</b> ብቻ ያስገቡ፦", 
         call.message.chat.id, 
         call.message.message_id, 
         parse_mode="HTML"
@@ -748,10 +780,26 @@ def handle_withdraw_account(message):
     uid = int(message.from_user.id)
     account_num = message.text.strip()
     
+    if uid not in withdraw_data:
+        user_states[uid] = None
+        return
+
+    # አካውንት ቁጥሩ ትክክለኛ አሃዝ (ከ 4 እስከ 18 ዲጂት) መሆኑን ማረጋገጥ
+    if not account_num.isdigit() or not (4 <= len(account_num) <= 18):
+        bot.send_message(
+            message.chat.id, 
+            "❌ <b>ስህተት፦ እባክዎን ትክክለኛ የባንክ አካውንት ቁጥር ወይም የስልክ ቁጥር ብቻ ያስገቡ (ከ 4 እስከ 18 አሃዝ)።</b>\n"
+            "ልክ እንደ 09xxxxxxxx ወይም የባንክ ሂሳብ ቁጥር ብቻ።", 
+            parse_mode="HTML"
+        )
+        return
+
     withdraw_data[uid]['account'] = account_num
     user_states[uid] = "WAITING_WITHDRAW_AMT"
     
-    bal = users_db.get(uid, {}).get("balance", 0.0)
+    with db_lock:
+        bal = users_db.get(uid, {}).get("balance", 0.0)
+
     bot.send_message(
         message.chat.id, 
         f"👍 የተቀበልነው ቁጥር፦ <code>{account_num}</code>\n\n"
@@ -770,25 +818,27 @@ def handle_withdraw_amount(message):
         bot.send_message(message.chat.id, "❌ <b>እባክዎን ትክክለኛ የቁጥር መጠን ያስገቡ!</b>", parse_mode="HTML")
         return
 
-    bal = users_db.get(uid, {}).get("balance", 0.0)
+    with db_lock:
+        bal = users_db.get(uid, {}).get("balance", 0.0)
 
-    if amount < MIN_WITHDRAWAL:
-        bot.send_message(message.chat.id, f"❌ <b>ዝቅተኛው ማውጣት የሚችሉት መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>", parse_mode="HTML")
-        return
+        if amount < MIN_WITHDRAWAL:
+            bot.send_message(message.chat.id, f"❌ <b>ዝቅተኛው ማውጣት የሚችሉት መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>", parse_mode="HTML")
+            return
 
-    if amount > bal:
-        bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
-        return
+        if amount > bal:
+            bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
+            return
 
-    bank_code = withdraw_data[uid]['bank_code']
-    account = withdraw_data[uid]['account']
-    method_name = withdraw_data[uid]['method_name']
-    user_states[uid] = None
+        bank_code = withdraw_data[uid]['bank_code']
+        account = withdraw_data[uid]['account']
+        method_name = withdraw_data[uid]['method_name']
+        user_states[uid] = None
 
-    # 1. ባላንሱን አስቀድሞ መቀነስ (ለደህንነት)
-    users_db[uid]["balance"] -= amount
-    socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+        # 1. ባላንሱን አስቀድሞ መቀነስ
+        users_db[uid]["balance"] -= amount
+        current_bal = users_db[uid]["balance"]
 
+    socketio.emit('balance_update', {'user_id': uid, 'balance': current_bal})
     msg_wait = bot.send_message(message.chat.id, "🔄 <b>የገንዘብ ማውጣት ክፍያው በ Chapa በኩል በመላክ ላይ ነው...</b>", parse_mode="HTML")
 
     # 2. አውቶማቲክ Payout ጥያቄ መላክ
@@ -801,11 +851,10 @@ def handle_withdraw_amount(message):
             f"💰 የተላከ መጠን፦ <b>{amount:.2f} ETB</b>\n"
             f"🏦 ዘዴ፦ <b>{method_name}</b>\n"
             f"📱 ሂሳብ ቁጥር፦ <code>{account}</code>\n"
-            f"💳 የቀረ ባላንስ፦ <b>{users_db[uid]['balance']:.2f} ETB</b>"
+            f"💳 የቀረ ባላንስ፦ <b>{current_bal:.2f} ETB</b>"
         )
         bot.send_message(message.chat.id, success_msg, parse_mode="HTML")
 
-        # ለ አድሚን ማሳወቂያ መላክ
         admin_info = (
             f"✅ <b>አውቶማቲክ Payout ተጠናቋል</b>\n"
             f"👤 ተጫዋች ID: <code>{uid}</code>\n"
@@ -815,8 +864,11 @@ def handle_withdraw_amount(message):
         bot.send_message(ADMIN_ID, admin_info, parse_mode="HTML")
     else:
         # ክፍያው ካልተሳካ ብሩን ወደ ተጫዋቹ ባላንስ መመለስ (Rollback)
-        users_db[uid]["balance"] += amount
-        socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+        with db_lock:
+            users_db[uid]["balance"] += amount
+            refunded_bal = users_db[uid]["balance"]
+
+        socketio.emit('balance_update', {'user_id': uid, 'balance': refunded_bal})
 
         err_msg = payout_res.get('message', 'ያልታወቀ ስህተት') if payout_res else 'ከ Chapa Payout API ጋር መገናኘት አልተቻለም'
         bot.delete_message(message.chat.id, msg_wait.message_id)
@@ -824,7 +876,7 @@ def handle_withdraw_amount(message):
         fail_txt = (
             f"❌ <b>የገንዘብ ማውጣት ሂደቱ አልተሳካም።</b>\n"
             f"<i>ምክንያት፦ {err_msg}</i>\n\n"
-            f"🔄 <b>{amount:.2f} ETB</b> ወደ ባላንስዎ ተመልሷል። እባክዎን ቆየት ብለው ይመልሱ።"
+            f"🔄 <b>{amount:.2f} ETB</b> ወደ ባላንስዎ ተመልሷል። እባክዎን ትክክለኛውን አካውንት ቁጥር አስገብተው እንደገና ይሞክሩ።"
         )
         bot.send_message(message.chat.id, fail_txt, parse_mode="HTML")
 
@@ -919,37 +971,53 @@ def handle_get_balance(data):
     if not data or 'user_id' not in data:
         return
     uid = int(data.get('user_id'))
-    if uid not in users_db:
-        users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+        bal = users_db[uid]["balance"]
     
-    bal = users_db[uid]["balance"]
     emit('balance_update', {'user_id': uid, 'balance': bal})
 
 @socketio.on('select_card')
 def handle_card_selection(data):
+    if game_state["status"] == "PLAYING":
+        emit('error_msg', {'msg': 'ጨዋታው ተጀምሯል። እባክዎን አዲሱን ዙር ይጠብቁ!'})
+        return
+
     uid = int(data.get('user_id'))
     card_id = int(data.get('card_id'))
 
-    if uid not in users_db:
-        users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
 
-    bal = users_db[uid]["balance"]
-    if bal < CARD_PRICE:
-        emit('error_msg', {'msg': 'በቂ ባላንስ የሎትም። እባክዎን አስቀድመው ዲፖዚት ያድርጉ።'})
-        return
+        bal = users_db[uid]["balance"]
+        
+        if card_id in game_state['selected_cards']:
+            emit('error_msg', {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'})
+            return
 
-    if card_id in game_state['selected_cards']:
-        return
+        user_cards = game_state['player_cards'].get(uid, [])
+        if len(user_cards) >= MAX_CARDS_PER_PLAYER:
+            emit('error_msg', {'msg': f'በአንድ ዙር ቢበዛ {MAX_CARDS_PER_PLAYER} ካርቴላ ብቻ መግዛት ይቻላል!'})
+            return
 
-    users_db[uid]["balance"] -= CARD_PRICE
-    game_state['selected_cards'][card_id] = uid
-    if uid not in game_state['player_cards']:
-        game_state['player_cards'][uid] = []
-    game_state['player_cards'][uid].append(card_id)
+        if bal < CARD_PRICE:
+            emit('error_msg', {'msg': 'በቂ ባላንስ የሎትም። እባክዎን አስቀድመው ዲፖዚት ያድርጉ።'})
+            return
+
+        users_db[uid]["balance"] -= CARD_PRICE
+        new_bal = users_db[uid]["balance"]
+        
+        game_state['selected_cards'][card_id] = uid
+        if uid not in game_state['player_cards']:
+            game_state['player_cards'][uid] = []
+        game_state['player_cards'][uid].append(card_id)
 
     matrix = cards_database.get(card_id)
-    emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': users_db[uid]["balance"]}, broadcast=False)
-    emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]}, broadcast=False)
+    emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': new_bal}, broadcast=False)
+    emit('balance_update', {'user_id': uid, 'balance': new_bal}, broadcast=False)
+    socketio.emit('update_selected_cards', {'taken_cards': list(game_state['selected_cards'].keys())})
 
 def game_loop():
     global game_state
@@ -992,26 +1060,41 @@ def game_loop():
             socketio.emit('new_number', {'ball': ball})
             socketio.sleep(2.5)
 
+            round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
                 matrix = cards_database[card_id]
                 if check_bingo_winner(matrix, drawn_set):
-                    winner_found = True
-                    
-                    if owner_id in users_db:
-                        users_db[owner_id]["balance"] += derash
-                        w_name = users_db[owner_id].get("name", f"Player {owner_id}")
-                        socketio.emit('balance_update', {'user_id': owner_id, 'balance': users_db[owner_id]["balance"]})
-                    else:
-                        w_name = f"Player {owner_id}"
+                    round_winners.append((card_id, owner_id, matrix))
 
-                    socketio.emit('winner_announced', {
-                        'winner_id': owner_id,
-                        'winner_name': w_name,
-                        'prize': derash,
-                        'card_id': card_id,
-                        'card_matrix': matrix
-                    })
-                    break
+            if round_winners:
+                winner_found = True
+                split_prize = derash / len(round_winners)
+                winner_names = []
+                winner_ids = []
+
+                for cid, oid, mtx in round_winners:
+                    with db_lock:
+                        if oid in users_db:
+                            users_db[oid]["balance"] += split_prize
+                            w_name = users_db[oid].get("name", f"Player {oid}")
+                            socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
+                        else:
+                            w_name = f"Player {oid}"
+
+                    winner_names.append(w_name)
+                    winner_ids.append(oid)
+
+                first_card = round_winners[0][0]
+                first_mtx = round_winners[0][2]
+
+                socketio.emit('winner_announced', {
+                    'winner_ids': winner_ids,
+                    'winner_name': ", ".join(winner_names),
+                    'prize': split_prize,
+                    'card_id': first_card,
+                    'card_matrix': first_mtx
+                })
+                break
 
         socketio.sleep(8)
 
@@ -1024,7 +1107,8 @@ def run_main_bot():
             bot.remove_webhook()
             time.sleep(1)
             bot.infinity_polling(skip_pending=True)
-        except Exception:
+        except Exception as e:
+            print(f"Main Bot Error: {e}")
             time.sleep(3)
 
 def run_support_bot():
@@ -1033,7 +1117,8 @@ def run_support_bot():
             support_bot.remove_webhook()
             time.sleep(1)
             support_bot.infinity_polling(skip_pending=True)
-        except Exception:
+        except Exception as e:
+            print(f"Support Bot Error: {e}")
             time.sleep(3)
 
 if __name__ == "__main__":
