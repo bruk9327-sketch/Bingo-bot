@@ -32,7 +32,7 @@ COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   
 
-# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL (ወይም የቴሌግራም File ID / Local Image Link)
+# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL (በቀጥታ በ .jpg/.png የሚያልቅ መሆኑን አረጋግጥ)
 OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
 # DATABASE & USER STATES (IN-MEMORY)
@@ -582,7 +582,7 @@ def handle_deposit_approve(call):
     bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS (WITH OPERATOR IMAGE)
+# 6. SUPPORT BOT HANDLERS (SAFE FALLBACK FOR IMAGES)
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -658,13 +658,14 @@ def prepare_support_reply(call):
 def send_support_reply(message):
     target_uid = admin_reply_state.pop(ADMIN_ID, None)
     if target_uid:
+        safe_text = message.text.replace('<', '&lt;').replace('>', '&gt;')
+        reply_caption = (
+            f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"{safe_text}"
+        )
         try:
-            safe_text = message.text.replace('<', '&lt;').replace('>', '&gt;')
-            reply_caption = (
-                f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"{safe_text}"
-            )
+            # 1. attempt with image
             support_bot.send_photo(
                 target_uid,
                 photo=OPERATOR_IMAGE_URL,
@@ -672,8 +673,17 @@ def send_support_reply(message):
                 parse_mode="HTML"
             )
             support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ከኦፕሬተር ፎቶ ጋር ተልቋል!", parse_mode="HTML")
-        except Exception as e:
-            support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
+        except Exception:
+            # 2. fallback to text only if image URL fails
+            try:
+                support_bot.send_message(
+                    target_uid,
+                    reply_caption,
+                    parse_mode="HTML"
+                )
+                support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> በጽሑፍ ተልቋል (የምስል ሊንክ ባለመስራቱ ምክንያት)።", parse_mode="HTML")
+            except Exception as ex:
+                support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
 
 # =========================================================
 # 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
