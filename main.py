@@ -83,6 +83,14 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         print(f"Chapa Init Error: {e}")
         return None
 
+def get_chapa_bank_code(raw_code):
+    """TEST Mode እና LIVE Mode ላይ የባንክ ኮድ ማስተካከያ"""
+    is_test_mode = "TEST" in CHAPA_SECRET_KEY
+    if is_test_mode:
+        # በ Chapa Sandbox/Test Mode ላይ Transation/Transfer እንዲያልፍ 'TEST' ወይም ትክክለኛ String ID መሆን አለበት
+        return "TEST" if raw_code not in ["853", "851"] else str(raw_code)
+    return str(raw_code)
+
 def process_chapa_transfer(account_number, amount, bank_code):
     """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
     url = f"{CHAPA_BASE_URL}/transfers"
@@ -91,13 +99,15 @@ def process_chapa_transfer(account_number, amount, bank_code):
         'Content-Type': 'application/json'
     }
     tx_ref = f"wd-{uuid.uuid4().hex[:10]}"
+    target_bank_code = get_chapa_bank_code(bank_code)
+
     payload = {
-        "account_name": "Customer",
-        "account_number": str(account_number),
+        "account_name": "Customer Transfer",
+        "account_number": str(account_number).strip(),
         "amount": str(amount),
         "currency": "ETB",
         "reference": tx_ref,
-        "bank_code": str(bank_code)
+        "bank_code": target_bank_code
     }
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
