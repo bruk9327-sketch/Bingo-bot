@@ -54,7 +54,7 @@ admin_reply_state = {}
 used_txn_ids = set()     
 
 # =========================================================
-# 2. CHAPA INTEGRATION HELPER FUNCTIONS
+# 2. CHAPA INTEGRATION HELPER FUNCTIONS (UPDATED BANK CODE)
 # =========================================================
 def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
     """የ Chapa የክፍያ ሊንክ ማፍሪያ (Deposit)"""
@@ -84,13 +84,13 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         return None
 
 def get_chapa_bank_code(raw_code):
-    """ለ Chapa Test እና Live የሚሆን ትክክለኛ የባንክ ኮድ ማስተካከያ"""
-    code_str = str(raw_code).strip()
-    # በ Chapa Test API ሰነድ መሰረት በ Test ሞድ ውስጥ የሚሰሩ መደበኛ ኮዶች
-    if code_str.lower() in ["telebirr", "cbe", "commercial bank of ethiopia"]:
-        return code_str
-    # በ Test አካባቢ ስህተት እንዳይፈጥር ነባሪ (Default) ኮድ
-    return "CBE"
+    """የቴሌብር ወይም የባንክ ኮድ በትክክል ወደ Chapa ፎርማት መቀየሪያ"""
+    code_str = str(raw_code).strip().lower()
+    if "telebirr" in code_str:
+        return "telebirr"
+    elif "cbe" in code_str or "ንግድ" in code_str:
+        return "CBEBirr"
+    return "telebirr"
 
 def process_chapa_transfer(account_number, amount, bank_code):
     """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
