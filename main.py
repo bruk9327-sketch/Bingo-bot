@@ -2,6 +2,8 @@ import os
 import re
 import random
 import time
+import requests
+import json
 from threading import Thread
 from flask import Flask, render_template_string, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -27,24 +29,58 @@ support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
+# CHAPA KEYS
+CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-mWznGk7wc7yFUzpc5vfrEutLBgaUjYQj")
+CHAPA_PUBLIC_KEY = os.environ.get("CHAPA_PUBLIC_KEY", "CHAPUBK_TEST-Q3FkpyoBLdGnAwcmeFApPCKwMg1vT9T5")
+CHAPA_BASE_URL = "https://api.chapa.co/v1"
+
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   # ዝቅተኛው ዊዝድሮው
 
-# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL
 OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
-# DATABASE & USER STATES (IN-MEMORY)
+# DATABASE & USER STATES
 users_db = {}            
 user_states = {}         
 deposit_data = {}        
-withdraw_data = {}       # ለዊዝድሮው መረጃዎች ጊዜያዊ ማስቀመጫ
+withdraw_data = {}       
 admin_reply_state = {}   
 used_txn_ids = set()     
 
 # =========================================================
-# 2. BINGO CARDS DATABASE (1-104 CARDS)
+# 2. CHAPA INTEGRATION HELPER FUNCTIONS
+# =========================================================
+def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
+    """የ Chapa የክፍያ ሊንክ ማፍሪያ"""
+    url = f"{CHAPA_BASE_URL}/transaction/initialize"
+    headers = {
+        'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "amount": str(amount),
+        "currency": "ETB",
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+        "tx_ref": tx_ref,
+        "callback_url": f"{RENDER_WEBAPP_URL}/chapa-webhook",
+        "customization": {
+            "title": "BKBINGO Pro Deposit",
+            "description": "የ BKBINGO Pro ጨዋታ ሂሳብ መሙያ"
+        }
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        return response.json()
+    except Exception as e:
+        print(f"Chapa Init Error: {e}")
+        return None
+
+# =========================================================
+# 3. BINGO CARDS DATABASE (1-104 CARDS)
 # =========================================================
 cards_database = {}
 
@@ -77,7 +113,7 @@ for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
 # =========================================================
-# 3. GAME STATE & BINGO WINNER CHECKER
+# 4. GAME STATE & BINGO WINNER CHECKER
 # =========================================================
 game_state = {
     "status": "WAITING",
@@ -103,7 +139,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE
+# 5. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -455,7 +491,56 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & USER REGISTRATION
+# CHAPA WEBHOOK ENDPOINT
+# =========================================================
+@app.route('/chapa-webhook', methods=['GET', 'POST'])
+def chapa_webhook():
+    """Chapa ክፍያው ሲጠናቀቅ አውቶማቲክ ባላንስ መጨመሪያ"""
+    data = request.args if request.method == 'GET' else request.json
+    
+    if not data:
+        return jsonify({"status": "no data"}), 400
+
+    tx_ref = data.get('tx_ref') or data.get('trx_ref')
+    status = data.get('status')
+
+    if tx_ref and tx_ref not in used_txn_ids:
+        try:
+            parts = tx_ref.split("_")
+            if len(parts) >= 2:
+                user_id = int(parts[1])
+                
+                # Verify status with Chapa API directly to be 100% sure
+                verify_url = f"{CHAPA_BASE_URL}/transaction/verify/{tx_ref}"
+                headers = {'Authorization': f'Bearer {CHAPA_SECRET_KEY}'}
+                res = requests.get(verify_url, headers=headers).json()
+
+                if res.get('status') == 'success' and res.get('data', {}).get('status') == 'success':
+                    amount = float(res['data']['amount'])
+                    used_txn_ids.add(tx_ref)
+
+                    if user_id not in users_db:
+                        users_db[user_id] = {"id": user_id, "name": f"User {user_id}", "balance": 0.0}
+
+                    users_db[user_id]["balance"] += amount
+                    
+                    socketio.emit('balance_update', {'user_id': user_id, 'balance': users_db[user_id]["balance"]})
+
+                    bot.send_message(
+                        user_id,
+                        f"🎉 <b>ክፍያዎ በተሳካ ሁኔታ ተጠናቋል!</b>\n\n"
+                        f"💰 የተጨመረ: <b>+{amount:.2f} ETB</b>\n"
+                        f"💳 አዲሱ ባላንስዎ: <b>{users_db[user_id]['balance']:.2f} ETB</b>",
+                        parse_mode="HTML"
+                    )
+                    return jsonify({"status": "success"}), 200
+        except Exception as e:
+            print(f"Webhook processing error: {e}")
+
+    return jsonify({"status": "ignored"}), 200
+
+# =========================================================
+# 6. TELEGRAM MAIN BOT & USER REGISTRATION
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -518,19 +603,21 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_deposit":
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("📱 Telebirr", callback_data="depmeth_Telebirr"),
-            InlineKeyboardButton("🏦 CBE Birr", callback_data="depmeth_CBE_Birr")
+        user_states[uid] = "WAITING_DEPOSIT_AMOUNT"
+        bot.send_message(
+            call.message.chat.id,
+            "📥 <b>የገንዘብ ማስገቢያ (Deposit)</b>\n\n"
+            "እባክዎን ማስገባት የሚፈልጉትን የገንዘብ መጠን በቁጥር ያስገቡ፦\n"
+            "<i>(ምሳሌ፦ 50 ወይም 100)</i>\n"
+            "📌 <i>ዝቅተኛው የዲፖዚት መጠን 10 ETB ነው።</i>",
+            parse_mode="HTML"
         )
-        bot.send_message(call.message.chat.id, "📥 <b>የክፍያ አማራጭ ይምረጡ፦</b>", reply_markup=markup, parse_mode="HTML")
 
     elif action == "btn_withdraw":
         if bal < MIN_WITHDRAWAL:
             bot.send_message(call.message.chat.id, f"❌ <b>ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
             return
         
-        # Withdraw method selection inline keyboard
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
             InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
@@ -546,48 +633,51 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # =========================================================
-# DEPOSIT HANDLERS & APPROVAL
+# AUTOMATED CHAPA DEPOSIT HANDLER
 # =========================================================
-@bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
-def handle_dep_method(call):
-    uid = int(call.from_user.id)
-    method = call.data.split('_', 1)[1]
-    deposit_data[uid] = {'method': method}
-    user_states[uid] = "WAITING_DEPOSIT"
-    bot.edit_message_text(f"✅ የተመረጠው፦ <b>{method}</b>\n📌 የክፍያ ቁጥር፦ <code>0991983522</code>\n\nገንዘቡን ገቢ ካደረጉ በኋላ የትራንዛክሽን ቁጥሩን ወይም ደረሰኙን (Screenshot) እዚህ ይላኩ።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-
-@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_DEPOSIT", content_types=['text', 'photo'])
-def handle_deposit_sub(message):
+@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_DEPOSIT_AMOUNT")
+def handle_deposit_amount_input(message):
     uid = int(message.from_user.id)
     user_states[uid] = None
     
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("✅ Approve 50 ETB", callback_data=f"app_50_{uid}"),
-        InlineKeyboardButton("✅ Approve 100 ETB", callback_data=f"app_100_{uid}")
-    )
-    sub_text = message.text.replace('<', '&lt;').replace('>', '&gt;') if message.text else 'Image Attachment'
-    bot.send_message(ADMIN_ID, f"🚨 <b>አዲስ የዲፖዚት ጥያቄ ከ ተጫዋች <code>{uid}</code></b>\nየተላከው መረጃ፦ {sub_text}", reply_markup=markup, parse_mode="HTML")
-    bot.send_message(message.chat.id, "✅ <b>የዲፖዚት መረጃዎ ለአድሚን ተልኳል!</b> አድሚኑ አጣርቶ በቅርቡ ባላንስዎን ይጨምራል።", parse_mode="HTML")
+    try:
+        amount = float(message.text.strip())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ <b>እባክዎን ትክክለኛ የቁጥር መጠን ያስገቡ!</b>", parse_mode="HTML")
+        return
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('app_'))
-def handle_deposit_approve(call):
-    parts = call.data.split('_')
-    amt = float(parts[1])
-    target_uid = int(parts[2])
+    if amount < 10.0:
+        bot.send_message(message.chat.id, "❌ <b>ዝቅተኛው ዲፖዚት ማድረግ የሚችሉት መጠን 10 ETB ነው።</b>", parse_mode="HTML")
+        return
 
-    if target_uid not in users_db:
-        users_db[target_uid] = {"id": target_uid, "name": f"User {target_uid}", "balance": 0.0}
+    first_name = message.from_user.first_name or "Player"
+    last_name = message.from_user.last_name or "User"
+    email = f"user_{uid}@bkbingo.com"
+    tx_ref = f"DEP_{uid}_{int(time.time())}"
 
-    users_db[target_uid]["balance"] += amt
-    
-    socketio.emit('balance_update', {'user_id': target_uid, 'balance': users_db[target_uid]["balance"]})
+    msg_wait = bot.send_message(message.chat.id, "🔄 <b>የክፍያ ሊንክ በመዘጋጀት ላይ ነው...</b>", parse_mode="HTML")
 
-    bot.edit_message_text(f"✅ <b>ዲፖዚት ፀድቋል!</b> +{amt} ETB ለተጫዋች <code>{target_uid}</code> ተጨምሯል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-    bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
+    res = initialize_chapa_payment(email, amount, tx_ref, first_name, last_name)
+
+    if res and res.get('status') == 'success' and 'data' in res:
+        checkout_url = res['data']['checkout_url']
+        
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("💳 በ Chapa ክፍያ ፈጽም (Pay Now)", url=checkout_url))
+
+        pay_txt = (
+            f"✅ <b>የ {amount:.2f} ETB ክፍያ ዝግጁ ነው!</b>\n\n"
+            f"ከታች ያለውን <b>'💳 በ Chapa ክፍያ ፈጽም'</b> የሚለውን ተጭነው በ Telebirr, CBE Birr, ወይም Card ክፍያውን ይፈጽሙ።\n\n"
+            f"<i>ክፍያውን እንደጨረሱ ባላንስዎ በራሱ ጊዜ (Automatically) ይጨምራል።</i>"
+        )
+        bot.delete_message(message.chat.id, msg_wait.message_id)
+        bot.send_message(message.chat.id, pay_txt, reply_markup=markup, parse_mode="HTML")
+    else:
+        bot.delete_message(message.chat.id, msg_wait.message_id)
+        bot.send_message(message.chat.id, "❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b> እባክዎን ቆየት ብለው ይሞክሩ ወይም የደንበኞች አገልግሎትን ያናግሩ።", parse_mode="HTML")
 
 # =========================================================
-# WITHDRAWAL HANDLERS (TELEBIRR & CBE BIRR)
+# WITHDRAWAL HANDLERS
 # =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
 def handle_withdraw_method(call):
@@ -647,16 +737,13 @@ def handle_withdraw_amount(message):
         bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
         return
 
-    # መረጃውን ማስቀመጥ እና ስቴቱን ማፅዳት
     method = withdraw_data[uid]['method']
     account = withdraw_data[uid]['account']
     user_states[uid] = None
 
-    # የተጫዋቹን ባላንስ ለጊዚያዊነት መቀነስ (Pending Deduction)
     users_db[uid]["balance"] -= amount
     socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
 
-    # ለአድሚኑ Approval መልእክት መላክ
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton("✅ ፈቅድ (Approve)", callback_data=f"wdapp_YES_{uid}_{amount}"),
@@ -674,7 +761,6 @@ def handle_withdraw_amount(message):
     )
     bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
 
-    # ለተጫዋቹ ማረጋገጫ መስጠት
     bot.send_message(
         message.chat.id, 
         f"✅ <b>የማውጣት ጥያቄዎ ለአድሚን ተልኳል!</b>\n\n"
@@ -698,7 +784,6 @@ def handle_withdraw_approval(call):
         bot.edit_message_text(f"{call.message.text}\n\n✅ <b>ተፈቅዷል (Approved)!</b> ገንዘቡ ለተጫዋቹ ተልኳል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
         bot.send_message(target_uid, f"🎉 <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ ተፈቅዶ ገንዘቡ ተልኮልዎታል!</b>", parse_mode="HTML")
     else:
-        # ጥያቄው ከተሰረዘ የተቀነሰውን ገንዘብ መመለስ
         users_db[target_uid]["balance"] += amount
         socketio.emit('balance_update', {'user_id': target_uid, 'balance': users_db[target_uid]["balance"]})
         
@@ -706,7 +791,7 @@ def handle_withdraw_approval(call):
         bot.send_message(target_uid, f"❌ <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ አልተፈቀደም።</b>\nገንዘቡ ወደ ባላንስዎ ተመልሷል።", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS
+# 7. SUPPORT BOT HANDLERS
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -789,7 +874,7 @@ def send_support_reply(message):
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
 
 # =========================================================
-# 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
+# 8. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
 # =========================================================
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
@@ -893,7 +978,7 @@ def game_loop():
         socketio.sleep(8)
 
 # =========================================================
-# 8. THREAD RUNNERS & MAIN EXECUTION
+# 9. THREAD RUNNERS & MAIN EXECUTION
 # =========================================================
 def run_main_bot():
     while True:
