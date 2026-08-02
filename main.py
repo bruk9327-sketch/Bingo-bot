@@ -51,10 +51,10 @@ admin_reply_state = {}
 used_txn_ids = set()     
 
 # =========================================================
-# 2. CHAPA INTEGRATION HELPER FUNCTIONS
+# 2. CHAPA INTEGRATION HELPER FUNCTIONS (FIXED)
 # =========================================================
 def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
-    """የ Chapa የክፍያ ሊንክ ማፍሪያ"""
+    """የ Chapa የክፍያ ሊንክ ማፍሪያ (Title & Description የተስተካከለ)"""
     url = f"{CHAPA_BASE_URL}/transaction/initialize"
     headers = {
         'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
@@ -69,8 +69,8 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         "tx_ref": tx_ref,
         "callback_url": f"{RENDER_WEBAPP_URL}/chapa-webhook",
         "customization": {
-            "title": "BKBINGO Pro Deposit",
-            "description": "የ BKBINGO Pro ጨዋታ ሂሳብ መሙያ"
+            "title": "BKBINGO Pro",                  # 11 characters (max limit 16)
+            "description": "Deposit for BKBINGO game"  # በእንግሊዘኛ የተደረገ
         }
     }
     try:
@@ -678,7 +678,7 @@ def handle_deposit_amount_input(message):
         bot.delete_message(message.chat.id, msg_wait.message_id)
         bot.send_message(
             message.chat.id, 
-            f"❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b>\n<i>ምክንያት፦ {err_msg}</i>\n\nእባክዎን ቆየት ብለው ይሞክሩ ወይም Secret Keyውን ያረጋግጡ።", 
+            f"❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b>\n<i>ምክንያት፦ {err_msg}</i>\n\nእባክዎን ቆየት ብለው ይሞክሩ።", 
             parse_mode="HTML"
         )
 
