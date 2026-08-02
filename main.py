@@ -85,14 +85,11 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
 
 def get_chapa_bank_code(raw_code):
     """ለ Chapa Test እና Live የሚሆን ትክክለኛ የባንክ ኮድ ማስተካከያ"""
-    # በ Chapa Test አካባቢ የሚሰሩ የተፈቀዱ መደበኛ ኮዶች (ለምሳሌ Test bank code ወይም CBE/Telebirr codes)
     code_str = str(raw_code).strip()
-    # በ Chapa API ሰነድ መሰረት በ Test ሞድ ውስጥ የሚሰራ ትክክለኛ የባንክ ኮድ (ለምሳሌ ' CBE' ወይም ዩኒቨርሳል ቴስት ኮድ)
-    if code_str == "CBE":
-        return "CBE"
-    elif code_str == "Telebirr":
-        return "Telebirr"
-    # ነባሪ ለቴስት የሚሆን ትክክለኛ ኮድ
+    # በ Chapa Test API ሰነድ መሰረት በ Test ሞድ ውስጥ የሚሰሩ መደበኛ ኮዶች
+    if code_str.lower() in ["telebirr", "cbe", "commercial bank of ethiopia"]:
+        return code_str
+    # በ Test አካባቢ ስህተት እንዳይፈጥር ነባሪ (Default) ኮድ
     return "CBE"
 
 def process_chapa_transfer(account_number, amount, bank_code):
@@ -560,8 +557,6 @@ def index():
 @app.route('/chapa-webhook', methods=['GET', 'POST'])
 def chapa_webhook():
     """Chapa ክፍያው ሲጠናቀቅ አውቶማቲክ ባላንስ መጨመሪያ"""
-    chapa_signature = request.headers.get('x-chapa-signature') or request.headers.get('Chapa-Signature')
-    
     data = request.args if request.method == 'GET' else request.json
     if not data:
         return jsonify({"status": "no data"}), 400
@@ -691,7 +686,7 @@ def handle_main_menu_callbacks(call):
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
             InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
-            InlineKeyboardButton("🏦 CBE Birr / Bank", callback_data="wdmeth_CBE")
+            InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE")
         )
         bot.send_message(call.message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
 
@@ -766,7 +761,7 @@ def handle_withdraw_method(call):
         bot.answer_callback_query(call.id, f"ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL} ETB ነው!", show_alert=True)
         return
 
-    method_name = "Telebirr" if bank_code == "Telebirr" else "CBE Birr / Bank"
+    method_name = "Telebirr" if bank_code == "Telebirr" else "CBE Birr"
     withdraw_data[uid] = {'bank_code': bank_code, 'method_name': method_name}
     user_states[uid] = "WAITING_WITHDRAW_ACC"
     
@@ -787,7 +782,6 @@ def handle_withdraw_account(message):
         user_states[uid] = None
         return
 
-    # አካውንት ቁጥሩ ትክክለኛ አሃዝ መሆኑን ማረጋገጥ
     if not account_num.isdigit() or not (4 <= len(account_num) <= 20):
         bot.send_message(
             message.chat.id, 
@@ -836,14 +830,12 @@ def handle_withdraw_amount(message):
         method_name = withdraw_data[uid]['method_name']
         user_states[uid] = None
 
-        # 1. ባላንሱን አስቀድሞ መቀነስ
         users_db[uid]["balance"] -= amount
         current_bal = users_db[uid]["balance"]
 
     socketio.emit('balance_update', {'user_id': uid, 'balance': current_bal})
     msg_wait = bot.send_message(message.chat.id, "🔄 <b>የገንዘብ ማውጣት ክፍያው በ Chapa በኩል በመላክ ላይ ነው...</b>", parse_mode="HTML")
 
-    # 2. አውቶማቲክ Payout ጥያቄ መላክ
     payout_res = process_chapa_transfer(account, amount, bank_code)
 
     if payout_res and payout_res.get('status') == 'success':
@@ -865,7 +857,6 @@ def handle_withdraw_amount(message):
         )
         bot.send_message(ADMIN_ID, admin_info, parse_mode="HTML")
     else:
-        # ክፍያው ካልተሳካ ብሩን ወደ ተጫዋቹ ባላንስ መመለስ (Rollback)
         with db_lock:
             users_db[uid]["balance"] += amount
             refunded_bal = users_db[uid]["balance"]
