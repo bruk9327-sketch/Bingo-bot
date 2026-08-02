@@ -3,7 +3,7 @@ import re
 import random
 import time
 from threading import Thread
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request, jsonify
 from flask_socketio import SocketIO, emit
 import telebot
 from telebot.types import (
@@ -14,10 +14,10 @@ from telebot.types import (
 # 1. SETUP & CONFIGURATION
 # =========================================================
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "bkbingo_secret_key_2026")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# BOT TOKENS
+# BOT TOKENS (ከ Environment Variable ይቀበላል ወይም Default መረጃ ይጠቀማል)
 MAIN_BOT_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
 SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8912812512:AAHL9OPDgGNa2QS9YHqY5c6KDKuB7OlF-3M")
 
@@ -32,7 +32,7 @@ COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   
 
-# DATABASE & USER STATES
+# DATABASE & USER STATES (IN-MEMORY)
 users_db = {}            
 user_states = {}         
 deposit_data = {}        
@@ -100,7 +100,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (BKBINGO PRO UI + REALTIME BALANCE)
+# 4. FRONTEND HTML TEMPLATE (BKBINGO PRO REALTIME UI)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -251,6 +251,7 @@ HTML_TEMPLATE = """
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
+            window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
             userId = parseInt(urlParams.get('user_id')) || 12345;
@@ -453,7 +454,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & USER REGISTRATION (HTML SAFE FORMATTING)
+# 5. TELEGRAM MAIN BOT & USER REGISTRATION (HTML SAFE)
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -578,7 +579,7 @@ def handle_deposit_approve(call):
     bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS (HTML SAFE FORMATTING)
+# 6. SUPPORT BOT HANDLERS
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -643,7 +644,7 @@ def send_support_reply(message):
                 f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n━━━━━━━━━━━━━━━\n{safe_text}",
                 parse_mode="HTML"
             )
-            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ተልኳል!", parse_mode="HTML")
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ተልቋል!", parse_mode="HTML")
         except Exception as e:
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
 
