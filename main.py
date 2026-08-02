@@ -30,16 +30,16 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
-MIN_WITHDRAWAL = 50.0   
+MIN_WITHDRAWAL = 50.0   # ዝቅተኛው ዊዝድሮው
 
-# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL (በቀጥታ በ .jpg/.png የሚያልቅ መሆኑን አረጋግጥ)
+# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL
 OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
 # DATABASE & USER STATES (IN-MEMORY)
 users_db = {}            
 user_states = {}         
 deposit_data = {}        
-withdraw_data = {}       
+withdraw_data = {}       # ለዊዝድሮው መረጃዎች ጊዜያዊ ማስቀመጫ
 admin_reply_state = {}   
 used_txn_ids = set()     
 
@@ -83,8 +83,8 @@ game_state = {
     "status": "WAITING",
     "time_left": 15,
     "drawn_numbers": [],
-    "selected_cards": {},  # card_id -> user_id
-    "player_cards": {},    # user_id -> [card_ids]
+    "selected_cards": {},  
+    "player_cards": {},    
     "derash": 0.0
 }
 
@@ -103,7 +103,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (BKBINGO PRO REALTIME UI)
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -219,13 +219,11 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
-            <!-- 1-75 BOARD -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
                 <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center text-[9px]"></div>
             </div>
 
-            <!-- BALL DISPLAY & PLAYER CARDS -->
             <div class="w-2/3 flex flex-col items-center">
                 <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-2xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300">
                     READY
@@ -439,7 +437,7 @@ HTML_TEMPLATE = """
             mySelectedCards = [];
             drawnNumbersSet.clear();
             document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('preview-cards-container').innerHTML = '';
             initCartelaGrid();
@@ -531,9 +529,14 @@ def handle_main_menu_callbacks(call):
         if bal < MIN_WITHDRAWAL:
             bot.send_message(call.message.chat.id, f"❌ <b>ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
             return
+        
+        # Withdraw method selection inline keyboard
         markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"))
-        bot.send_message(call.message.chat.id, "📤 <b>ገንዘብ መቀበያ ይምረጡ፦</b>", reply_markup=markup, parse_mode="HTML")
+        markup.add(
+            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
+            InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
+        )
+        bot.send_message(call.message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
 
     elif action == "btn_referral":
         ref_link = f"https://t.me/BkbingosupportBot?start=ref_{uid}"
@@ -542,7 +545,9 @@ def handle_main_menu_callbacks(call):
     elif action == "btn_help":
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
+# =========================================================
 # DEPOSIT HANDLERS & APPROVAL
+# =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
 def handle_dep_method(call):
     uid = int(call.from_user.id)
@@ -582,7 +587,126 @@ def handle_deposit_approve(call):
     bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS (SAFE FALLBACK FOR IMAGES)
+# WITHDRAWAL HANDLERS (TELEBIRR & CBE BIRR)
+# =========================================================
+@bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
+def handle_withdraw_method(call):
+    uid = int(call.from_user.id)
+    method = call.data.split('_', 1)[1]
+    
+    bal = users_db.get(uid, {}).get("balance", 0.0)
+    if bal < MIN_WITHDRAWAL:
+        bot.answer_callback_query(call.id, f"ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL} ETB ነው!", show_alert=True)
+        return
+
+    withdraw_data[uid] = {'method': method}
+    user_states[uid] = "WAITING_WITHDRAW_ACC"
+    
+    bot.edit_message_text(
+        f"✅ የተመረጠው ማውጫ፦ <b>{method}</b>\n\n"
+        f"📱 እባክዎን ገንዘቡ የሚላክበትን <b>የ{method} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር</b> ያስገቡ፦", 
+        call.message.chat.id, 
+        call.message.message_id, 
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_WITHDRAW_ACC")
+def handle_withdraw_account(message):
+    uid = int(message.from_user.id)
+    account_num = message.text.strip()
+    
+    withdraw_data[uid]['account'] = account_num
+    user_states[uid] = "WAITING_WITHDRAW_AMT"
+    
+    bal = users_db.get(uid, {}).get("balance", 0.0)
+    bot.send_message(
+        message.chat.id, 
+        f"👍 የተቀበልነው ቁጥር፦ <code>{account_num}</code>\n\n"
+        f"💰 ማውጣት የሚፈልጉትን <b>የገንዘብ መጠን (ETB)</b> ያስገቡ፦\n"
+        f"(የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b> | ዝቅተኛ፦ <b>{MIN_WITHDRAWAL:.2f} ETB</b>)", 
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_WITHDRAW_AMT")
+def handle_withdraw_amount(message):
+    uid = int(message.from_user.id)
+    
+    try:
+        amount = float(message.text.strip())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ <b>እባክዎን ትክክለኛ የቁጥር መጠን ያስገቡ!</b>", parse_mode="HTML")
+        return
+
+    bal = users_db.get(uid, {}).get("balance", 0.0)
+
+    if amount < MIN_WITHDRAWAL:
+        bot.send_message(message.chat.id, f"❌ <b>ዝቅተኛው ማውጣት የሚችሉት መጠን {MIN_WITHDRAWAL:.2f} ETB ነው።</b>", parse_mode="HTML")
+        return
+
+    if amount > bal:
+        bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
+        return
+
+    # መረጃውን ማስቀመጥ እና ስቴቱን ማፅዳት
+    method = withdraw_data[uid]['method']
+    account = withdraw_data[uid]['account']
+    user_states[uid] = None
+
+    # የተጫዋቹን ባላንስ ለጊዚያዊነት መቀነስ (Pending Deduction)
+    users_db[uid]["balance"] -= amount
+    socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+
+    # ለአድሚኑ Approval መልእክት መላክ
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("✅ ፈቅድ (Approve)", callback_data=f"wdapp_YES_{uid}_{amount}"),
+        InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"wdapp_NO_{uid}_{amount}")
+    )
+
+    admin_msg = (
+        f"🚨 <b>አዲስ የገንዘብ ማውጣት (Withdrawal) ጥያቄ!</b>\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"👤 ተጫዋች ID: <code>{uid}</code>\n"
+        f"🏦 ዘዴ: <b>{method}</b>\n"
+        f"📱 የሚላክበት ቁጥር: <code>{account}</code>\n"
+        f"💰 መጠን: <b>{amount:.2f} ETB</b>\n"
+        f"💳 የቀረ ባላንስ: <b>{users_db[uid]['balance']:.2f} ETB</b>"
+    )
+    bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
+
+    # ለተጫዋቹ ማረጋገጫ መስጠት
+    bot.send_message(
+        message.chat.id, 
+        f"✅ <b>የማውጣት ጥያቄዎ ለአድሚን ተልኳል!</b>\n\n"
+        f"🏦 ዘዴ፦ <b>{method}</b>\n"
+        f"📱 ቁጥር፦ <code>{account}</code>\n"
+        f"💰 መጠን፦ <b>{amount:.2f} ETB</b>\n\n"
+        f"ገንዘቡ በቅርቡ ወደ አካውንትዎ ገቢ ይደረጋል።", 
+        parse_mode="HTML"
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('wdapp_'))
+def handle_withdraw_approval(call):
+    parts = call.data.split('_')
+    decision = parts[1]
+    target_uid = int(parts[2])
+    amount = float(parts[3])
+
+    bot.answer_callback_query(call.id)
+
+    if decision == "YES":
+        bot.edit_message_text(f"{call.message.text}\n\n✅ <b>ተፈቅዷል (Approved)!</b> ገንዘቡ ለተጫዋቹ ተልኳል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
+        bot.send_message(target_uid, f"🎉 <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ ተፈቅዶ ገንዘቡ ተልኮልዎታል!</b>", parse_mode="HTML")
+    else:
+        # ጥያቄው ከተሰረዘ የተቀነሰውን ገንዘብ መመለስ
+        users_db[target_uid]["balance"] += amount
+        socketio.emit('balance_update', {'user_id': target_uid, 'balance': users_db[target_uid]["balance"]})
+        
+        bot.edit_message_text(f"{call.message.text}\n\n❌ <b>ተሰርዟል (Rejected)!</b> ገንዘቡ ወደ ተጫዋቹ ባላንስ ተመልሷል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
+        bot.send_message(target_uid, f"❌ <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ አልተፈቀደም።</b>\nገንዘቡ ወደ ባላንስዎ ተመልሷል።", parse_mode="HTML")
+
+# =========================================================
+# 6. SUPPORT BOT HANDLERS
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -600,20 +724,13 @@ def start_support_bot(message):
             pass
 
     welcome_msg = (
+        f'<a href="{OPERATOR_IMAGE_URL}">&#8203;</a>'
         f"👋 ሰላም <b>{safe_name}</b>!\n\n"
         f"ወደ <b>BKBINGO Pro</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
         f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን። የደንበኞች አገልግሎት ኦፕሬተራችን ለማስተናገድ ዝግጁ ነው!"
     )
     
-    try:
-        support_bot.send_photo(
-            message.chat.id, 
-            photo=OPERATOR_IMAGE_URL, 
-            caption=welcome_msg, 
-            parse_mode="HTML"
-        )
-    except Exception:
-        support_bot.send_message(message.chat.id, welcome_msg, parse_mode="HTML")
+    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="HTML")
 
 @support_bot.message_handler(func=lambda m: int(m.from_user.id) != ADMIN_ID, content_types=['text', 'photo'])
 def handle_support_inquiry(message):
@@ -636,16 +753,12 @@ def handle_support_inquiry(message):
     else:
         support_bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
 
-    confirm_msg = "✅ <b>መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!</b>\n\nኦፕሬተራችን መረጃውን አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።"
-    try:
-        support_bot.send_photo(
-            message.chat.id, 
-            photo=OPERATOR_IMAGE_URL, 
-            caption=confirm_msg, 
-            parse_mode="HTML"
-        )
-    except Exception:
-        support_bot.send_message(message.chat.id, confirm_msg, parse_mode="HTML")
+    confirm_msg = (
+        f'<a href="{OPERATOR_IMAGE_URL}">&#8203;</a>'
+        "✅ <b>መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!</b>\n\n"
+        "ኦፕሬተራችን መረጃውን አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።"
+    )
+    support_bot.send_message(message.chat.id, confirm_msg, parse_mode="HTML")
 
 @support_bot.callback_query_handler(func=lambda call: call.data.startswith('suppreply_'))
 def prepare_support_reply(call):
@@ -659,31 +772,21 @@ def send_support_reply(message):
     target_uid = admin_reply_state.pop(ADMIN_ID, None)
     if target_uid:
         safe_text = message.text.replace('<', '&lt;').replace('>', '&gt;')
-        reply_caption = (
+        reply_msg = (
+            f'<a href="{OPERATOR_IMAGE_URL}">&#8203;</a>'
             f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n"
             f"━━━━━━━━━━━━━━━\n"
             f"{safe_text}"
         )
         try:
-            # 1. attempt with image
-            support_bot.send_photo(
+            support_bot.send_message(
                 target_uid,
-                photo=OPERATOR_IMAGE_URL,
-                caption=reply_caption,
+                reply_msg,
                 parse_mode="HTML"
             )
-            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ከኦፕሬተር ፎቶ ጋር ተልቋል!", parse_mode="HTML")
-        except Exception:
-            # 2. fallback to text only if image URL fails
-            try:
-                support_bot.send_message(
-                    target_uid,
-                    reply_caption,
-                    parse_mode="HTML"
-                )
-                support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> በጽሑፍ ተልቋል (የምስል ሊንክ ባለመስራቱ ምክንያት)።", parse_mode="HTML")
-            except Exception as ex:
-                support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> በተሳካ ሁኔታ ተልቋል!", parse_mode="HTML")
+        except Exception as ex:
+            support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
 
 # =========================================================
 # 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
