@@ -35,7 +35,6 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 # CHAPA KEYS
 CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-GK2tyiVjfHkyMFz70ngJS4E85IAXhLPe")
 CHAPA_PUBLIC_KEY = os.environ.get("CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
-CHAPA_ENCRYPTION_KEY = os.environ.get("EBGLgzM9JVjRgtKX5SWg0Dvo")
 CHAPA_BASE_URL = "https://api.chapa.co/v1"
 
 CARD_PRICE = 10.0
@@ -85,12 +84,16 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         return None
 
 def get_chapa_bank_code(raw_code):
-    """Chapa ፕላትፎርም ላይ የባንክ ኮድ ቁጥር (Numeric) ብቻ እንዲሆን ማድረግ"""
-    clean_code = ''.join(filter(str.isdigit, str(raw_code)))
-    if not clean_code:
-        # በ Chapa Test ሞድ ውስጥ ቁጥር ካልተገኘ ነባሪ የቴስት ባንክ ኮድ (ለምሳሌ 1) ይመልሳል
-        return "1"
-    return clean_code
+    """ለ Chapa Test እና Live የሚሆን ትክክለኛ የባንክ ኮድ ማስተካከያ"""
+    # በ Chapa Test አካባቢ የሚሰሩ የተፈቀዱ መደበኛ ኮዶች (ለምሳሌ Test bank code ወይም CBE/Telebirr codes)
+    code_str = str(raw_code).strip()
+    # በ Chapa API ሰነድ መሰረት በ Test ሞድ ውስጥ የሚሰራ ትክክለኛ የባንክ ኮድ (ለምሳሌ ' CBE' ወይም ዩኒቨርሳል ቴስት ኮድ)
+    if code_str == "CBE":
+        return "CBE"
+    elif code_str == "Telebirr":
+        return "Telebirr"
+    # ነባሪ ለቴስት የሚሆን ትክክለኛ ኮድ
+    return "CBE"
 
 def process_chapa_transfer(account_number, amount, bank_code):
     """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
@@ -687,8 +690,8 @@ def handle_main_menu_callbacks(call):
         
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
-            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_853"),
-            InlineKeyboardButton("🏦 CBE Birr / Bank", callback_data="wdmeth_851")
+            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
+            InlineKeyboardButton("🏦 CBE Birr / Bank", callback_data="wdmeth_CBE")
         )
         bot.send_message(call.message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
 
@@ -763,13 +766,13 @@ def handle_withdraw_method(call):
         bot.answer_callback_query(call.id, f"ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL} ETB ነው!", show_alert=True)
         return
 
-    method_name = "Telebirr" if bank_code == "853" else "CBE Birr / Bank"
+    method_name = "Telebirr" if bank_code == "Telebirr" else "CBE Birr / Bank"
     withdraw_data[uid] = {'bank_code': bank_code, 'method_name': method_name}
     user_states[uid] = "WAITING_WITHDRAW_ACC"
     
     bot.edit_message_text(
         f"✅ የተመረጠው ማውጫ፦ <b>{method_name}</b>\n\n"
-        f"📱 እባክዎን ገንዘቡ የሚላክበትን ትክክለኛ <b>የ{method_name} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር (ከ 4 እስከ 18 አሃዝ ያለው)</b> ብቻ ያስገቡ፦", 
+        f"📱 እባክዎን ገንዘቡ የሚላክበትን ትክክለኛ <b>የ{method_name} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር</b> ብቻ ያስገቡ፦", 
         call.message.chat.id, 
         call.message.message_id, 
         parse_mode="HTML"
@@ -784,12 +787,11 @@ def handle_withdraw_account(message):
         user_states[uid] = None
         return
 
-    # አካውንት ቁጥሩ ትክክለኛ አሃዝ (ከ 4 እስከ 18 ዲጂት) መሆኑን ማረጋገጥ
-    if not account_num.isdigit() or not (4 <= len(account_num) <= 18):
+    # አካውንት ቁጥሩ ትክክለኛ አሃዝ መሆኑን ማረጋገጥ
+    if not account_num.isdigit() or not (4 <= len(account_num) <= 20):
         bot.send_message(
             message.chat.id, 
-            "❌ <b>ስህተት፦ እባክዎን ትክክለኛ የባንክ አካውንት ቁጥር ወይም የስልክ ቁጥር ብቻ ያስገቡ (ከ 4 እስከ 18 አሃዝ)።</b>\n"
-            "ልክ እንደ 09xxxxxxxx ወይም የባንክ ሂሳብ ቁጥር ብቻ።", 
+            "❌ <b>ስህተት፦ እባክዎን ትክክለኛ የባንክ አካውንት ቁጥር ወይም የስልክ ቁጥር ብቻ ያስገቡ።</b>", 
             parse_mode="HTML"
         )
         return
