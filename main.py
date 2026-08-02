@@ -85,12 +85,12 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         return None
 
 def get_chapa_bank_code(raw_code):
-    """TEST Mode እና LIVE Mode ላይ የባንክ ኮድ ማስተካከያ (በ Chapa ቴስት ሲስተም 'TEST' የሚለውን መጠቀም ይመረጣል)"""
-    is_test_mode = "TEST" in CHAPA_SECRET_KEY
-    if is_test_mode:
-        # በ Chapa Test Environment ውስጥ የባንክ ማስተላለፊያ ሲፈተሽ 'TEST' የሚለው ኮድ በአስተማማኝ ሁኔታ ይሰራል
-        return "TEST"
-    return str(raw_code)
+    """Chapa ፕላትፎርም ላይ የባንክ ኮድ ቁጥር (Numeric) ብቻ እንዲሆን ማድረግ"""
+    clean_code = ''.join(filter(str.isdigit, str(raw_code)))
+    if not clean_code:
+        # በ Chapa Test ሞድ ውስጥ ቁጥር ካልተገኘ ነባሪ የቴስት ባንክ ኮድ (ለምሳሌ 1) ይመልሳል
+        return "1"
+    return clean_code
 
 def process_chapa_transfer(account_number, amount, bank_code):
     """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
