@@ -17,7 +17,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "bkbingo_secret_key_2026")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# BOT TOKENS (ከ Environment Variable ይቀበላል ወይም Default መረጃ ይጠቀማል)
+# BOT TOKENS
 MAIN_BOT_TOKEN = os.environ.get("BOT_TOKEN", "8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM")
 SUPPORT_BOT_TOKEN = os.environ.get("SUPPORT_BOT_TOKEN", "8912812512:AAHL9OPDgGNa2QS9YHqY5c6KDKuB7OlF-3M")
 
@@ -31,6 +31,9 @@ CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   
+
+# የደንበኞች አገልግሎት ኦፕሬተር ፎቶ URL (ወይም የቴሌግራም File ID / Local Image Link)
+OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
 # DATABASE & USER STATES (IN-MEMORY)
 users_db = {}            
@@ -454,7 +457,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & USER REGISTRATION (HTML SAFE)
+# 5. TELEGRAM MAIN BOT & USER REGISTRATION
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -579,7 +582,7 @@ def handle_deposit_approve(call):
     bot.send_message(target_uid, f"🎉 <b>ዲፖዚትዎ ፀድቋል!</b>\n💰 አዲሱ ባላንስዎ፦ <b>{users_db[target_uid]['balance']:.2f} ETB</b>", parse_mode="HTML")
 
 # =========================================================
-# 6. SUPPORT BOT HANDLERS
+# 6. SUPPORT BOT HANDLERS (WITH OPERATOR IMAGE)
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -597,11 +600,20 @@ def start_support_bot(message):
             pass
 
     welcome_msg = (
-        f"👋 ሰላም <b>{safe_name}</b>!\n"
+        f"👋 ሰላም <b>{safe_name}</b>!\n\n"
         f"ወደ <b>BKBINGO Pro</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
-        f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን።"
+        f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን። የደንበኞች አገልግሎት ኦፕሬተራችን ለማስተናገድ ዝግጁ ነው!"
     )
-    support_bot.send_message(message.chat.id, welcome_msg, parse_mode="HTML")
+    
+    try:
+        support_bot.send_photo(
+            message.chat.id, 
+            photo=OPERATOR_IMAGE_URL, 
+            caption=welcome_msg, 
+            parse_mode="HTML"
+        )
+    except Exception:
+        support_bot.send_message(message.chat.id, welcome_msg, parse_mode="HTML")
 
 @support_bot.message_handler(func=lambda m: int(m.from_user.id) != ADMIN_ID, content_types=['text', 'photo'])
 def handle_support_inquiry(message):
@@ -624,7 +636,16 @@ def handle_support_inquiry(message):
     else:
         support_bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
 
-    support_bot.send_message(message.chat.id, "✅ <b>መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!</b> አድሚኑ አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።", parse_mode="HTML")
+    confirm_msg = "✅ <b>መልእክትዎ ለደንበኞች አገልግሎት ደርሷል!</b>\n\nኦፕሬተራችን መረጃውን አጣርቶ በቅርቡ ምላሽ ይሰጥዎታል።"
+    try:
+        support_bot.send_photo(
+            message.chat.id, 
+            photo=OPERATOR_IMAGE_URL, 
+            caption=confirm_msg, 
+            parse_mode="HTML"
+        )
+    except Exception:
+        support_bot.send_message(message.chat.id, confirm_msg, parse_mode="HTML")
 
 @support_bot.callback_query_handler(func=lambda call: call.data.startswith('suppreply_'))
 def prepare_support_reply(call):
@@ -639,12 +660,18 @@ def send_support_reply(message):
     if target_uid:
         try:
             safe_text = message.text.replace('<', '&lt;').replace('>', '&gt;')
-            support_bot.send_message(
+            reply_caption = (
+                f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"{safe_text}"
+            )
+            support_bot.send_photo(
                 target_uid,
-                f"🎧 <b>ከደንበኞች አገልግሎት የተሰጠ መልስ፦</b>\n━━━━━━━━━━━━━━━\n{safe_text}",
+                photo=OPERATOR_IMAGE_URL,
+                caption=reply_caption,
                 parse_mode="HTML"
             )
-            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ተልቋል!", parse_mode="HTML")
+            support_bot.send_message(ADMIN_ID, f"✅ መልሱ ለተጫዋች <code>{target_uid}</code> ከኦፕሬተር ፎቶ ጋር ተልቋል!", parse_mode="HTML")
         except Exception as e:
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {e}")
 
