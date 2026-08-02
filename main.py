@@ -29,9 +29,10 @@ support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# CHAPA KEYS
-CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-mWznGk7wc7yFUzpc5vfrEutLBgaUjYQj")
-CHAPA_PUBLIC_KEY = os.environ.get("CHAPA_PUBLIC_KEY", "CHAPUBK_TEST-Q3FkpyoBLdGnAwcmeFApPCKwMg1vT9T5")
+# CHAPA KEYS (UPDATED)
+CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-GK2tyiVjfHkyMFz70ngJS4E85IAXhLPe")
+CHAPA_PUBLIC_KEY = os.environ.get("CHAPA_PUBLIC_KEY", "CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
+CHAPA_ENCRYPTION_KEY = os.environ.get("CHAPA_ENCRYPTION_KEY", "EBGLgzM9JVjRgtKX5SWg0Dvo")
 CHAPA_BASE_URL = "https://api.chapa.co/v1"
 
 CARD_PRICE = 10.0
@@ -63,8 +64,8 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         "amount": str(amount),
         "currency": "ETB",
         "email": email,
-        "first_name": first_name,
-        "last_name": last_name,
+        "first_name": first_name if first_name else "Customer",
+        "last_name": last_name if last_name else "User",
         "tx_ref": tx_ref,
         "callback_url": f"{RENDER_WEBAPP_URL}/chapa-webhook",
         "customization": {
@@ -74,7 +75,9 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
     }
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=10)
-        return response.json()
+        res_data = response.json()
+        print(f"Chapa API Response: {res_data}")
+        return res_data
     except Exception as e:
         print(f"Chapa Init Error: {e}")
         return None
@@ -502,7 +505,6 @@ def chapa_webhook():
         return jsonify({"status": "no data"}), 400
 
     tx_ref = data.get('tx_ref') or data.get('trx_ref')
-    status = data.get('status')
 
     if tx_ref and tx_ref not in used_txn_ids:
         try:
@@ -510,7 +512,6 @@ def chapa_webhook():
             if len(parts) >= 2:
                 user_id = int(parts[1])
                 
-                # Verify status with Chapa API directly to be 100% sure
                 verify_url = f"{CHAPA_BASE_URL}/transaction/verify/{tx_ref}"
                 headers = {'Authorization': f'Bearer {CHAPA_SECRET_KEY}'}
                 res = requests.get(verify_url, headers=headers).json()
@@ -652,7 +653,7 @@ def handle_deposit_amount_input(message):
 
     first_name = message.from_user.first_name or "Player"
     last_name = message.from_user.last_name or "User"
-    email = f"user_{uid}@bkbingo.com"
+    email = f"user{uid}@gmail.com"
     tx_ref = f"DEP_{uid}_{int(time.time())}"
 
     msg_wait = bot.send_message(message.chat.id, "🔄 <b>የክፍያ ሊንክ በመዘጋጀት ላይ ነው...</b>", parse_mode="HTML")
@@ -673,8 +674,13 @@ def handle_deposit_amount_input(message):
         bot.delete_message(message.chat.id, msg_wait.message_id)
         bot.send_message(message.chat.id, pay_txt, reply_markup=markup, parse_mode="HTML")
     else:
+        err_msg = res.get('message', 'ያልታወቀ ስህተት') if res else 'ከ Chapa ጋር መገናኘት አልተቻለም'
         bot.delete_message(message.chat.id, msg_wait.message_id)
-        bot.send_message(message.chat.id, "❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b> እባክዎን ቆየት ብለው ይሞክሩ ወይም የደንበኞች አገልግሎትን ያናግሩ።", parse_mode="HTML")
+        bot.send_message(
+            message.chat.id, 
+            f"❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b>\n<i>ምክንያት፦ {err_msg}</i>\n\nእባክዎን ቆየት ብለው ይሞክሩ ወይም Secret Keyውን ያረጋግጡ።", 
+            parse_mode="HTML"
+        )
 
 # =========================================================
 # WITHDRAWAL HANDLERS
