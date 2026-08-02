@@ -2,6 +2,7 @@ import os
 import re
 import random
 import time
+import uuid
 import requests
 import json
 from threading import Thread
@@ -29,7 +30,7 @@ support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# CHAPA KEYS (UPDATED)
+# CHAPA KEYS
 CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-GK2tyiVjfHkyMFz70ngJS4E85IAXhLPe")
 CHAPA_PUBLIC_KEY = os.environ.get("CHAPA_PUBLIC_KEY", "CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
 CHAPA_ENCRYPTION_KEY = os.environ.get("CHAPA_ENCRYPTION_KEY", "EBGLgzM9JVjRgtKX5SWg0Dvo")
@@ -51,10 +52,10 @@ admin_reply_state = {}
 used_txn_ids = set()     
 
 # =========================================================
-# 2. CHAPA INTEGRATION HELPER FUNCTIONS (FIXED)
+# 2. CHAPA INTEGRATION HELPER FUNCTIONS (DEPOSIT & PAYOUT)
 # =========================================================
 def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
-    """የ Chapa የክፍያ ሊንክ ማፍሪያ (Title & Description የተስተካከለ)"""
+    """የ Chapa የክፍያ ሊንክ ማፍሪያ (Deposit)"""
     url = f"{CHAPA_BASE_URL}/transaction/initialize"
     headers = {
         'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
@@ -69,18 +70,43 @@ def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
         "tx_ref": tx_ref,
         "callback_url": f"{RENDER_WEBAPP_URL}/chapa-webhook",
         "customization": {
-            "title": "BKBINGO Pro",                  # 11 characters (max limit 16)
-            "description": "Deposit for BKBINGO game"  # በእንግሊዘኛ የተደረገ
+            "title": "BKBINGO Pro",
+            "description": "Deposit for BKBINGO game"
         }
     }
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=10)
         res_data = response.json()
-        print(f"Chapa API Response: {res_data}")
+        print(f"Chapa Deposit Response: {res_data}")
         return res_data
     except Exception as e:
         print(f"Chapa Init Error: {e}")
         return None
+
+def process_chapa_transfer(account_number, amount, bank_code):
+    """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
+    url = f"{CHAPA_BASE_URL}/transfers"
+    headers = {
+        'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
+        'Content-Type': 'application/json'
+    }
+    tx_ref = f"wd-{uuid.uuid4().hex[:10]}"
+    payload = {
+        "account_name": "Customer",
+        "account_number": str(account_number),
+        "amount": str(amount),
+        "currency": "ETB",
+        "reference": tx_ref,
+        "bank_code": str(bank_code)
+    }
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        res_data = response.json()
+        print(f"Chapa Payout Response: {res_data}")
+        return res_data
+    except Exception as e:
+        print(f"Chapa Transfer Error: {e}")
+        return {"status": "failed", "message": str(e)}
 
 # =========================================================
 # 3. BINGO CARDS DATABASE (1-104 CARDS)
@@ -621,8 +647,8 @@ def handle_main_menu_callbacks(call):
         
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
-            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_Telebirr"),
-            InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE_Birr")
+            InlineKeyboardButton("📱 Telebirr", callback_data="wdmeth_853"),
+            InlineKeyboardButton("🏦 CBE Birr / Bank", callback_data="wdmeth_851")
         )
         bot.send_message(call.message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
 
@@ -683,24 +709,25 @@ def handle_deposit_amount_input(message):
         )
 
 # =========================================================
-# WITHDRAWAL HANDLERS
+# AUTOMATED CHAPA WITHDRAWAL HANDLERS (PAYOUT)
 # =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
 def handle_withdraw_method(call):
     uid = int(call.from_user.id)
-    method = call.data.split('_', 1)[1]
+    bank_code = call.data.split('_')[1]
     
     bal = users_db.get(uid, {}).get("balance", 0.0)
     if bal < MIN_WITHDRAWAL:
         bot.answer_callback_query(call.id, f"ዝቅተኛው የዊዝድሮው መጠን {MIN_WITHDRAWAL} ETB ነው!", show_alert=True)
         return
 
-    withdraw_data[uid] = {'method': method}
+    method_name = "Telebirr" if bank_code == "853" else "CBE Birr / Bank"
+    withdraw_data[uid] = {'bank_code': bank_code, 'method_name': method_name}
     user_states[uid] = "WAITING_WITHDRAW_ACC"
     
     bot.edit_message_text(
-        f"✅ የተመረጠው ማውጫ፦ <b>{method}</b>\n\n"
-        f"📱 እባክዎን ገንዘቡ የሚላክበትን <b>የ{method} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር</b> ያስገቡ፦", 
+        f"✅ የተመረጠው ማውጫ፦ <b>{method_name}</b>\n\n"
+        f"📱 እባክዎን ገንዘቡ የሚላክበትን <b>የ{method_name} ስልክ ቁጥር ወይም የባንክ ሂሳብ ቁጥር</b> ያስገቡ፦", 
         call.message.chat.id, 
         call.message.message_id, 
         parse_mode="HTML"
@@ -743,58 +770,53 @@ def handle_withdraw_amount(message):
         bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
         return
 
-    method = withdraw_data[uid]['method']
+    bank_code = withdraw_data[uid]['bank_code']
     account = withdraw_data[uid]['account']
+    method_name = withdraw_data[uid]['method_name']
     user_states[uid] = None
 
+    # 1. ባላንሱን አስቀድሞ መቀነስ (ለደህንነት)
     users_db[uid]["balance"] -= amount
     socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
 
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("✅ ፈቅድ (Approve)", callback_data=f"wdapp_YES_{uid}_{amount}"),
-        InlineKeyboardButton("❌ ሰርዝ (Reject)", callback_data=f"wdapp_NO_{uid}_{amount}")
-    )
+    msg_wait = bot.send_message(message.chat.id, "🔄 <b>የገንዘብ ማውጣት ክፍያው በ Chapa በኩል በመላክ ላይ ነው...</b>", parse_mode="HTML")
 
-    admin_msg = (
-        f"🚨 <b>አዲስ የገንዘብ ማውጣት (Withdrawal) ጥያቄ!</b>\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"👤 ተጫዋች ID: <code>{uid}</code>\n"
-        f"🏦 ዘዴ: <b>{method}</b>\n"
-        f"📱 የሚላክበት ቁጥር: <code>{account}</code>\n"
-        f"💰 መጠን: <b>{amount:.2f} ETB</b>\n"
-        f"💳 የቀረ ባላንስ: <b>{users_db[uid]['balance']:.2f} ETB</b>"
-    )
-    bot.send_message(ADMIN_ID, admin_msg, reply_markup=markup, parse_mode="HTML")
+    # 2. አውቶማቲክ Payout ጥያቄ መላክ
+    payout_res = process_chapa_transfer(account, amount, bank_code)
 
-    bot.send_message(
-        message.chat.id, 
-        f"✅ <b>የማውጣት ጥያቄዎ ለአድሚን ተልኳል!</b>\n\n"
-        f"🏦 ዘዴ፦ <b>{method}</b>\n"
-        f"📱 ቁጥር፦ <code>{account}</code>\n"
-        f"💰 መጠን፦ <b>{amount:.2f} ETB</b>\n\n"
-        f"ገንዘቡ በቅርቡ ወደ አካውንትዎ ገቢ ይደረጋል።", 
-        parse_mode="HTML"
-    )
+    if payout_res and payout_res.get('status') == 'success':
+        bot.delete_message(message.chat.id, msg_wait.message_id)
+        success_msg = (
+            f"🎉 <b>የገንዘብ ማውጣት ክፍያዎ ተፈፅሟል!</b>\n\n"
+            f"💰 የተላከ መጠን፦ <b>{amount:.2f} ETB</b>\n"
+            f"🏦 ዘዴ፦ <b>{method_name}</b>\n"
+            f"📱 ሂሳብ ቁጥር፦ <code>{account}</code>\n"
+            f"💳 የቀረ ባላንስ፦ <b>{users_db[uid]['balance']:.2f} ETB</b>"
+        )
+        bot.send_message(message.chat.id, success_msg, parse_mode="HTML")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('wdapp_'))
-def handle_withdraw_approval(call):
-    parts = call.data.split('_')
-    decision = parts[1]
-    target_uid = int(parts[2])
-    amount = float(parts[3])
-
-    bot.answer_callback_query(call.id)
-
-    if decision == "YES":
-        bot.edit_message_text(f"{call.message.text}\n\n✅ <b>ተፈቅዷል (Approved)!</b> ገንዘቡ ለተጫዋቹ ተልኳል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-        bot.send_message(target_uid, f"🎉 <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ ተፈቅዶ ገንዘቡ ተልኮልዎታል!</b>", parse_mode="HTML")
+        # ለ አድሚን ማሳወቂያ መላክ
+        admin_info = (
+            f"✅ <b>አውቶማቲክ Payout ተጠናቋል</b>\n"
+            f"👤 ተጫዋች ID: <code>{uid}</code>\n"
+            f"💰 መጠን: <b>{amount:.2f} ETB</b>\n"
+            f"📱 ቁጥር: <code>{account}</code> ({method_name})"
+        )
+        bot.send_message(ADMIN_ID, admin_info, parse_mode="HTML")
     else:
-        users_db[target_uid]["balance"] += amount
-        socketio.emit('balance_update', {'user_id': target_uid, 'balance': users_db[target_uid]["balance"]})
+        # ክፍያው ካልተሳካ ብሩን ወደ ተጫዋቹ ባላንስ መመለስ (Rollback)
+        users_db[uid]["balance"] += amount
+        socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+
+        err_msg = payout_res.get('message', 'ያልታወቀ ስህተት') if payout_res else 'ከ Chapa Payout API ጋር መገናኘት አልተቻለም'
+        bot.delete_message(message.chat.id, msg_wait.message_id)
         
-        bot.edit_message_text(f"{call.message.text}\n\n❌ <b>ተሰርዟል (Rejected)!</b> ገንዘቡ ወደ ተጫዋቹ ባላንስ ተመልሷል።", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-        bot.send_message(target_uid, f"❌ <b>የ {amount:.2f} ETB የዊዝድሮው ጥያቄዎ አልተፈቀደም።</b>\nገንዘቡ ወደ ባላንስዎ ተመልሷል።", parse_mode="HTML")
+        fail_txt = (
+            f"❌ <b>የገንዘብ ማውጣት ሂደቱ አልተሳካም።</b>\n"
+            f"<i>ምክንያት፦ {err_msg}</i>\n\n"
+            f"🔄 <b>{amount:.2f} ETB</b> ወደ ባላንስዎ ተመልሷል። እባክዎን ቆየት ብለው ይመልሱ።"
+        )
+        bot.send_message(message.chat.id, fail_txt, parse_mode="HTML")
 
 # =========================================================
 # 7. SUPPORT BOT HANDLERS
