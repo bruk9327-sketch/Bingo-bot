@@ -5,6 +5,7 @@ import time
 import uuid
 import requests
 import json
+import hashlib
 from threading import Thread, Lock
 from flask import Flask, render_template_string, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -116,7 +117,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (WITH SOUND EFFECTS)
+# 4. FRONTEND HTML TEMPLATE (WITH VOICE & SOUND EFFECTS)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -239,7 +240,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
-            <!-- Called Numbers Board (Vertical layout, arranged downwards) -->
+            <!-- Called Numbers Board (Vertical layout) -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
                 <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
@@ -271,7 +272,6 @@ HTML_TEMPLATE = """
         // ==================== SOUND EFFECTS SETUP ====================
         const sounds = {
             click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
-            ball: new Audio('https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3'),
             win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
             error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3')
         };
@@ -281,6 +281,27 @@ HTML_TEMPLATE = """
                 sounds[effectName].currentTime = 0;
                 sounds[effectName].volume = 0.5;
                 sounds[effectName].play().catch(e => console.log("Audio play restricted:", e));
+            }
+        }
+
+        // ==================== VOICE CALL FEATURE (WEB SPEECH API) ====================
+        function speakNumber(ballNum) {
+            let letter = '';
+            if (ballNum >= 1 && ballNum <= 15) letter = 'B';
+            else if (ballNum >= 16 && ballNum <= 30) letter = 'I';
+            else if (ballNum >= 31 && ballNum <= 45) letter = 'N';
+            else if (ballNum >= 46 && ballNum <= 60) letter = 'G';
+            else if (ballNum >= 61 && ballNum <= 75) letter = 'O';
+
+            const phrase = `${letter} ${ballNum}`;
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // ቆይታ ያለው ድምፅ ካለ ለማስቆም
+                const utterance = new SpeechSynthesisUtterance(phrase);
+                utterance.rate = 0.85; // ድምፁ በግልጽ እንዲሰማ ትንሽ ቀስ እንዲል
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                window.speechSynthesis.speak(utterance);
             }
         }
 
@@ -454,8 +475,10 @@ HTML_TEMPLATE = """
         socket.on('new_number', (data) => {
             const ball = data.ball;
             drawnNumbersSet.add(ball);
-            playSound('ball');
             
+            // የድምፅ ጥሪ (Voice Call)
+            speakNumber(ball);
+
             const ballEl = document.getElementById('current-ball');
             ballEl.innerText = ball;
             ballEl.classList.add('scale-110');
@@ -1275,7 +1298,7 @@ def game_loop():
             drawn_set.add(ball)
             game_state["drawn_numbers"].append(ball)
             socketio.emit('new_number', {'ball': ball})
-            socketio.sleep(2.5)
+            socketio.sleep(2.8) # ለድምፅ ጥሪው በቂ ጊዜ እንዲኖር ትንሽ ሰፋ ተደርጓል
 
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
