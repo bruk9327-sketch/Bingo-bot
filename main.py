@@ -50,6 +50,7 @@ user_states = {}
 deposit_data = {}        
 withdraw_data = {}       
 admin_reply_state = {}   
+pending_deposits = {}    # አድሚን እንዲያጸድቃቸው የሚጠበቁ ዲፖዚቶች
 used_txn_ids = set()     
 
 # =========================================================
@@ -588,7 +589,7 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # =========================================================
-# MANUAL DEPOSIT & SMS VERIFICATION HANDLERS (Fixed Logic)
+# MANUAL DEPOSIT & ADMIN APPROVAL/REJECTION DASHBOARD HANDLERS
 # =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
 def handle_deposit_method_selection(call):
@@ -623,7 +624,11 @@ def handle_sms_receipt_verification(message):
     uid = int(message.from_user.id)
     text = message.text.strip()
 
-    # Prevent duplicate transaction usage
+    # Validation Rule: Check length and proper transaction patterns
+    if len(text) < 15:
+        bot.send_message(message.chat.id, "❌ <b>የላኩት የደረሰኝ ጽሁፍ በጣም አጭር ነው። እባክዎን ትክክለኛውን የባንክ/ቴሌብር አጭር መልእክት (SMS) ሙሉውን ኮፒ አድርገው ይላኩ።</b>", parse_mode="HTML")
+        return
+
     txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
     txn_id = txn_id_match.group(1) if txn_id_match else hashlib.md5(text.encode()).hexdigest()[:12]
 
@@ -631,16 +636,15 @@ def handle_sms_receipt_verification(message):
         bot.send_message(message.chat.id, "❌ <b>ይህ የክፍያ ደረሰኝ አስቀድሞ ጥቅም ላይ ውሏል!</b>", parse_mode="HTML")
         return
 
-    # Extract exact deposit amount safely (Fixing multi-addition bugs)
+    # Extract exact deposit amount safely (Validation rules to prevent summation bugs)
     amounts = re.findall(r'(\d+(?:\.\d+)?)\s*(?:ETB|ብር|Birr)', text, re.IGNORECASE)
     if not amounts:
         amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
 
     if not amounts:
-        # Fallback to general numbers if currency words missing, taking the first valid large or matching amount
         numbers = [float(n) for n in re.findall(r'\b\d+(?:\.\d+)?\b', text) if float(n) >= 5.0]
         if numbers:
-            deposit_amount = numbers[0] # Take the first detected amount precisely instead of summing all numbers up
+            deposit_amount = numbers[0] 
         else:
             bot.send_message(message.chat.id, "❌ <b>ከደረሰኙ ላይ የክፍያ መጠን ማግኘት አልተቻለም። እባክዎን ትክክለኛውን የSMS መልእክት ኮፒ አድርገው ይላኩ።</b>", parse_mode="HTML")
             return
@@ -651,36 +655,109 @@ def handle_sms_receipt_verification(message):
         bot.send_message(message.chat.id, "❌ <b>የተገኘው የብር መጠን በጣም አነስተኛ ነው። እባክዎን ትክክለኛ ደረሰኝ ይላኩ።</b>", parse_mode="HTML")
         return
 
-    with db_lock:
-        used_txn_ids.add(txn_id)
-        if uid not in users_db:
-            users_db[uid] = {"id": uid, "name": message.from_user.first_name, "balance": 0.0}
-        
-        users_db[uid]["balance"] += deposit_amount
-        new_bal = users_db[uid]["balance"]
-
     user_states[uid] = None
-    socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
+    
+    # Store in pending deposits for Admin approval/rejection dashboard
+    req_id = str(uuid.uuid4())[:8]
+    pending_deposits[req_id] = {
+        "user_id": uid,
+        "amount": deposit_amount,
+        "txn_id": txn_id,
+        "text": text
+    }
 
     bot.send_message(
         message.chat.id,
-        f"🎉 <b>ክፍያዎ በትክክል ተረጋግጧል!</b>\n\n"
-        f"💰 የተጨመረ: <b>+{deposit_amount:.2f} ETB</b>\n"
-        f"💳 አዲሱ ባላንስዎ: <b>{new_bal:.2f} ETB</b>",
+        f"⏳ <b>የክፍያ ጥያቄዎ ተቀብሏል!</b>\n\n"
+        f"💰 መጠን: <b>{deposit_amount:.2f} ETB</b>\n"
+        f"🔍 <i>አድሚኑ ደረሰኙን አጣርቶ በቅርቡ አካውንትዎ ላይ ይጨምረዋል።</i>",
         parse_mode="HTML"
     )
 
-    # Notify Admin
+    # Send Approval/Rejection Dashboard Markup to Admin
+    admin_markup = InlineKeyboardMarkup(row_width=2)
+    admin_markup.add(
+        InlineKeyboardButton("✅ አረጋግጥ (Approve)", callback_data=f"adm_app_{req_id}"),
+        InlineKeyboardButton("❌ ውድቅ አድርግ (Reject)", callback_data=f"adm_rej_{req_id}")
+    )
+
     admin_alert = (
-        f"✅ <b>አዲስ ማኑዋል ዲፖዚት ተረጋገጠ!</b>\n"
+        f"🔔 <b>አዲስ የዲፖዚት ማረጋገጫ (Verification Request)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
         f"👤 ተጫዋች ID: <code>{uid}</code>\n"
-        f"💰 መጠን: <b>+{deposit_amount:.2f} ETB</b>\n"
-        f"📄 SMS: <i>{text[:100]}...</i>"
+        f"💰 መጠን: <b>{deposit_amount:.2f} ETB</b>\n"
+        f"🆔 Txn ID: <code>{txn_id}</code>\n"
+        f"📄 SMS: <i>{text[:150]}...</i>"
     )
     try:
-        bot.send_message(ADMIN_ID, admin_alert, parse_mode="HTML")
+        bot.send_message(ADMIN_ID, admin_alert, reply_markup=admin_markup, parse_mode="HTML")
     except Exception:
         pass
+
+# Admin Approval / Rejection Action Handlers
+@bot.callback_query_handler(func=lambda call: call.data.startswith('adm_app_') or call.data.startswith('adm_rej_'))
+def handle_admin_verification_action(call):
+    if int(call.from_user.id) != ADMIN_ID:
+        bot.answer_callback_query(call.id, "ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው!", show_alert=True)
+        return
+
+    action, req_id = call.data.split('_')[1], call.data.split('_')[2]
+    bot.answer_callback_query(call.id)
+
+    if req_id not in pending_deposits:
+        bot.edit_message_text("⚠️ ይህ ጥያቄ አስቀድሞ ተስተናግዷል ወይም አልፏል።", call.message.chat.id, call.message.message_id)
+        return
+
+    dep_info = pending_deposits.pop(req_id)
+    uid = dep_info["user_id"]
+    amount = dep_info["amount"]
+    txn_id = dep_info["txn_id"]
+
+    if action == "app":
+        with db_lock:
+            used_txn_ids.add(txn_id)
+            if uid not in users_db:
+                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+            users_db[uid]["balance"] += amount
+            new_bal = users_db[uid]["balance"]
+
+        socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
+
+        # Notify User
+        try:
+            bot.send_message(
+                uid,
+                f"🎉 <b>ዲፖዚትዎ በአድሚን ጸድቋል!</b>\n\n"
+                f"💰 የተጨመረ: <b>+{amount:.2f} ETB</b>\n"
+                f"💳 አዲሱ ባላንስዎ: <b>{new_bal:.2f} ETB</b>",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+        bot.edit_message_text(
+            f"✅ <b>ዲፖዚቱ ጸድቆ ለተጫዋች (<code>{uid}</code>) ተጭኗል!</b>\n💰 መጠን: {amount:.2f} ETB",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="HTML"
+        )
+    else:
+        # Reject Action
+        try:
+            bot.send_message(
+                uid,
+                f"❌ <b>የዲፖዚት ጥያቄዎ ውድቅ ተደርጓል (Rejected)።</b>\nእባክዎን ትክክለኛ የክፍያ ደረሰኝ መላክዎን ያረጋግጡ ወይም በ @BkbingosupportBot ያነጋግሩን።",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+        bot.edit_message_text(
+            f"❌ <b>ዲፖዚቱ ውድቅ ተደርጓል (Rejected) ለተጫዋች (<code>{uid}</code>)።</b>",
+            call.message.chat.id,
+            call.message.message_id,
+            parse_mode="HTML"
+        )
 
 # =========================================================
 # WITHDRAWAL HANDLERS
