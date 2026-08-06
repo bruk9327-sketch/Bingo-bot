@@ -290,7 +290,6 @@ HTML_TEMPLATE = """
         function unlockSpeech() {
             if (speechUnlocked) return;
             if ('speechSynthesis' in window) {
-                // በሞባይል ብራውዘር ድምፅ እንዲከፈት በአንደኛው ክሊክ ባዶ ቃላት እናንብብ
                 const dummy = new SpeechSynthesisUtterance('');
                 dummy.volume = 0;
                 window.speechSynthesis.speak(dummy);
@@ -318,7 +317,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        // ማናቸውንም ስክሪን ስንነካ ድምፁ እንዲከፈት ማድረግ
         document.addEventListener('click', unlockSpeech, { once: true });
         document.addEventListener('touchstart', unlockSpeech, { once: true });
 
@@ -383,7 +381,7 @@ HTML_TEMPLATE = """
                 } else {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
                     btn.onclick = () => {
-                        unlockSpeech(); // ድምፁ እንዲከፈት
+                        unlockSpeech();
                         if (mySelectedCards.length >= 2) {
                             playSound('error');
                             return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
@@ -495,7 +493,7 @@ HTML_TEMPLATE = """
             const ball = data.ball;
             drawnNumbersSet.add(ball);
             
-            // የድምፅ ጥሪ (Voice Call)
+            // Voice Call Integration
             speakNumber(ball);
 
             const ballEl = document.getElementById('current-ball');
