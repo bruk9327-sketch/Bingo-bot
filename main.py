@@ -576,6 +576,43 @@ def start_cmd(message):
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
+# =========================================================
+# ADMIN STATISTICS HANDLER
+# =========================================================
+@bot.message_handler(commands=['stats'])
+def admin_statistics(message):
+    uid = int(message.from_user.id)
+    if uid != ADMIN_ID:
+        bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው።")
+        return
+
+    with db_lock:
+        total_users = len(users_db)
+        total_deposit_amount = 0.0
+        total_withdraw_amount = 0.0
+
+        for user_data in users_db.values():
+            for hist in user_data.get("history", []):
+                if "ዲፖዚት" in hist["type"]:
+                    nums = re.findall(r'\+?(\d+(?:\.\d+)?)', hist["details"])
+                    if nums:
+                        total_deposit_amount += float(nums[0])
+                elif "ዊዝድሮ" in hist["type"] and "ውድቅ" not in hist["type"]:
+                    nums = re.findall(r'-?(\d+(?:\.\d+)?)', hist["details"])
+                    if nums:
+                        total_withdraw_amount += float(nums[0])
+
+    stats_msg = (
+        f"📊 <b>የ BKBINGO Pro አድሚን ስታስቲክስ (Statistics)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 አጠቃላይ የተጠቃሚዎች ቁጥር: <b>{total_users}</b>\n"
+        f"📥 አጠቃላይ የገባ ገንዘብ (Total Deposit): <b>{total_deposit_amount:.2f} ETB</b>\n"
+        f"📤 አጠቃላይ የወጣ ገንዘብ (Total Withdrawal): <b>{total_withdraw_amount:.2f} ETB</b>\n"
+        f"💰 የተጣራ ልዩነት (Net Flow): <b>{(total_deposit_amount - total_withdraw_amount):.2f} ETB</b>"
+    )
+
+    bot.send_message(message.chat.id, stats_msg, parse_mode="HTML")
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('btn_'))
 def handle_main_menu_callbacks(call):
     uid = int(call.from_user.id)
