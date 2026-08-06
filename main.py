@@ -3,8 +3,6 @@ import re
 import random
 import time
 import uuid
-import hmac
-import hashlib
 import requests
 import json
 from threading import Thread, Lock
@@ -32,10 +30,11 @@ support_bot = telebot.TeleBot(SUPPORT_BOT_TOKEN)
 RENDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://bingo-bot-c90r.onrender.com")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "855985673"))
 
-# CHAPA KEYS
-CHAPA_SECRET_KEY = os.environ.get("CHAPA_SECRET_KEY", "CHASECK_TEST-GK2tyiVjfHkyMFz70ngJS4E85IAXhLPe")
-CHAPA_PUBLIC_KEY = os.environ.get("CHAPUBK_TEST-JEZNzzdjWObW573xSqFKl87jrP7xbVhS")
-CHAPA_BASE_URL = "https://api.chapa.co/v1"
+# PAYMENT ACCOUNTS (MANUAL DEPOSIT & SMS VERIFICATION)
+CBE_ACCOUNT = "0991983522"
+CBE_NAME = "BIRUK RETA"
+TELEBIRR_ACCOUNT = "0991983522"
+TELEBIRR_NAME = "BIRUK RETA"
 
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
@@ -54,71 +53,7 @@ admin_reply_state = {}
 used_txn_ids = set()     
 
 # =========================================================
-# 2. CHAPA INTEGRATION HELPER FUNCTIONS (UPDATED BANK CODE)
-# =========================================================
-def initialize_chapa_payment(email, amount, tx_ref, first_name, last_name):
-    """የ Chapa የክፍያ ሊንክ ማፍሪያ (Deposit)"""
-    url = f"{CHAPA_BASE_URL}/transaction/initialize"
-    headers = {
-        'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
-        'Content-Type': 'application/json'
-    }
-    payload = {
-        "amount": str(amount),
-        "currency": "ETB",
-        "email": email,
-        "first_name": first_name if first_name else "Customer",
-        "last_name": last_name if last_name else "User",
-        "tx_ref": tx_ref,
-        "callback_url": f"{RENDER_WEBAPP_URL}/chapa-webhook",
-        "customization": {
-            "title": "BKBINGO Pro",
-            "description": "Deposit for BKBINGO game"
-        }
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        return response.json()
-    except Exception as e:
-        print(f"Chapa Init Error: {e}")
-        return None
-
-def get_chapa_bank_code(raw_code):
-    """የቴሌብር ወይም የባንክ ኮድ በትክክል ወደ Chapa ፎርማት መቀየሪያ"""
-    code_str = str(raw_code).strip().lower()
-    if "telebirr" in code_str:
-        return "telebirr"
-    elif "cbe" in code_str or "ንግድ" in code_str:
-        return "CBEBirr"
-    return "telebirr"
-
-def process_chapa_transfer(account_number, amount, bank_code):
-    """ከ Chapa ባላንስ በቀጥታ ወደ ተጫዋች Telebirr/Bank ብር መላኪያ (Automated Payout)"""
-    url = f"{CHAPA_BASE_URL}/transfers"
-    headers = {
-        'Authorization': f'Bearer {CHAPA_SECRET_KEY}',
-        'Content-Type': 'application/json'
-    }
-    tx_ref = f"wd-{uuid.uuid4().hex[:10]}"
-    target_bank_code = get_chapa_bank_code(bank_code)
-
-    payload = {
-        "account_name": "Customer Transfer",
-        "account_number": str(account_number).strip(),
-        "amount": str(amount),
-        "currency": "ETB",
-        "reference": tx_ref,
-        "bank_code": target_bank_code
-    }
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        return response.json()
-    except Exception as e:
-        print(f"Chapa Transfer Error: {e}")
-        return {"status": "failed", "message": str(e)}
-
-# =========================================================
-# 3. BINGO CARDS DATABASE (1-104 CARDS)
+# 2. BINGO CARDS DATABASE (1-104 CARDS)
 # =========================================================
 cards_database = {}
 
@@ -151,7 +86,7 @@ for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
 # =========================================================
-# 4. GAME STATE & BINGO WINNER CHECKER
+# 3. GAME STATE & BINGO WINNER CHECKER
 # =========================================================
 game_state = {
     "status": "WAITING",
@@ -177,7 +112,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 5. FRONTEND HTML TEMPLATE
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -300,9 +235,10 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
+            <!-- Called Numbers Board (Vertical layout, arranged downwards) -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
-                <div id="bingo-75-grid" class="grid grid-cols-5 gap-1 text-center text-[9px]"></div>
+                <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
             </div>
 
             <div class="w-2/3 flex flex-col items-center">
@@ -552,56 +488,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# CHAPA WEBHOOK ENDPOINT
-# =========================================================
-@app.route('/chapa-webhook', methods=['GET', 'POST'])
-def chapa_webhook():
-    """Chapa ክፍያው ሲጠናቀቅ አውቶማቲክ ባላንስ መጨመሪያ"""
-    data = request.args if request.method == 'GET' else request.json
-    if not data:
-        return jsonify({"status": "no data"}), 400
-
-    tx_ref = data.get('tx_ref') or data.get('trx_ref')
-
-    if tx_ref and tx_ref not in used_txn_ids:
-        try:
-            parts = tx_ref.split("_")
-            if len(parts) >= 2:
-                user_id = int(parts[1])
-                
-                verify_url = f"{CHAPA_BASE_URL}/transaction/verify/{tx_ref}"
-                headers = {'Authorization': f'Bearer {CHAPA_SECRET_KEY}'}
-                res = requests.get(verify_url, headers=headers, timeout=10).json()
-
-                if res.get('status') == 'success' and res.get('data', {}).get('status') == 'success':
-                    amount = float(res['data']['amount'])
-                    
-                    with db_lock:
-                        used_txn_ids.add(tx_ref)
-
-                        if user_id not in users_db:
-                            users_db[user_id] = {"id": user_id, "name": f"User {user_id}", "balance": 0.0}
-
-                        users_db[user_id]["balance"] += amount
-                        new_bal = users_db[user_id]["balance"]
-
-                    socketio.emit('balance_update', {'user_id': user_id, 'balance': new_bal})
-
-                    bot.send_message(
-                        user_id,
-                        f"🎉 <b>ክፍያዎ በተሳካ ሁኔታ ተጠናቋል!</b>\n\n"
-                        f"💰 የተጨመረ: <b>+{amount:.2f} ETB</b>\n"
-                        f"💳 አዲሱ ባላንስዎ: <b>{new_bal:.2f} ETB</b>",
-                        parse_mode="HTML"
-                    )
-                    return jsonify({"status": "success"}), 200
-        except Exception as e:
-            print(f"Webhook processing error: {e}")
-
-    return jsonify({"status": "ignored"}), 200
-
-# =========================================================
-# 6. TELEGRAM MAIN BOT & USER REGISTRATION
+# 5. TELEGRAM MAIN BOT & DEPOSIT/WITHDRAWAL HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -668,13 +555,16 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_deposit":
-        user_states[uid] = "WAITING_DEPOSIT_AMOUNT"
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("CBE BIRR", callback_data="depmeth_cbe"),
+            InlineKeyboardButton("TELE BIRR", callback_data="depmeth_tele")
+        )
         bot.send_message(
             call.message.chat.id,
-            "📥 <b>የገንዘብ ማስገቢያ (Deposit)</b>\n\n"
-            "እባክዎን ማስገባት የሚፈልጉትን የገንዘብ መጠን በቁጥር ያስገቡ፦\n"
-            "<i>(ምሳሌ፦ 50 ወይም 100)</i>\n"
-            "📌 <i>ዝቅተኛው የዲፖዚት መጠን 10 ETB ነው።</i>",
+            "💳 <b>የማንኛውን መንገድ ይምረጡ (Select Deposit Method)</b>\n\n"
+            "እባክዎ ሂሳብ ለመሙላት የሚጠቀሙበትን መንገድ ይምረጡ፦",
+            reply_markup=markup,
             parse_mode="HTML"
         )
 
@@ -698,56 +588,102 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # =========================================================
-# AUTOMATED CHAPA DEPOSIT HANDLER
+# MANUAL DEPOSIT & SMS VERIFICATION HANDLERS (Fixed Logic)
 # =========================================================
-@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_DEPOSIT_AMOUNT")
-def handle_deposit_amount_input(message):
-    uid = int(message.from_user.id)
-    user_states[uid] = None
-    
-    try:
-        amount = float(message.text.strip())
-    except ValueError:
-        bot.send_message(message.chat.id, "❌ <b>እባክዎን ትክክለኛ የቁጥር መጠን ያስገቡ!</b>", parse_mode="HTML")
-        return
+@bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
+def handle_deposit_method_selection(call):
+    uid = int(call.from_user.id)
+    method = call.data.split('_')[1]
+    bot.answer_callback_query(call.id)
 
-    if amount < 10.0:
-        bot.send_message(message.chat.id, "❌ <b>ዝቅተኛው ዲፖዚት ማድረግ የሚችሉት መጠን 10 ETB ነው።</b>", parse_mode="HTML")
-        return
-
-    first_name = message.from_user.first_name or "Player"
-    last_name = message.from_user.last_name or "User"
-    email = f"user{uid}@gmail.com"
-    tx_ref = f"DEP_{uid}_{int(time.time())}"
-
-    msg_wait = bot.send_message(message.chat.id, "🔄 <b>የክፍያ ሊንክ በመዘጋጀት ላይ ነው...</b>", parse_mode="HTML")
-
-    res = initialize_chapa_payment(email, amount, tx_ref, first_name, last_name)
-
-    if res and res.get('status') == 'success' and 'data' in res:
-        checkout_url = res['data']['checkout_url']
-        
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("💳 በ Chapa ክፍያ ፈጽም (Pay Now)", url=checkout_url))
-
-        pay_txt = (
-            f"✅ <b>የ {amount:.2f} ETB ክፍያ ዝግጁ ነው!</b>\n\n"
-            f"ከታች ያለውን <b>'💳 በ Chapa ክፍያ ፈጽም'</b> የሚለውን ተጭነው በ Telebirr, CBE Birr, ወይም Card ክፍያውን ይፈጽሙ።\n\n"
-            f"<i>ክፍያውን እንደጨረሱ ባላንስዎ በራሱ ጊዜ (Automatically) ይጨምራል።</i>"
-        )
-        bot.delete_message(message.chat.id, msg_wait.message_id)
-        bot.send_message(message.chat.id, pay_txt, reply_markup=markup, parse_mode="HTML")
+    if method == "cbe":
+        deposit_data[uid] = {"method": "CBE-Birr", "account": CBE_ACCOUNT, "name": CBE_NAME}
+        method_title = "የ CBE-Birr አካውንት"
+        merchant_info = f"CBE-BIRR Merchant - {CBE_ACCOUNT}\n({CBE_NAME})"
     else:
-        err_msg = res.get('message', 'ያልታወቀ ስህተት') if res else 'ከ Chapa ጋር መገናኘት አልተቻለም'
-        bot.delete_message(message.chat.id, msg_wait.message_id)
-        bot.send_message(
-            message.chat.id, 
-            f"❌ <b>የክፍያ ሊንክ ማዘጋጀት አልተቻለም።</b>\n<i>ምክንያት፦ {err_msg}</i>\n\nእባክዎን ቆየት ብለው ይሞክሩ።", 
-            parse_mode="HTML"
-        )
+        deposit_data[uid] = {"method": "Telebirr", "account": TELEBIRR_ACCOUNT, "name": TELEBIRR_NAME}
+        method_title = "የ Telebirr አካውንት"
+        merchant_info = f"TELEBIRR Account - {TELEBIRR_ACCOUNT}\n({TELEBIRR_NAME})"
+
+    user_states[uid] = "WAITING_SMS_RECEIPT"
+
+    instructions = (
+        f"የ <b>{method_title}</b> አክዮንት\n\n"
+        f"<b>{merchant_info}</b>\n\n"
+        "<b>መመሪያ</b>\n"
+        f"1. ከላይ ባለው የ {method_title} Pay for Merchant በሚለው ገንዘቡን ያስገቡ\n"
+        "2. ብሩን ስትልክ የክፍያዎን መረጃ የያዘ አጭር የሩፍ መልክት(sms) ከ ባንኩ/ቴሌብር ይደርሶታል\n"
+        "3. የደርሰሶትን አጭር የሩፍ መልክት(sms) ሙሉውን ኮፒ(copy) በማድረግ ከታች ባለው የቴሌግራም የሩፍ መዢኛው ላይ ፔስት(paste) በማድረግ ይላኩት\n\n"
+        f"የሚያጋጥሞት የክፍያ ችግር ካለ @BkbingosupportBot በዚህ ታችን ማውራት ይችላሉ"
+    )
+    bot.send_message(call.message.chat.id, instructions, parse_mode="HTML")
+
+@bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_SMS_RECEIPT")
+def handle_sms_receipt_verification(message):
+    uid = int(message.from_user.id)
+    text = message.text.strip()
+
+    # Prevent duplicate transaction usage
+    txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
+    txn_id = txn_id_match.group(1) if txn_id_match else hashlib.md5(text.encode()).hexdigest()[:12]
+
+    if txn_id in used_txn_ids:
+        bot.send_message(message.chat.id, "❌ <b>ይህ የክፍያ ደረሰኝ አስቀድሞ ጥቅም ላይ ውሏል!</b>", parse_mode="HTML")
+        return
+
+    # Extract exact deposit amount safely (Fixing multi-addition bugs)
+    amounts = re.findall(r'(\d+(?:\.\d+)?)\s*(?:ETB|ብር|Birr)', text, re.IGNORECASE)
+    if not amounts:
+        amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+
+    if not amounts:
+        # Fallback to general numbers if currency words missing, taking the first valid large or matching amount
+        numbers = [float(n) for n in re.findall(r'\b\d+(?:\.\d+)?\b', text) if float(n) >= 5.0]
+        if numbers:
+            deposit_amount = numbers[0] # Take the first detected amount precisely instead of summing all numbers up
+        else:
+            bot.send_message(message.chat.id, "❌ <b>ከደረሰኙ ላይ የክፍያ መጠን ማግኘት አልተቻለም። እባክዎን ትክክለኛውን የSMS መልእክት ኮፒ አድርገው ይላኩ።</b>", parse_mode="HTML")
+            return
+    else:
+        deposit_amount = float(amounts[0])
+
+    if deposit_amount < 5.0:
+        bot.send_message(message.chat.id, "❌ <b>የተገኘው የብር መጠን በጣም አነስተኛ ነው። እባክዎን ትክክለኛ ደረሰኝ ይላኩ።</b>", parse_mode="HTML")
+        return
+
+    with db_lock:
+        used_txn_ids.add(txn_id)
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "name": message.from_user.first_name, "balance": 0.0}
+        
+        users_db[uid]["balance"] += deposit_amount
+        new_bal = users_db[uid]["balance"]
+
+    user_states[uid] = None
+    socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
+
+    bot.send_message(
+        message.chat.id,
+        f"🎉 <b>ክፍያዎ በትክክል ተረጋግጧል!</b>\n\n"
+        f"💰 የተጨመረ: <b>+{deposit_amount:.2f} ETB</b>\n"
+        f"💳 አዲሱ ባላንስዎ: <b>{new_bal:.2f} ETB</b>",
+        parse_mode="HTML"
+    )
+
+    # Notify Admin
+    admin_alert = (
+        f"✅ <b>አዲስ ማኑዋል ዲፖዚት ተረጋገጠ!</b>\n"
+        f"👤 ተጫዋች ID: <code>{uid}</code>\n"
+        f"💰 መጠን: <b>+{deposit_amount:.2f} ETB</b>\n"
+        f"📄 SMS: <i>{text[:100]}...</i>"
+    )
+    try:
+        bot.send_message(ADMIN_ID, admin_alert, parse_mode="HTML")
+    except Exception:
+        pass
 
 # =========================================================
-# AUTOMATED CHAPA WITHDRAWAL HANDLERS (PAYOUT)
+# WITHDRAWAL HANDLERS
 # =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
 def handle_withdraw_method(call):
@@ -783,11 +719,7 @@ def handle_withdraw_account(message):
         return
 
     if not account_num.isdigit() or not (4 <= len(account_num) <= 20):
-        bot.send_message(
-            message.chat.id, 
-            "❌ <b>ስህተት፦ እባክዎን ትክክለኛ የባንክ አካውንት ቁጥር ወይም የስልክ ቁጥር ብቻ ያስገቡ።</b>", 
-            parse_mode="HTML"
-        )
+        bot.send_message(message.chat.id, "❌ <b>ስህተት፦ እባክዎን ትክክለኛ የባንክ አካውንት ቁጥር ወይም የስልክ ቁጥር ብቻ ያስገቡ።</b>", parse_mode="HTML")
         return
 
     withdraw_data[uid]['account'] = account_num
@@ -825,7 +757,6 @@ def handle_withdraw_amount(message):
             bot.send_message(message.chat.id, f"❌ <b>በቂ ባላንስ የለዎትም።</b>\nየእርስዎ ባላንስ፦ <b>{bal:.2f} ETB</b>", parse_mode="HTML")
             return
 
-        bank_code = withdraw_data[uid]['bank_code']
         account = withdraw_data[uid]['account']
         method_name = withdraw_data[uid]['method_name']
         user_states[uid] = None
@@ -834,47 +765,27 @@ def handle_withdraw_amount(message):
         current_bal = users_db[uid]["balance"]
 
     socketio.emit('balance_update', {'user_id': uid, 'balance': current_bal})
-    msg_wait = bot.send_message(message.chat.id, "🔄 <b>የገንዘብ ማውጣት ክፍያው በ Chapa በኩል በመላክ ላይ ነው...</b>", parse_mode="HTML")
 
-    payout_res = process_chapa_transfer(account, amount, bank_code)
+    success_msg = (
+        f"📤 <b>የገንዘብ ማውጣት (Withdrawal) ጥያቄዎ ተቀባይነት አግኝቷል!</b>\n\n"
+        f"💰 መጠን፦ <b>{amount:.2f} ETB</b>\n"
+        f"🏦 ዘዴ፦ <b>{method_name}</b>\n"
+        f"📱 ሂሳብ ቁጥር፦ <code>{account}</code>\n"
+        f"💳 የቀረ ባላንስ፦ <b>{current_bal:.2f} ETB</b>\n\n"
+        f"<i>አድሚኑ ጥያቄዎን አጣርቶ በቅርቡ ወደ አካውንትዎ ያስተላልፋል።</i>"
+    )
+    bot.send_message(message.chat.id, success_msg, parse_mode="HTML")
 
-    if payout_res and payout_res.get('status') == 'success':
-        bot.delete_message(message.chat.id, msg_wait.message_id)
-        success_msg = (
-            f"🎉 <b>የገንዘብ ማውጣት ክፍያዎ ተፈፅሟል!</b>\n\n"
-            f"💰 የተላከ መጠን፦ <b>{amount:.2f} ETB</b>\n"
-            f"🏦 ዘዴ፦ <b>{method_name}</b>\n"
-            f"📱 ሂሳብ ቁጥር፦ <code>{account}</code>\n"
-            f"💳 የቀረ ባላንስ፦ <b>{current_bal:.2f} ETB</b>"
-        )
-        bot.send_message(message.chat.id, success_msg, parse_mode="HTML")
-
-        admin_info = (
-            f"✅ <b>አውቶማቲክ Payout ተጠናቋል</b>\n"
-            f"👤 ተጫዋች ID: <code>{uid}</code>\n"
-            f"💰 መጠን: <b>{amount:.2f} ETB</b>\n"
-            f"📱 ቁጥር: <code>{account}</code> ({method_name})"
-        )
-        bot.send_message(ADMIN_ID, admin_info, parse_mode="HTML")
-    else:
-        with db_lock:
-            users_db[uid]["balance"] += amount
-            refunded_bal = users_db[uid]["balance"]
-
-        socketio.emit('balance_update', {'user_id': uid, 'balance': refunded_bal})
-
-        err_msg = payout_res.get('message', 'ያልታወቀ ስህተት') if payout_res else 'ከ Chapa Payout API ጋር መገናኘት አልተቻለም'
-        bot.delete_message(message.chat.id, msg_wait.message_id)
-        
-        fail_txt = (
-            f"❌ <b>የገንዘብ ማውጣት ሂደቱ አልተሳካም።</b>\n"
-            f"<i>ምክንያት፦ {err_msg}</i>\n\n"
-            f"🔄 <b>{amount:.2f} ETB</b> ወደ ባላንስዎ ተመልሷል። እባክዎን ትክክለኛውን አካውንት ቁጥር አስገብተው እንደገና ይሞክሩ።"
-        )
-        bot.send_message(message.chat.id, fail_txt, parse_mode="HTML")
+    admin_info = (
+        f"🔔 <b>አዲስ የገንዘብ ማውጣት (Withdraw) ጥያቄ!</b>\n"
+        f"👤 ተጫዋች ID: <code>{uid}</code>\n"
+        f"💰 መጠን: <b>{amount:.2f} ETB</b>\n"
+        f"📱 ቁጥር: <code>{account}</code> ({method_name})"
+    )
+    bot.send_message(ADMIN_ID, admin_info, parse_mode="HTML")
 
 # =========================================================
-# 7. SUPPORT BOT HANDLERS
+# 6. SUPPORT BOT HANDLERS
 # =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
@@ -957,7 +868,7 @@ def send_support_reply(message):
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
 
 # =========================================================
-# 8. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
+# 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
 # =========================================================
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
@@ -1092,7 +1003,7 @@ def game_loop():
         socketio.sleep(8)
 
 # =========================================================
-# 9. THREAD RUNNERS & MAIN EXECUTION
+# 8. THREAD RUNNERS & MAIN EXECUTION
 # =========================================================
 def run_main_bot():
     while True:
