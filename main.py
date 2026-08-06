@@ -116,7 +116,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE
+# 4. FRONTEND HTML TEMPLATE (WITH SOUND EFFECTS)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -268,6 +268,22 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
+        // ==================== SOUND EFFECTS SETUP ====================
+        const sounds = {
+            click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
+            ball: new Audio('https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3'),
+            win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
+            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3')
+        };
+
+        function playSound(effectName) {
+            if (sounds[effectName]) {
+                sounds[effectName].currentTime = 0;
+                sounds[effectName].volume = 0.5;
+                sounds[effectName].play().catch(e => console.log("Audio play restricted:", e));
+            }
+        }
+
         const socket = io();
         let userId = null;
         let takenCards = [];
@@ -297,6 +313,7 @@ HTML_TEMPLATE = """
         });
 
         socket.on('error_msg', (data) => {
+            playSound('error');
             alert("⚠️ " + data.msg);
         });
 
@@ -328,7 +345,11 @@ HTML_TEMPLATE = """
                 } else {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
                     btn.onclick = () => {
-                        if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                        if (mySelectedCards.length >= 2) {
+                            playSound('error');
+                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                        }
+                        playSound('click');
                         socket.emit('select_card', { user_id: userId, card_id: i });
                     };
                 }
@@ -343,6 +364,7 @@ HTML_TEMPLATE = """
         });
 
         socket.on('card_confirmed', (data) => {
+            playSound('click');
             if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             cardsDatabase[data.card_id] = data.matrix;
             initCartelaGrid();
@@ -432,6 +454,7 @@ HTML_TEMPLATE = """
         socket.on('new_number', (data) => {
             const ball = data.ball;
             drawnNumbersSet.add(ball);
+            playSound('ball');
             
             const ballEl = document.getElementById('current-ball');
             ballEl.innerText = ball;
@@ -454,6 +477,7 @@ HTML_TEMPLATE = """
         });
 
         socket.on('winner_announced', (data) => {
+            playSound('win');
             document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
             
