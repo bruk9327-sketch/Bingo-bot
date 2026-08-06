@@ -492,7 +492,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT HANDLERS
+# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT / HISTORY HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -512,10 +512,27 @@ def main_menu_keyboard(user_id):
         InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
     )
     markup.add(
+        InlineKeyboardButton(text="📜 የግብይት እና ጨዋታ ታሪክ (History)", callback_data="btn_history")
+    )
+    markup.add(
         InlineKeyboardButton(text="ℹ️ እርዳታ እና ህጎች", callback_data="btn_help"),
         InlineKeyboardButton(text="🎧 የደንበኞች አገልግሎት", url=support_deep_link)
     )
     return markup
+
+def add_user_history(uid, history_type, details):
+    with db_lock:
+        if uid in users_db:
+            if "history" not in users_db[uid]:
+                users_db[uid]["history"] = []
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            users_db[uid]["history"].insert(0, {
+                "time": timestamp,
+                "type": history_type,
+                "details": details
+            })
+            if len(users_db[uid]["history"]) > 20:
+                users_db[uid]["history"].pop()
 
 @bot.message_handler(commands=['start', 'menu'])
 def start_cmd(message):
@@ -543,9 +560,9 @@ def start_cmd(message):
                 "referred_by": referred_by,
                 "referral_count": 0,
                 "has_deposited": False,
-                "milestone_rewarded": False
+                "milestone_rewarded": False,
+                "history": []
             }
-            # ክትትል ለሪፈረር (Referrer)
             if referred_by and referred_by in users_db:
                 users_db[referred_by]["referral_count"] = users_db[referred_by].get("referral_count", 0) + 1
 
@@ -569,7 +586,7 @@ def handle_main_menu_callbacks(call):
     
     with db_lock:
         if uid not in users_db:
-            users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0, "referral_count": 0}
+            users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0, "referral_count": 0, "history": []}
         bal = users_db[uid]["balance"]
         ref_count = users_db[uid].get("referral_count", 0)
 
@@ -614,6 +631,30 @@ def handle_main_menu_callbacks(call):
             f"📊 የጋበዟቸው ሰዎች ብዛት፦ <b>{ref_count} / {MILESTONE_REFERRAL_TARGET}</b>"
         )
         bot.send_message(call.message.chat.id, ref_msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
+
+    elif action == "btn_history":
+        with db_lock:
+            history_list = users_db.get(uid, {}).get("history", [])
+
+        if not history_list:
+            hist_msg = "📜 <b>የታሪክ መዝገብ</b>\n\nእስካሁን የተመዘገበ ምንም አይነት የጨዋታ፣ ዲፖዚት ወይም ዊዝድሮ ታሪክ የለዎትም አሁን ይጀምሩ! 🎲"
+        else:
+            hist_msg = "📜 <b>የእርስዎ የቅርብ ጊዜ ታሪኮች (Activity History)</b>\n━━━━━━━━━━━━━━━━━━━\n"
+            for item in history_list[:10]:
+                hist_msg += f"⏱ <code>{item['time']}</code>\n📌 <b>{item['type']}</b>: {item['details']}\n\n"
+
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔙 ወደ ዋናው ምናሌ ተመለስ", callback_data="btn_main_menu"))
+        bot.edit_message_text(hist_msg, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=markup)
+
+    elif action == "btn_main_menu":
+        welcome_txt = (
+            f"👋 ሰላም <b>{call.from_user.first_name}</b>!\n\n"
+            f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
+            f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
+            "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
+        )
+        bot.edit_message_text(welcome_txt, call.message.chat.id, call.message.message_id, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_help":
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
@@ -742,14 +783,13 @@ def handle_admin_verification_action(call):
         with db_lock:
             used_txn_ids.add(txn_id)
             if uid not in users_db:
-                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "has_deposited": False}
+                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "has_deposited": False, "history": []}
             
             users_db[uid]["balance"] += amount
             new_bal = users_db[uid]["balance"]
 
             users_db[uid]["has_deposited"] = True
             
-            # የ100 ሰው ሪፈራል ማיילስቶን ቦነስ (Milestone Bonus ቼክ)
             referrer_id = users_db[uid].get("referred_by")
             if referrer_id and referrer_id in users_db:
                 ref_user = users_db[referrer_id]
@@ -761,6 +801,7 @@ def handle_admin_verification_action(call):
                     ref_new_bal = ref_user["balance"]
                     
                     socketio.emit('balance_update', {'user_id': referrer_id, 'balance': ref_new_bal})
+                    add_user_history(referrer_id, "ሪፈራል ቦነስ (Referral Milestone)", f"+{MILESTONE_BONUS:.2f} ETB ተሸልመዋል")
                     try:
                         bot.send_message(
                             referrer_id,
@@ -773,6 +814,7 @@ def handle_admin_verification_action(call):
                         pass
 
         socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
+        add_user_history(uid, "ዲፖዚት (Deposit)", f"+{amount:.2f} ETB በአድሚን ጸድቋል")
 
         try:
             bot.send_message(
@@ -891,6 +933,7 @@ def handle_withdraw_amount(message):
         current_bal = users_db[uid]["balance"]
 
     socketio.emit('balance_update', {'user_id': uid, 'balance': current_bal})
+    add_user_history(uid, "ዊዝድሮ (Withdraw)", f"-{amount:.2f} ETB ወደ {method_name} ({account}) ተጠይቋል")
 
     success_msg = (
         f"📤 <b>የገንዘብ ማውጣት (Withdrawal) ጥያቄዎ ተቀባይነት አግኝቷል!</b>\n\n"
@@ -968,11 +1011,12 @@ def handle_admin_withdraw_action(call):
     else:
         with db_lock:
             if uid not in users_db:
-                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "history": []}
             users_db[uid]["balance"] += amount
             refunded_bal = users_db[uid]["balance"]
 
         socketio.emit('balance_update', {'user_id': uid, 'balance': refunded_bal})
+        add_user_history(uid, "ዊዝድሮ ውድቅ (Withdraw Rejected)", f"{amount:.2f} ETB ተመላሽ (Refund) ሆኗል")
 
         try:
             bot.send_message(
@@ -1085,7 +1129,7 @@ def handle_get_balance(data):
     uid = int(data.get('user_id'))
     with db_lock:
         if uid not in users_db:
-            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "history": []}
         bal = users_db[uid]["balance"]
     
     emit('balance_update', {'user_id': uid, 'balance': bal})
@@ -1101,7 +1145,7 @@ def handle_card_selection(data):
 
     with db_lock:
         if uid not in users_db:
-            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+            users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "history": []}
 
         bal = users_db[uid]["balance"]
         
@@ -1195,6 +1239,7 @@ def game_loop():
 
                     winner_names.append(w_name)
                     winner_ids.append(oid)
+                    add_user_history(oid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{split_prize:.2f} ETB አሸንፈዋል")
 
                 first_card = round_winners[0][0]
                 first_mtx = round_winners[0][2]
