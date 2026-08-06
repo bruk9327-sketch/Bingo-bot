@@ -117,7 +117,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (WITH VOICE & SOUND EFFECTS)
+# 4. FRONTEND HTML TEMPLATE (WITH UNLOCKED VOICE & SPEECH)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -284,7 +284,20 @@ HTML_TEMPLATE = """
             }
         }
 
-        // ==================== VOICE CALL FEATURE (WEB SPEECH API) ====================
+        // ==================== SPEECH SYNTHESIS VOICE CALL ====================
+        let speechUnlocked = false;
+
+        function unlockSpeech() {
+            if (speechUnlocked) return;
+            if ('speechSynthesis' in window) {
+                // በሞባይል ብራውዘር ድምፅ እንዲከፈት በአንደኛው ክሊክ ባዶ ቃላት እናንብብ
+                const dummy = new SpeechSynthesisUtterance('');
+                dummy.volume = 0;
+                window.speechSynthesis.speak(dummy);
+                speechUnlocked = true;
+            }
+        }
+
         function speakNumber(ballNum) {
             let letter = '';
             if (ballNum >= 1 && ballNum <= 15) letter = 'B';
@@ -296,14 +309,18 @@ HTML_TEMPLATE = """
             const phrase = `${letter} ${ballNum}`;
 
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // ቆይታ ያለው ድምፅ ካለ ለማስቆም
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
-                utterance.rate = 0.85; // ድምፁ በግልጽ እንዲሰማ ትንሽ ቀስ እንዲል
+                utterance.rate = 0.85;
                 utterance.pitch = 1.0;
                 utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
             }
         }
+
+        // ማናቸውንም ስክሪን ስንነካ ድምፁ እንዲከፈት ማድረግ
+        document.addEventListener('click', unlockSpeech, { once: true });
+        document.addEventListener('touchstart', unlockSpeech, { once: true });
 
         const socket = io();
         let userId = null;
@@ -366,6 +383,7 @@ HTML_TEMPLATE = """
                 } else {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
                     btn.onclick = () => {
+                        unlockSpeech(); // ድምፁ እንዲከፈት
                         if (mySelectedCards.length >= 2) {
                             playSound('error');
                             return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
@@ -454,6 +472,7 @@ HTML_TEMPLATE = """
         });
 
         socket.on('game_started', (data) => {
+            unlockSpeech();
             drawnNumbersSet.clear();
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
@@ -1298,7 +1317,7 @@ def game_loop():
             drawn_set.add(ball)
             game_state["drawn_numbers"].append(ball)
             socketio.emit('new_number', {'ball': ball})
-            socketio.sleep(2.8) # ለድምፅ ጥሪው በቂ ጊዜ እንዲኖር ትንሽ ሰፋ ተደርጓል
+            socketio.sleep(2.8) 
 
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
