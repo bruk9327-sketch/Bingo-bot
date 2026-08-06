@@ -40,6 +40,8 @@ CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   # ዝቅተኛው ዊዝድሮው
+MILESTONE_REFERRAL_TARGET = 100  # 100 ሰው ሲጋብዝ
+MILESTONE_BONUS = 500.0          # 500 ብር ቦነስ
 
 OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4GfJ2/customer-service-operator.jpg")
 
@@ -50,8 +52,8 @@ user_states = {}
 deposit_data = {}        
 withdraw_data = {}       
 admin_reply_state = {}   
-pending_deposits = {}    # አድሚን እንዲያጸድቃቸው የሚጠበቁ ዲፖዚቶች
-pending_withdrawals = {} # አድሚን እንዲያጸድቃቸው የሚጠበቁ ዊዝድሮዎች
+pending_deposits = {}    
+pending_withdrawals = {} 
 used_txn_ids = set()     
 
 # =========================================================
@@ -490,7 +492,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & DEPOSIT/WITHDRAWAL HANDLERS
+# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -521,14 +523,32 @@ def start_cmd(message):
     first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
     username = (message.from_user.username or "የለውም").replace('<', '&lt;').replace('>', '&gt;')
 
+    args = message.text.split()
+    referred_by = None
+    if len(args) > 1 and args[1].startswith('ref_'):
+        try:
+            ref_id = int(args[1].split('_')[1])
+            if ref_id != uid:
+                referred_by = ref_id
+        except ValueError:
+            pass
+
     with db_lock:
         if uid not in users_db:
             users_db[uid] = {
                 "id": uid,
                 "name": first_name,
                 "username": username,
-                "balance": 0.0
+                "balance": 0.0,
+                "referred_by": referred_by,
+                "referral_count": 0,
+                "has_deposited": False,
+                "milestone_rewarded": False
             }
+            # ክትትል ለሪፈረር (Referrer)
+            if referred_by and referred_by in users_db:
+                users_db[referred_by]["referral_count"] = users_db[referred_by].get("referral_count", 0) + 1
+
         bal = users_db[uid]['balance']
 
     welcome_txt = (
@@ -549,11 +569,12 @@ def handle_main_menu_callbacks(call):
     
     with db_lock:
         if uid not in users_db:
-            users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0}
+            users_db[uid] = {"id": uid, "name": safe_name, "username": call.from_user.username or "የለውም", "balance": 0.0, "referral_count": 0}
         bal = users_db[uid]["balance"]
+        ref_count = users_db[uid].get("referral_count", 0)
 
     if action == "btn_profile":
-        msg = f"👤 <b>የተጫዋች ፕሮፋይል</b>\n🆔 ID: <code>{uid}</code>\n💰 ባላንስ: <b>{bal:.2f} ETB</b>"
+        msg = f"👤 <b>የተጫዋች ፕሮፋይል</b>\n🆔 ID: <code>{uid}</code>\n💰 ባላንስ: <b>{bal:.2f} ETB</b>\n👥 የጋበዟቸው ሰዎች: <b>{ref_count}/{MILESTONE_REFERRAL_TARGET}</b>"
         bot.send_message(call.message.chat.id, msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_deposit":
@@ -583,8 +604,16 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
 
     elif action == "btn_referral":
-        ref_link = f"https://t.me/BkbingosupportBot?start=ref_{uid}"
-        bot.send_message(call.message.chat.id, f"👥 <b>የእርስዎ የሪፈራል ሊንክ፦</b>\n{ref_link}\n\nጓደኞችዎን በመጋበዝ የኮሚሽን ቦነስ ያግኙ!", parse_mode="HTML")
+        bot_username = bot.get_me().username
+        ref_link = f"https://t.me/{bot_username}?start=ref_{uid}"
+        ref_msg = (
+            f"👥 <b>የሪፈራል ፕሮግራም (Referral System)</b>\n\n"
+            f"ጓደኞችዎን ወደ ቦቱ በመጋበዝ ትልቅ ሽልማት ያግኙ! 🎁\n"
+            f"እስከ <b>{MILESTONE_REFERRAL_TARGET}</b> ሰዎችን ሲጋብዙ በራስ ሰር የ<b>{MILESTONE_BONUS:.2f} ETB</b> ልዩ ቦነስ ይሸለማሉ!\n\n"
+            f"🔗 <b>የእርስዎ ልዩ የሪፈራል ሊንክ፦</b>\n<code>{ref_link}</code>\n\n"
+            f"📊 የጋበዟቸው ሰዎች ብዛት፦ <b>{ref_count} / {MILESTONE_REFERRAL_TARGET}</b>"
+        )
+        bot.send_message(call.message.chat.id, ref_msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_help":
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
@@ -713,9 +742,35 @@ def handle_admin_verification_action(call):
         with db_lock:
             used_txn_ids.add(txn_id)
             if uid not in users_db:
-                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
+                users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0, "has_deposited": False}
+            
             users_db[uid]["balance"] += amount
             new_bal = users_db[uid]["balance"]
+
+            users_db[uid]["has_deposited"] = True
+            
+            # የ100 ሰው ሪፈራል ማיילስቶን ቦነስ (Milestone Bonus ቼክ)
+            referrer_id = users_db[uid].get("referred_by")
+            if referrer_id and referrer_id in users_db:
+                ref_user = users_db[referrer_id]
+                ref_count = ref_user.get("referral_count", 0)
+                
+                if ref_count >= MILESTONE_REFERRAL_TARGET and not ref_user.get("milestone_rewarded", False):
+                    ref_user["milestone_rewarded"] = True
+                    ref_user["balance"] += MILESTONE_BONUS
+                    ref_new_bal = ref_user["balance"]
+                    
+                    socketio.emit('balance_update', {'user_id': referrer_id, 'balance': ref_new_bal})
+                    try:
+                        bot.send_message(
+                            referrer_id,
+                            f"🎉 <b>ልዩ የሪፈራል ሽልማት አሸንፈዋል!</b>\n\n"
+                            f"እስከ <b>{MILESTONE_REFERRAL_TARGET}</b> ሰዎችን በመጋበዝዎ ምክንያት የ<b>{MILESTONE_BONUS:.2f} ETB</b> ልዩ ቦነስ ወደ ባላንስዎ ገብቷል!\n"
+                            f"💳 አዲሱ ባላንስዎ፦ <b>{ref_new_bal:.2f} ETB</b>",
+                            parse_mode="HTML"
+                        )
+                    except Exception:
+                        pass
 
         socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
 
@@ -832,7 +887,6 @@ def handle_withdraw_amount(message):
         method_name = withdraw_data[uid]['method_name']
         user_states[uid] = None
 
-        # Deduct balance immediately upon request
         users_db[uid]["balance"] -= amount
         current_bal = users_db[uid]["balance"]
 
@@ -848,7 +902,6 @@ def handle_withdraw_amount(message):
     )
     bot.send_message(message.chat.id, success_msg, parse_mode="HTML")
 
-    # Generate Unique Request ID for Admin Approval / Rejection
     wd_req_id = str(uuid.uuid4())[:8]
     pending_withdrawals[wd_req_id] = {
         "user_id": uid,
@@ -875,7 +928,6 @@ def handle_withdraw_amount(message):
     except Exception:
         pass
 
-# Admin Withdraw Approval / Rejection Handlers
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wd_app_') or call.data.startswith('wd_rej_'))
 def handle_admin_withdraw_action(call):
     if int(call.from_user.id) != ADMIN_ID:
@@ -896,7 +948,6 @@ def handle_admin_withdraw_action(call):
     method_name = wd_info["method_name"]
 
     if action == "app":
-        # Notify User of Successful Transfer
         try:
             bot.send_message(
                 uid,
@@ -915,7 +966,6 @@ def handle_admin_withdraw_action(call):
             parse_mode="HTML"
         )
     else:
-        # Reject & Refund Balance Back to Player
         with db_lock:
             if uid not in users_db:
                 users_db[uid] = {"id": uid, "name": f"User {uid}", "balance": 0.0}
