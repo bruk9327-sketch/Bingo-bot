@@ -58,10 +58,10 @@
     </style>
 </head>
 <body class="select-none pb-10 px-3">
-    <!-- AUDIO ACTIVATION BANNER -->
-    <div id="audio-banner" class="bg-amber-500/20 border border-amber-500/50 p-2 rounded-xl mb-2 flex justify-between items-center text-xs">
-        <span class="text-amber-300 font-bold">🔊 የድምፅ ማስታወቂያ ለማንቃት እዚህ ይጫኑ</span>
-        <button onclick="enableAudioSystem()" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg font-black">አንቃ</button>
+    <!-- AUDIO ACTIVATION BANNER (FIXED & ALWAYS VISIBLE UNTIL CLICKED) -->
+    <div id="audio-banner" class="bg-amber-500 border border-amber-400 p-2.5 rounded-xl my-2 flex justify-between items-center text-xs shadow-lg animate-pulse">
+        <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለመስማት እዚህ ይጫኑ!</span>
+        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-3 py-1.5 rounded-lg font-black text-xs shadow">አንቃ (ENABLE)</button>
     </div>
 
     <!-- HEADER -->
@@ -172,7 +172,8 @@
         function enableAudioSystem() {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance("ድምፅ ተጀምሯል");
-                utterance.volume = 0.1;
+                utterance.lang = 'am-ET';
+                utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
                 speechUnlocked = true;
                 const banner = document.getElementById('audio-banner');
@@ -190,7 +191,6 @@
             else if (ballNum >= 46 && ballNum <= 60) letter = 'ጂ';
             else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
 
-            // ፊደሉን እና ቁጥሩን በግልጽ በቅደም ተከተል እንዲጠራ (ለምሳሌ: "ኦ 62")
             const phrase = `${letter} ${ballNum}`;
             
             try {
