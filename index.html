@@ -190,13 +190,14 @@
             else if (ballNum >= 46 && ballNum <= 60) letter = 'ጂ';
             else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
 
+            // ፊደሉን እና ቁጥሩን በግልጽ እንዲጠራ (ለምሳሌ: "ኦ ስልሳ ሁለት")
             const phrase = `${letter} ${ballNum}`;
             
             try {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
                 utterance.lang = 'am-ET';
-                utterance.rate = 0.9;
+                utterance.rate = 0.85;
                 utterance.pitch = 1.0;
                 utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
@@ -437,3 +438,4 @@
     </script>
 </body>
 </html>
+፦
