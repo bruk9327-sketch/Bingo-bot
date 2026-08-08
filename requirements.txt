@@ -1,6 +1,5 @@
-pyTelegramBotAPI
 Flask
 Flask-SocketIO
 eventlet
-gunicorn
+pyTelegramBotAPI
 requests
