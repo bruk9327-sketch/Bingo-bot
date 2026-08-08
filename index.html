@@ -50,14 +50,12 @@
             font-weight: 800 !important;
             box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.6);
         }
-        /* ተጫዋቹ እራሱ የነካው ሴል ስታይል */
         .cell-manual-clicked {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
             color: #ffffff !important;
             border: 1px solid #60a5fa !important;
             box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
         }
-        /* የ BINGO በተን ከምስሉ ጋር የሚመሳሰል ዲዛይን */
         .bingo-action-btn {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: #ffffff;
@@ -143,7 +141,6 @@
         </div>
 
         <div class="flex gap-2">
-            <!-- Called Numbers Board (Vertical layout) -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
                 <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
@@ -202,7 +199,6 @@
 
         function speakNumber(ballNum) {
             if (!('speechSynthesis' in window)) return;
-            
             let letter = '';
             if (ballNum >= 1 && ballNum <= 15) letter = 'ቢ';
             else if (ballNum >= 16 && ballNum <= 30) letter = 'አይ';
@@ -211,13 +207,11 @@
             else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
 
             const phrase = `${letter} ${ballNum}`;
-            
             try {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
                 utterance.lang = 'am-ET';
                 utterance.rate = 0.85;
-                utterance.pitch = 1.0;
                 utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
             } catch (e) {
@@ -246,7 +240,7 @@
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
         let cardsDatabase = {};
-        let lockedCards = new Set(); // የተሳሳተ ቢንጎ ካሉ የታገዱ ካርቴላዎች
+        let lockedCards = new Set();
 
         socket.on('connect', () => {
             if (userId) {
@@ -320,7 +314,6 @@
             document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
         });
 
-        // ካርቴላ እና ከታች የሚጨመረው የ BINGO! በተን ማመንጫ ፋንክሽን
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
             cardDiv.id = `card-wrapper-${cid}`;
@@ -351,20 +344,17 @@
                 mGrid.appendChild(hCell);
             });
 
-            matrix.forEach((row, rIdx) => {
-                row.forEach((val, cIdx) => {
+            matrix.forEach((row) => {
+                row.forEach((val) => {
                     const cell = document.createElement('div');
                     if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
                     
                     const isFree = val === 'FREE';
                     cell.className = `p-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                        isFree 
-                        ? 'bg-amber-500 text-slate-950 font-black' 
-                        : 'bg-slate-800/90 text-slate-200'
+                        isFree ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800/90 text-slate-200'
                     }`;
                     cell.innerText = val;
 
-                    // በጨዋታ ሰዓት ተጫዋቹ ቁጥሩን እራሱ እየነካ እንዲለይ ማድረግ
                     if (isPlayMode && !isFree) {
                         cell.onclick = () => {
                             playSound('click');
@@ -377,7 +367,6 @@
 
             cardDiv.appendChild(mGrid);
 
-            // በጨዋታ ሰዓት ከካርቴላው ግርጌ የሚጨመረው የ BINGO! በተን (ከምስሉ ጋር የሚመሳሰል)
             if (isPlayMode) {
                 const bingoBtn = document.createElement('button');
                 bingoBtn.className = 'w-full mt-2 py-2 rounded-xl text-xs bingo-action-btn uppercase';
@@ -392,7 +381,6 @@
             return cardDiv;
         }
 
-        // የተጫዋቹን ቢንጎ ማረጋገጥ እና የተሳሳተ ከሆነ ካርቴላውን ማገድ (Lock)
         function verifyPlayerBingo(cid, matrix) {
             let isValid = checkBingoPattern(cid, matrix);
 
@@ -401,21 +389,19 @@
                 socket.emit('claim_bingo', { user_id: userId, card_id: cid });
             } else {
                 playSound('error');
-                alert("❌ የተሳሳተ ቢንጎ (False Bingo)! ህጉን አሟልተው አልጨረሱም ወይም ያልወጣ ቁጥር ነክተዋል። ካርቴላው ታግዷል!");
+                alert("❌ የተሳሳተ ቢንጎ (False Bingo)! ህጉን አሟልተው አልጨረሱም። ካርቴላው ታግዷል!");
                 lockedCards.add(cid);
                 renderMyGameCards();
             }
         }
 
-        // የቢንጎ መስመር ማረጋገጫ ሎጂክ (አግድም፣ ቁልቁል ወይም ሰያፍ)
         function checkBingoPattern(cid, matrix) {
             let isValid = true;
-            matrix.forEach((row, rIdx) => {
+            matrix.forEach((row) => {
                 let rowComplete = true;
-                row.forEach((val, cIdx) => {
+                row.forEach((val) => {
                     if (val !== 'FREE') {
                         const cellEl = document.getElementById(`card-${cid}-val-${val}`);
-                        // ተጫዋቹ የነካው መሆን አለመሆኑን ማረጋገጥ
                         if (!cellEl || !cellEl.classList.contains('cell-manual-clicked')) {
                             rowComplete = false;
                         }
@@ -423,7 +409,6 @@
                 });
                 if(rowComplete) isValid = true;
             });
-            // ተጨማሪ የማረጋገጫ መስፈርቶች እዚህ ሊካተቱ ይችላሉ (ለጊዜው በናሙና የተረጋገጠ)
             return isValid;
         }
 
@@ -465,7 +450,6 @@
         socket.on('new_number', (data) => {
             const ball = data.ball;
             drawnNumbersSet.add(ball);
-            
             speakNumber(ball);
 
             const ballEl = document.getElementById('current-ball');
