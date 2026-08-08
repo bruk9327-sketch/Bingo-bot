@@ -1,5 +1,5 @@
-Flask
-Flask-SocketIO
-eventlet
-pyTelegramBotAPI
-requests
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+eventlet==0.33.3
+pyTelegramBotAPI==4.14.0
+requests==2.31.0
