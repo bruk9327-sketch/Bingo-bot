@@ -105,9 +105,9 @@ game_state = {
     "derash": 0.0
 }
 
-def check_bingo_winner(matrix, drawn_set):
+def check_bingo_winner(matrix, marked_set):
     def is_hit(val):
-        return val == 'FREE' or val in drawn_set
+        return val == 'FREE' or val in marked_set
 
     for row in matrix:
         if all(is_hit(v) for v in row): return True
@@ -120,7 +120,7 @@ def check_bingo_winner(matrix, drawn_set):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (WITH UNLOCKED VOICE & SPEECH)
+# 4. FRONTEND HTML TEMPLATE (WITH MANUAL PLAYER HITTING)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -351,6 +351,7 @@ HTML_TEMPLATE = """
 
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
+        let markedNumbersMap = {}; // tracks player manual marked hits per card { cardId: Set(values) }
         let cardsDatabase = {};
 
         socket.on('connect', () => {
@@ -420,6 +421,7 @@ HTML_TEMPLATE = """
             playSound('click');
             if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             cardsDatabase[data.card_id] = data.matrix;
+            if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
             document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
@@ -453,15 +455,37 @@ HTML_TEMPLATE = """
                     const cell = document.createElement('div');
                     if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
                     
-                    const isHit = val === 'FREE' || drawnNumbersSet.has(val);
                     const isFree = val === 'FREE';
+                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
-                    cell.className = `p-1.5 rounded-lg text-[10px] font-bold ${
+                    cell.className = `p-1.5 rounded-lg text-[10px] font-bold transition-all ${
                         isFree 
                         ? 'bg-amber-500 text-slate-950 font-black' 
-                        : (isHit ? 'bingo-hit' : 'bg-slate-800/90 text-slate-200')
+                        : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-200 cursor-pointer')
                     }`;
                     cell.innerText = val;
+
+                    if (isPlayMode && !isFree) {
+                        cell.onclick = () => {
+                            if (!drawnNumbersSet.has(val)) {
+                                playSound('error');
+                                return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                            }
+                            playSound('click');
+                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                            markedNumbersMap[cid].add(val);
+                            
+                            cell.className = 'p-1.5 rounded-lg text-[10px] font-bold bingo-hit scale-105 transition-all';
+                            
+                            // Send manual marked status / check bingo trigger to server
+                            socket.emit('player_mark_number', {
+                                user_id: userId,
+                                card_id: cid,
+                                marked_numbers: Array.from(markedNumbersMap[cid])
+                            });
+                        };
+                    }
+
                     mGrid.appendChild(cell);
                 });
             });
@@ -487,6 +511,8 @@ HTML_TEMPLATE = """
 
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
+            markedNumbersMap = {};
+            mySelectedCards.forEach(cid => { markedNumbersMap[cid] = new Set(); });
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -521,13 +547,6 @@ HTML_TEMPLATE = """
             if(cell75) {
                 cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all';
             }
-
-            mySelectedCards.forEach(cid => {
-                const hitCell = document.getElementById(`card-${cid}-val-${ball}`);
-                if(hitCell) {
-                    hitCell.className = 'p-1.5 rounded-lg text-[10px] font-bold bingo-hit scale-105 transition-all';
-                }
-            });
         });
 
         socket.on('winner_announced', (data) => {
@@ -551,6 +570,7 @@ HTML_TEMPLATE = """
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
+            markedNumbersMap = {};
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
@@ -1237,6 +1257,8 @@ def send_support_reply(message):
 # =========================================================
 # 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
 # =========================================================
+player_marked_hits = {} # { uid: { card_id: set(marked_values) } }
+
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
     if not data or 'user_id' not in data:
@@ -1290,13 +1312,24 @@ def handle_card_selection(data):
     emit('balance_update', {'user_id': uid, 'balance': new_bal}, broadcast=False)
     socketio.emit('update_selected_cards', {'taken_cards': list(game_state['selected_cards'].keys())})
 
+@socketio.on('player_mark_number')
+def handle_player_mark(data):
+    uid = int(data.get('user_id'))
+    card_id = int(data.get('card_id'))
+    marked_list = data.get('marked_numbers', [])
+
+    if uid not in player_marked_hits:
+        player_marked_hits[uid] = {}
+    player_marked_hits[uid][card_id] = set(marked_list)
+
 def game_loop():
-    global game_state
+    global game_state, player_marked_hits
     while True:
         game_state["status"] = "WAITING"
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
         game_state["drawn_numbers"] = []
+        player_marked_hits = {}
         socketio.emit('reset_game')
 
         while len(game_state["selected_cards"]) == 0:
@@ -1334,7 +1367,9 @@ def game_loop():
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
                 matrix = cards_database[card_id]
-                if check_bingo_winner(matrix, drawn_set):
+                player_marks = player_marked_hits.get(owner_id, {}).get(card_id, set())
+                # Check if player successfully marked all required winning combinations
+                if check_bingo_winner(matrix, player_marks):
                     round_winners.append((card_id, owner_id, matrix))
 
             if round_winners:
@@ -1389,7 +1424,7 @@ def run_support_bot():
             support_bot.remove_webhook()
             time.sleep(1)
             support_bot.infinity_polling(skip_pending=True)
-        except Exception as e:
+        exceptException as e:
             print(f"Support Bot Error: {e}")
             time.sleep(3)
 
