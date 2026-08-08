@@ -1,5 +1,6 @@
-Flask==3.0.3
-Flask-SocketIO==5.3.6
-eventlet==0.35.2
-pyTelegramBotAPI==4.14.0
-requests==2.31.0
+flask
+flask-socketio
+gunicorn
+eventlet
+pyTelegramBotAPI
+requests
