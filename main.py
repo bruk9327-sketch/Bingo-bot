@@ -180,6 +180,12 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body class="select-none pb-10 px-3">
+    <!-- AUDIO ACTIVATION BANNER (FIXED & ALWAYS VISIBLE UNTIL CLICKED) -->
+    <div id="audio-banner" class="bg-amber-500 border border-amber-400 p-2.5 rounded-xl my-2 flex justify-between items-center text-xs shadow-lg animate-pulse">
+        <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለመስማት እዚህ ይጫኑ!</span>
+        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-3 py-1.5 rounded-lg font-black text-xs shadow">አንቃ (ENABLE)</button>
+    </div>
+
     <!-- HEADER -->
     <div class="relative overflow-hidden rounded-2xl mt-2 mb-3 border border-purple-500/30 glass-panel">
         <div class="p-3.5 flex justify-between items-center">
@@ -269,7 +275,6 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
-        // ==================== SOUND EFFECTS SETUP ====================
         const sounds = {
             click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
             win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
@@ -280,45 +285,54 @@ HTML_TEMPLATE = """
             if (sounds[effectName]) {
                 sounds[effectName].currentTime = 0;
                 sounds[effectName].volume = 0.5;
-                sounds[effectName].play().catch(e => console.log("Audio play restricted:", e));
+                sounds[effectName].play().catch(e => console.log("Audio restriction:", e));
             }
         }
 
-        // ==================== SPEECH SYNTHESIS VOICE CALL ====================
         let speechUnlocked = false;
 
-        function unlockSpeech() {
-            if (speechUnlocked) return;
+        function enableAudioSystem() {
             if ('speechSynthesis' in window) {
-                const dummy = new SpeechSynthesisUtterance('');
-                dummy.volume = 0;
-                window.speechSynthesis.speak(dummy);
+                const utterance = new SpeechSynthesisUtterance("ድምፅ ተጀምሯል");
+                utterance.lang = 'am-ET';
+                utterance.volume = 1.0;
+                window.speechSynthesis.speak(utterance);
                 speechUnlocked = true;
+                const banner = document.getElementById('audio-banner');
+                if (banner) banner.style.display = 'none';
             }
         }
 
         function speakNumber(ballNum) {
+            if (!('speechSynthesis' in window)) return;
+            
             let letter = '';
-            if (ballNum >= 1 && ballNum <= 15) letter = 'B';
-            else if (ballNum >= 16 && ballNum <= 30) letter = 'I';
-            else if (ballNum >= 31 && ballNum <= 45) letter = 'N';
-            else if (ballNum >= 46 && ballNum <= 60) letter = 'G';
-            else if (ballNum >= 61 && ballNum <= 75) letter = 'O';
+            if (ballNum >= 1 && ballNum <= 15) letter = 'ቢ';
+            else if (ballNum >= 16 && ballNum <= 30) letter = 'አይ';
+            else if (ballNum >= 31 && ballNum <= 45) letter = 'ኤን';
+            else if (ballNum >= 46 && ballNum <= 60) letter = 'ጂ';
+            else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
 
             const phrase = `${letter} ${ballNum}`;
-
-            if ('speechSynthesis' in window) {
+            
+            try {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
+                utterance.lang = 'am-ET';
                 utterance.rate = 0.85;
                 utterance.pitch = 1.0;
                 utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.log("Speech error:", e);
             }
         }
 
-        document.addEventListener('click', unlockSpeech, { once: true });
-        document.addEventListener('touchstart', unlockSpeech, { once: true });
+        document.addEventListener('click', () => {
+            if (!speechUnlocked && 'speechSynthesis' in window) {
+                enableAudioSystem();
+            }
+        }, { once: true });
 
         const socket = io();
         let userId = null;
@@ -381,7 +395,6 @@ HTML_TEMPLATE = """
                 } else {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
                     btn.onclick = () => {
-                        unlockSpeech();
                         if (mySelectedCards.length >= 2) {
                             playSound('error');
                             return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
@@ -470,7 +483,6 @@ HTML_TEMPLATE = """
         });
 
         socket.on('game_started', (data) => {
-            unlockSpeech();
             drawnNumbersSet.clear();
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
@@ -493,7 +505,6 @@ HTML_TEMPLATE = """
             const ball = data.ball;
             drawnNumbersSet.add(ball);
             
-            // Voice Call Integration
             speakNumber(ball);
 
             const ballEl = document.getElementById('current-ball');
