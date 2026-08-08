@@ -1424,7 +1424,7 @@ def run_support_bot():
             support_bot.remove_webhook()
             time.sleep(1)
             support_bot.infinity_polling(skip_pending=True)
-        exceptException as e:
+        except Exception as e:
             print(f"Support Bot Error: {e}")
             time.sleep(3)
 
@@ -1434,4 +1434,8 @@ if __name__ == "__main__":
     socketio.start_background_task(game_loop)
     
     port = int(os.environ.get("PORT", 10000))
-    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+    # Local development run check (Render uses gunicorn instead)
+    if os.environ.get("RENDER") is None:
+        socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
+
