@@ -1,5 +1,5 @@
 import eventlet
-eventlet.monkey_patch()
+eventlet.monkey_patch(all=True)
 
 import os
 import re
@@ -183,7 +183,7 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body class="select-none pb-10 px-3">
-    <!-- AUDIO ACTIVATION BANNER (FIXED & ALWAYS VISIBLE UNTIL CLICKED) -->
+    <!-- AUDIO ACTIVATION BANNER -->
     <div id="audio-banner" class="bg-amber-500 border border-amber-400 p-2.5 rounded-xl my-2 flex justify-between items-center text-xs shadow-lg animate-pulse">
         <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለመስማት እዚህ ይጫኑ!</span>
         <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-3 py-1.5 rounded-lg font-black text-xs shadow">አንቃ (ENABLE)</button>
@@ -249,7 +249,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="flex gap-2">
-            <!-- Called Numbers Board (Vertical layout) -->
+            <!-- Called Numbers Board -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
                 <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
@@ -921,7 +921,7 @@ def handle_admin_verification_action(call):
                         bot.send_message(
                             referrer_id,
                             f"🎉 <b>ልዩ የሪፈራል ሽልማት አሸንፈዋል!</b>\n\n"
-                            f"እስከ <b>{MILESTONE_REFERRAL_TARGET}</b> ሰዎችን በመጋበዝዎ ምክንያት የ<b>{MILESTONE_BONUS:.2f} ETB</b> ልዩ ቦነስ ወደ ባላንስዎ ገብቷል!\n"
+                            f"እስከ <b>{MILESTONE_REFERRAL_TARGET}</b> ሰዎችን በመጋበዝዎ ምክንያት የሲስተሙ የ<b>{MILESTONE_BONUS:.2f} ETB</b> ልዩ ቦነስ ወደ ባላንስዎ ገብቷል!\n"
                             f"💳 አዲሱ ባላንስዎ፦ <b>{ref_new_bal:.2f} ETB</b>",
                             parse_mode="HTML"
                         )
