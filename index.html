@@ -72,6 +72,35 @@
         .bingo-header-n { background: #eab308; color: #000; }
         .bingo-header-g { background: #10b981; color: #fff; }
         .bingo-header-o { background: #a855f7; color: #fff; }
+
+        /* የተጨመሩ አዳዲስ ስታይሎች */
+        .bingo-action-container {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .bingo-btn {
+            background: linear-gradient(135deg, #f12711, #f5af19);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(241, 39, 17, 0.4);
+            transition: 0.3s ease;
+        }
+
+        .bingo-btn:active {
+            transform: scale(0.95);
+        }
+
+        .card-locked {
+            pointer-events: none;
+            opacity: 0.6;
+            filter: grayscale(50%);
+        }
     </style>
 </head>
 <body class="select-none pb-10 px-3">
@@ -152,6 +181,11 @@
                 </div>
                 <div id="my-cards-container" class="w-full space-y-3"></div>
             </div>
+        </div>
+
+        <!-- የተጨመረው የቢንጎ ማረጋገጫ ቁልፍ ክፍል -->
+        <div class="bingo-action-container">
+            <button id="bingoBtn" class="bingo-btn" onclick="checkBingo()">BINGO 🎉</button>
         </div>
     </div>
 
@@ -241,6 +275,7 @@
         let drawnNumbersSet = new Set();
         let cardsDatabase = {};
         let lockedCards = new Set();
+        let isCardLocked = false;
 
         socket.on('connect', () => {
             if (userId) {
@@ -317,7 +352,7 @@
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
             cardDiv.id = `card-wrapper-${cid}`;
-            cardDiv.className = 'glass-panel p-2 rounded-2xl w-full border border-slate-700/80 shadow-xl';
+            cardDiv.className = 'glass-panel p-2 rounded-2xl w-full border border-slate-700/80 shadow-xl card-container';
             
             if (lockedCards.has(cid)) {
                 cardDiv.style.opacity = '0.4';
@@ -366,37 +401,47 @@
             });
 
             cardDiv.appendChild(mGrid);
-
-            if (isPlayMode) {
-                const bingoBtn = document.createElement('button');
-                bingoBtn.className = 'w-full mt-2 py-2 rounded-xl text-xs bingo-action-btn uppercase';
-                bingoBtn.innerText = `BINGO! #${cid}`;
-                
-                bingoBtn.onclick = () => {
-                    verifyPlayerBingo(cid, matrix);
-                };
-                cardDiv.appendChild(bingoBtn);
-            }
-
             return cardDiv;
         }
 
-        function verifyPlayerBingo(cid, matrix) {
-            let isValid = checkBingoPattern(cid, matrix);
+        // የቢንጎ ማረጋገጫ ተግባር (Check Bingo)
+        function checkBingo() {
+            if (isCardLocked) {
+                alert("ካርቴላዎ ታስሯል! እስከ ጨዋታው ፍጻሜ ድረስ መጫወት አይችሉም።");
+                return;
+            }
 
-            if (isValid) {
+            // በመጀመሪያው ካርቴላ በመነሳት የድል ሁኔታውን ማረጋገጥ (የመጀመሪያውን ካርቴላ መለያ በመጠቀም)
+            let cid = mySelectedCards[0];
+            let matrix = cardsDatabase[cid];
+            
+            if(!matrix) {
+                alert("⚠️ የሚጫወቱት ንቁ ካርቴላ የለም!");
+                return;
+            }
+
+            let hasWon = checkBingoPattern(cid, matrix); 
+
+            if (hasWon) {
                 playSound('win');
                 socket.emit('claim_bingo', { user_id: userId, card_id: cid });
             } else {
                 playSound('error');
-                alert("❌ የተሳሳተ ቢንጎ (False Bingo)! ህጉን አሟልተው አልጨረሱም። ካርቴላው ታግዷል!");
-                lockedCards.add(cid);
-                renderMyGameCards();
+                isCardLocked = true;
+                document.getElementById('bingoBtn').disabled = true;
+                
+                const cardWrapper = document.getElementById(`card-wrapper-${cid}`);
+                if(cardWrapper) {
+                    cardWrapper.classList.add('card-locked');
+                }
+                
+                alert("❌ የተሳሳተ ቢንጎ! የቢንጎ ህግ አልተሟላም። እስከ ጨዋታው ፍጻሜ ድረስ ካርቴላዎ ታግዷል!");
+                socket.emit('invalid_bingo', { user_id: userId });
             }
         }
 
         function checkBingoPattern(cid, matrix) {
-            let isValid = true;
+            let isValid = false;
             matrix.forEach((row) => {
                 let rowComplete = true;
                 row.forEach((val) => {
@@ -410,6 +455,20 @@
                 if(rowComplete) isValid = true;
             });
             return isValid;
+        }
+
+        function showWinnerCelebration(winnerName, prize) {
+            let celebrationDiv = document.createElement('div');
+            celebrationDiv.className = 'fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50';
+            celebrationDiv.innerHTML = `
+                <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm text-center border-2 border-amber-400 shadow-2xl">
+                    <div class="text-4xl mb-1">🏆</div>
+                    <div class="text-lg font-black gold-gradient-text">እንኳን ደስ አለዎት!</div>
+                    <div class="text-xl font-black text-emerald-400 my-2">${winnerName} አሸንፏል!</div>
+                    <div class="text-sm text-slate-300 mt-3">ሽልማት: ${prize} ETB</div>
+                </div>
+            `;
+            document.body.appendChild(celebrationDiv);
         }
 
         function renderPreviewCards() {
@@ -430,6 +489,8 @@
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
             lockedCards.clear();
+            isCardLocked = false;
+            document.getElementById('bingoBtn').disabled = false;
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -487,6 +548,8 @@
             takenCards = [];
             drawnNumbersSet.clear();
             lockedCards.clear();
+            isCardLocked = false;
+            document.getElementById('bingoBtn').disabled = false;
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
