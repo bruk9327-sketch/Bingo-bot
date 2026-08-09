@@ -1,3 +1,4 @@
+
 import eventlet
 eventlet.monkey_patch(all=True)
 
@@ -396,7 +397,6 @@ HTML_TEMPLATE = """
                 playSound('error');
                 return alert("⚠️ ካርቴላዎ ታግዷል!");
             }
-            // Collect all marked numbers for user's active cards
             let allMarked = [];
             for (let cid in markedNumbersMap) {
                 if (markedNumbersMap[cid]) {
@@ -1370,7 +1370,6 @@ def handle_bingo(data):
         emit('bingo_response', {'status': 'error', 'message': 'ካርቴላዎ ቀድሞ ታግዷል!'})
         return
 
-    # Verify if any of the player's selected cards actually won based on marked hits
     player_cards = game_state['player_cards'].get(uid, [])
     won = False
     winning_matrix = None
@@ -1388,7 +1387,6 @@ def handle_bingo(data):
     if won:
         emit('bingo_response', {'status': 'won', 'message': 'እንኳን ደስ አለዎት አሸናፊ ሆነዋል! 🎉'})
         
-        # Trigger immediate win payout if verified via button click
         derash = game_state.get("derash", 0.0)
         split_prize = derash if derash > 0 else (len(game_state["selected_cards"]) * CARD_PRICE * (1 - COMMISSION_RATE))
         
@@ -1427,7 +1425,7 @@ def game_loop():
         game_state["player_cards"] = {}
         game_state["drawn_numbers"] = []
         player_marked_hits = {}
-        user_states = {} # Reset locks for new round
+        user_states = {} 
         socketio.emit('reset_game')
 
         while len(game_state["selected_cards"]) == 0:
@@ -1462,7 +1460,6 @@ def game_loop():
             socketio.emit('new_number', {'ball': ball})
             socketio.sleep(2.8) 
 
-            # Automatic check in background loop
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
                 if user_states.get(owner_id, {}).get('locked', False):
@@ -1541,3 +1538,4 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
