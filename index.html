@@ -223,7 +223,6 @@
 
             const phrase = `${letter} ${ballNum}`;
             try {
-                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
                 utterance.lang = 'am-ET';
                 utterance.rate = 0.85;
