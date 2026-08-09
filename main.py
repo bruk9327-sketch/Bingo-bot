@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch(all=True)
+
 import os
 import re
 import random
