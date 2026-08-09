@@ -1,4 +1,3 @@
-
 import eventlet
 eventlet.monkey_patch(all=True)
 
@@ -1420,6 +1419,7 @@ def handle_bingo(data):
 def game_loop():
     global game_state, player_marked_hits, user_states
     while True:
+        # 1. ጨዋታውን ለቀጣይ ዙር ማዘጋጀት
         game_state["status"] = "WAITING"
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
@@ -1428,42 +1428,42 @@ def game_loop():
         user_states = {} 
         socketio.emit('reset_game')
 
+        # 2. ተጫዋች እስኪገባ መጠበቅ
         while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
 
+        # 3. የ15 ሰከንድ ቆጠራ
         game_state["status"] = "COUNTDOWN"
         for t in range(15, 0, -1):
-            socketio.emit('timer_update', {
-                'time_left': t,
-                'sold_count': len(game_state["selected_cards"])
-            })
+            socketio.emit('timer_update', {'time_left': t, 'sold_count': len(game_state["selected_cards"])})
             socketio.sleep(1)
 
+        # 4. ጨዋታውን ማስጀመር
         game_state["status"] = "PLAYING"
         total_pool = len(game_state["selected_cards"]) * CARD_PRICE
         derash = total_pool * (1 - COMMISSION_RATE)
         game_state["derash"] = derash
-
         socketio.emit('game_started', {'status': 'PLAYING', 'derash': derash})
 
+        # 5. ቁጥሮችን ማውጣት
         available_balls = list(range(1, 76))
         random.shuffle(available_balls)
-        drawn_set = set()
         winner_found = False
 
         for ball in available_balls:
             if winner_found:
                 break
 
-            drawn_set.add(ball)
             game_state["drawn_numbers"].append(ball)
             socketio.emit('new_number', {'ball': ball})
-            socketio.sleep(2.8) 
+            
+            # ይህ sleep ጨዋታው በየሰከንዱ እንዲቀጥል ይረዳል
+            socketio.sleep(3) 
 
+            # አሸናፊ መኖሩን ማረጋገጥ
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
-                if user_states.get(owner_id, {}).get('locked', False):
-                    continue
+                if user_states.get(owner_id, {}).get('locked', False): continue
                 matrix = cards_database[card_id]
                 player_marks = player_marked_hits.get(owner_id, {}).get(card_id, set())
                 if verify_bingo_rules(matrix, player_marks):
@@ -1472,34 +1472,22 @@ def game_loop():
             if round_winners:
                 winner_found = True
                 split_prize = derash / len(round_winners)
-                winner_names = []
-                winner_ids = []
+                winner_names = [users_db[oid].get("name", f"Player {oid}") for _, oid, _ in round_winners]
+                winner_ids = [oid for _, oid, _ in round_winners]
 
-                for cid, oid, mtx in round_winners:
+                for oid in winner_ids:
                     with db_lock:
-                        if oid in users_db:
-                            users_db[oid]["balance"] += split_prize
-                            w_name = users_db[oid].get("name", f"Player {oid}")
-                            socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
-                        else:
-                            w_name = f"Player {oid}"
-
-                    winner_names.append(w_name)
-                    winner_ids.append(oid)
-                    add_user_history(oid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{split_prize:.2f} ETB አሸንፈዋል")
-
-                first_card = round_winners[0][0]
-                first_mtx = round_winners[0][2]
+                        users_db[oid]["balance"] += split_prize
+                    socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
 
                 socketio.emit('winner_announced', {
                     'winner_ids': winner_ids,
                     'winner_name': ", ".join(winner_names),
                     'prize': split_prize,
-                    'card_id': first_card,
-                    'card_matrix': first_mtx
+                    'card_id': round_winners[0][0],
+                    'card_matrix': round_winners[0][2]
                 })
                 break
-
         socketio.sleep(8)
 
 # =========================================================
@@ -1538,4 +1526,3 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
-
