@@ -105,7 +105,7 @@ game_state = {
     "derash": 0.0
 }
 
-def verify_bingo_rules(matrix, marked_set):
+def check_bingo_winner(matrix, marked_set):
     def is_hit(val):
         return val == 'FREE' or val in marked_set
 
@@ -128,7 +128,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ethio Bingo For All</title>
+    <title>BKBINGO Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -195,8 +195,8 @@ HTML_TEMPLATE = """
             <div class="flex items-center gap-2">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xl shadow-lg">🎯</div>
                 <div>
-                    <h1 class="font-orbitron text-lg font-black gold-gradient-text tracking-wider">ETHIO BINGO</h1>
-                    <p class="text-[10px] text-purple-300/80">FOR ALL</p>
+                    <h1 class="font-orbitron text-lg font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
+                    <p class="text-[10px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
             <div class="bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-xl text-right">
@@ -242,14 +242,9 @@ HTML_TEMPLATE = """
                 <span class="text-[10px] text-slate-400 block">የአሸናፊው ደራሽ (PRIZE)</span>
                 <span class="text-lg font-black text-emerald-400" id="derash-amount">0 ETB</span>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="triggerCheckBingo()" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-3 py-1.5 rounded-xl font-black text-xs shadow-lg animate-bounce border border-emerald-400">
-                    🎯 BINGO!
-                </button>
-                <div class="text-right">
-                    <span class="text-[10px] text-slate-400 block">የተጠራው ኳስ</span>
-                    <span id="game-balls-count" class="text-xs font-bold text-purple-300">0/75</span>
-                </div>
+            <div class="text-right">
+                <span class="text-[10px] text-slate-400 block">የተጠራው ኳስ</span>
+                <span id="game-balls-count" class="text-xs font-bold text-purple-300">0/75</span>
             </div>
         </div>
 
@@ -345,7 +340,6 @@ HTML_TEMPLATE = """
         const socket = io();
         let userId = null;
         let takenCards = [];
-        let isCardLocked = false;
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
@@ -376,34 +370,6 @@ HTML_TEMPLATE = """
             playSound('error');
             alert("⚠️ " + data.msg);
         });
-
-        socket.on('bingo_response', (data) => {
-            if (data.status === 'won') {
-                playSound('win');
-                alert(data.message);
-            } else if (data.status === 'locked') {
-                playSound('error');
-                isCardLocked = true;
-                alert(data.message);
-            } else {
-                playSound('error');
-                alert(data.message);
-            }
-        });
-
-        function triggerCheckBingo() {
-            if (isCardLocked) {
-                playSound('error');
-                return alert("⚠️ ካርቴላዎ ታግዷል!");
-            }
-            let allMarked = [];
-            for (let cid in markedNumbersMap) {
-                if (markedNumbersMap[cid]) {
-                    markedNumbersMap[cid].forEach(val => allMarked.push(val));
-                }
-            }
-            socket.emit('check_bingo', { user_id: userId, marked_numbers: allMarked });
-        }
 
         function init75Grid() {
             const grid = document.getElementById('bingo-75-grid');
@@ -501,10 +467,6 @@ HTML_TEMPLATE = """
 
                     if (isPlayMode && !isFree) {
                         cell.onclick = () => {
-                            if (isCardLocked) {
-                                playSound('error');
-                                return alert("⚠️ ካርቴላዎ ታግዷል!");
-                            }
                             if (!drawnNumbersSet.has(val)) {
                                 playSound('error');
                                 return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
@@ -549,7 +511,6 @@ HTML_TEMPLATE = """
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
             markedNumbersMap = {};
-            isCardLocked = false;
             mySelectedCards.forEach(cid => { markedNumbersMap[cid] = new Set(); });
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
@@ -609,7 +570,6 @@ HTML_TEMPLATE = """
             takenCards = [];
             drawnNumbersSet.clear();
             markedNumbersMap = {};
-            isCardLocked = false;
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
@@ -707,7 +667,7 @@ def start_cmd(message):
 
     welcome_txt = (
         f"👋 ሰላም <b>{first_name}</b>!\n\n"
-        f"ወደ <b>Ethio Bingo For All</b> እንኳን ደህና መጡ! 🎲\n"
+        f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
         f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
         "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
     )
@@ -738,7 +698,7 @@ def admin_statistics(message):
                         total_withdraw_amount += float(nums[0])
 
     stats_msg = (
-        f"📊 <b>የ Ethio Bingo For All አድሚን ስታስቲክስ (Statistics)</b>\n"
+        f"📊 <b>የ BKBINGO Pro አድሚን ስታስቲክስ (Statistics)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"👥 አጠቃላይ የተጠቃሚዎች ቁጥር: <b>{total_users}</b>\n"
         f"📥 አጠቃላይ የገባ ገንዘብ (Total Deposit): <b>{total_deposit_amount:.2f} ETB</b>\n"
@@ -822,14 +782,14 @@ def handle_main_menu_callbacks(call):
     elif action == "btn_main_menu":
         welcome_txt = (
             f"👋 ሰላም <b>{call.from_user.first_name}</b>!\n\n"
-            f"ወደ <b>Ethio Bingo For All</b> እንኳን ደህና መጡ! 🎲\n"
+            f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
             f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
             "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
         )
         bot.edit_message_text(welcome_txt, call.message.chat.id, call.message.message_id, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_help":
-        bot.send_message(call.message.chat.id, "ℹ️ <b>የ Ethio Bingo For All ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
+        bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # =========================================================
 # MANUAL DEPOSIT & ADMIN APPROVAL/REJECTION DASHBOARD HANDLERS
@@ -871,14 +831,7 @@ def handle_sms_receipt_verification(message):
         bot.send_message(message.chat.id, "❌ <b>የላኩት የደረሰኝ ጽሁፍ በጣም አጭር ነው። እባክዎን ትክክለኛውን የባንክ/ቴሌብር አጭር መልእክት (SMS) ሙሉውን ኮፒ አድርገው ይላኩ።</b>", parse_mode="HTML")
         return
 
-    is_telebirr = re.search(r'(telebirr|transfer|sent|Payer|Customer Name)', text, re.IGNORECASE)
-    is_cbe = re.search(r'(CBE|Commercial Bank of Ethiopia|Debited|Credited|Account)', text, re.IGNORECASE)
-    
-    if not (is_telebirr or is_cbe):
-        bot.send_message(message.chat.id, "❌ <b>የላኩት መልእክት ትክክለኛ የ Telebirr ወይም CBE Birr የክፍያ SMS መሆኑን ማረጋገጥ አልተቻለም። እባክዎን ትክክለኛውን SMS ይላኩ።</b>", parse_mode="HTML")
-        return
-
-    txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX|Transaction)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
+    txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
     txn_id = txn_id_match.group(1) if txn_id_match else hashlib.md5(text.encode()).hexdigest()[:12]
 
     if txn_id in used_txn_ids:
@@ -887,7 +840,7 @@ def handle_sms_receipt_verification(message):
 
     amounts = re.findall(r'(\d+(?:\.\d+)?)\s*(?:ETB|ብር|Birr)', text, re.IGNORECASE)
     if not amounts:
-        amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount|ETB)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+        amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
 
     if not amounts:
         numbers = [float(n) for n in re.findall(r'\b\d+(?:\.\d+)?\b', text) if float(n) >= 5.0]
@@ -1236,7 +1189,7 @@ def start_support_bot(message):
     welcome_msg = (
         f'<a href="{OPERATOR_IMAGE_URL}">&#8203;</a>'
         f"👋 ሰላም <b>{safe_name}</b>!\n\n"
-        f"ወደ <b>Ethio Bingo For All</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
+        f"ወደ <b>BKBINGO Pro</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
         f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን። የደንበኞች አገልግሎት ኦፕሬተራችን ለማስተናገድ ዝግጁ ነው!"
     )
     
@@ -1366,137 +1319,86 @@ def handle_player_mark(data):
         player_marked_hits[uid] = {}
     player_marked_hits[uid][card_id] = set(marked_list)
 
-@socketio.on('check_bingo')
-def handle_bingo(data):
-    uid = int(data.get('user_id'))
-    marked_numbers = data.get('marked_numbers', [])
-    marked_set = set(marked_numbers)
-
-    if user_states.get(uid, {}).get('locked', False):
-        emit('bingo_response', {'status': 'error', 'message': 'ካርቴላዎ ቀድሞ ታግዷል!'})
-        return
-
-    player_cards = game_state['player_cards'].get(uid, [])
-    won = False
-    winning_matrix = None
-    winning_card_id = None
-
-    for cid in player_cards:
-        matrix = cards_database.get(cid)
-        player_marks = player_marked_hits.get(uid, {}).get(cid, set())
-        if verify_bingo_rules(matrix, player_marks):
-            won = True
-            winning_matrix = matrix
-            winning_card_id = cid
-            break
-
-    if won:
-        emit('bingo_response', {'status': 'won', 'message': 'እንኳን ደስ አለዎት አሸናፊ ሆነዋል! 🎉'})
-        
-        derash = game_state.get("derash", 0.0)
-        split_prize = derash if derash > 0 else (len(game_state["selected_cards"]) * CARD_PRICE * (1 - COMMISSION_RATE))
-        
-        with db_lock:
-            if uid in users_db:
-                users_db[uid]["balance"] += split_prize
-                w_name = users_db[uid].get("name", f"Player {uid}")
-                socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
-            else:
-                w_name = f"Player {uid}"
-
-        add_user_history(uid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{split_prize:.2f} ETB አሸንፈዋል")
-
-        socketio.emit('winner_announced', {
-            'winner_ids': [uid],
-            'winner_name': w_name,
-            'prize': split_prize,
-            'card_id': winning_card_id,
-            'card_matrix': winning_matrix
-        })
-    else:
-        if uid not in user_states:
-            user_states[uid] = {}
-        user_states[uid]['locked'] = True
-        
-        emit('bingo_response', {
-            'status': 'locked', 
-            'message': 'የተሳሳተ ቢንጎ! የቢንጎ ህግ ስላልተሟላ ካርቴላዎ እስከ ጨዋታው ፍጻሜ ድረስ ታግዷል። ❌'
-        })
-
 def game_loop():
-    global game_state, player_marked_hits, user_states
+    global game_state, player_marked_hits
     while True:
-        # 1. ጨዋታውን ለቀጣይ ዙር ማዘጋጀት
         game_state["status"] = "WAITING"
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
         game_state["drawn_numbers"] = []
         player_marked_hits = {}
-        user_states = {} 
         socketio.emit('reset_game')
 
-        # 2. ተጫዋች እስኪገባ መጠበቅ
         while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
 
-        # 3. የ15 ሰከንድ ቆጠራ
         game_state["status"] = "COUNTDOWN"
         for t in range(15, 0, -1):
-            socketio.emit('timer_update', {'time_left': t, 'sold_count': len(game_state["selected_cards"])})
+            socketio.emit('timer_update', {
+                'time_left': t,
+                'sold_count': len(game_state["selected_cards"])
+            })
             socketio.sleep(1)
 
-        # 4. ጨዋታውን ማስጀመር
         game_state["status"] = "PLAYING"
         total_pool = len(game_state["selected_cards"]) * CARD_PRICE
         derash = total_pool * (1 - COMMISSION_RATE)
         game_state["derash"] = derash
+
         socketio.emit('game_started', {'status': 'PLAYING', 'derash': derash})
 
-        # 5. ቁጥሮችን ማውጣት
         available_balls = list(range(1, 76))
         random.shuffle(available_balls)
+        drawn_set = set()
         winner_found = False
 
         for ball in available_balls:
             if winner_found:
                 break
 
+            drawn_set.add(ball)
             game_state["drawn_numbers"].append(ball)
-            
-            # ለሁሉም ተጫዋቾች አዲሱ ቁጥር በሶኬት እንዲደርስ ማድረግ
             socketio.emit('new_number', {'ball': ball})
-            
-            # ሰርቨሩ እስትንፋስ እንዲያገኝ እና ሉፑ እንዳይቋረጥ (በየ 3.5 ሰከንድ እንዲቀያየር)
-            socketio.sleep(3.5)
+            socketio.sleep(2.8) 
 
-            # አሸናፊ መኖሩን ማረጋገጥ
             round_winners = []
             for card_id, owner_id in game_state["selected_cards"].items():
-                if user_states.get(owner_id, {}).get('locked', False): continue
                 matrix = cards_database[card_id]
                 player_marks = player_marked_hits.get(owner_id, {}).get(card_id, set())
-                if verify_bingo_rules(matrix, player_marks):
+                if check_bingo_winner(matrix, player_marks):
                     round_winners.append((card_id, owner_id, matrix))
 
             if round_winners:
                 winner_found = True
                 split_prize = derash / len(round_winners)
-                winner_names = [users_db[oid].get("name", f"Player {oid}") for _, oid, _ in round_winners]
-                winner_ids = [oid for _, oid, _ in round_winners]
+                winner_names = []
+                winner_ids = []
 
-                for oid in winner_ids:
+                for cid, oid, mtx in round_winners:
                     with db_lock:
-                        users_db[oid]["balance"] += split_prize
-                    socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
+                        if oid in users_db:
+                            users_db[oid]["balance"] += split_prize
+                            w_name = users_db[oid].get("name", f"Player {oid}")
+                            socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
+                        else:
+                            w_name = f"Player {oid}"
+
+                    winner_names.append(w_name)
+                    winner_ids.append(oid)
+                    add_user_history(oid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{split_prize:.2f} ETB አሸንፈዋል")
+
+                first_card = round_winners[0][0]
+                first_mtx = round_winners[0][2]
 
                 socketio.emit('winner_announced', {
                     'winner_ids': winner_ids,
                     'winner_name': ", ".join(winner_names),
                     'prize': split_prize,
-                    'card_id': round_winners[0][0],
-                    'card_matrix': round_winners[0][2]
+                    'card_id': first_card,
+                    'card_matrix': first_mtx
                 })
                 break
+
         socketio.sleep(8)
 
 # =========================================================
@@ -1523,6 +1425,7 @@ def run_support_bot():
             time.sleep(3)
 
 if __name__ == '__main__':
+    # ቦቶቹን (Main Bot እና Support Bot) በራሳቸው Thread ማስጀመር
     main_bot_thread = Thread(target=run_main_bot)
     main_bot_thread.daemon = True
     main_bot_thread.start()
@@ -1531,7 +1434,9 @@ if __name__ == '__main__':
     support_bot_thread.daemon = True
     support_bot_thread.start()
 
+    # የቢንጎ ጨዋታ ሎፕ (Background Task) በ SocketIO ማስጀመር
     socketio.start_background_task(game_loop)
     
+    # ዌብ ሰርቨሩን (Flask & SocketIO) በ Render ፖርት ማስጀመር
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
