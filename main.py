@@ -351,7 +351,7 @@ HTML_TEMPLATE = """
 
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
-        let markedNumbersMap = {}; // tracks player manual marked hits per card { cardId: Set(values) }
+        let markedNumbersMap = {}; 
         let cardsDatabase = {};
 
         socket.on('connect', () => {
@@ -1424,10 +1424,19 @@ def run_support_bot():
             print(f"Support Bot Error: {e}")
             time.sleep(3)
 
-if __name__ == "__main__":
-    Thread(target=run_main_bot, daemon=True).start()
-    Thread(target=run_support_bot, daemon=True).start()
+if __name__ == '__main__':
+    # ቦቶቹን (Main Bot እና Support Bot) በራሳቸው Thread ማስጀመር
+    main_bot_thread = Thread(target=run_main_bot)
+    main_bot_thread.daemon = True
+    main_bot_thread.start()
+
+    support_bot_thread = Thread(target=run_support_bot)
+    support_bot_thread.daemon = True
+    support_bot_thread.start()
+
+    # የቢንጎ ጨዋታ ሎፕ (Background Task) በ SocketIO ማስጀመር
     socketio.start_background_task(game_loop)
     
+    # ዌብ ሰርቨሩን (Flask & SocketIO) በ Render ፖርት ማስጀመር
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
