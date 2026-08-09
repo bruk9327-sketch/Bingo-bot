@@ -477,7 +477,6 @@ HTML_TEMPLATE = """
                             
                             cell.className = 'p-1.5 rounded-lg text-[10px] font-bold bingo-hit scale-105 transition-all';
                             
-                            // Send manual marked status / check bingo trigger to server
                             socket.emit('player_mark_number', {
                                 user_id: userId,
                                 card_id: cid,
@@ -674,9 +673,7 @@ def start_cmd(message):
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
-# =========================================================
 # ADMIN STATISTICS HANDLER
-# =========================================================
 @bot.message_handler(commands=['stats'])
 def admin_statistics(message):
     uid = int(message.from_user.id)
@@ -1368,7 +1365,6 @@ def game_loop():
             for card_id, owner_id in game_state["selected_cards"].items():
                 matrix = cards_database[card_id]
                 player_marks = player_marked_hits.get(owner_id, {}).get(card_id, set())
-                # Check if player successfully marked all required winning combinations
                 if check_bingo_winner(matrix, player_marks):
                     round_winners.append((card_id, owner_id, matrix))
 
@@ -1434,8 +1430,4 @@ if __name__ == "__main__":
     socketio.start_background_task(game_loop)
     
     port = int(os.environ.get("PORT", 10000))
-    # Local development run check (Render uses gunicorn instead)
-    if os.environ.get("RENDER") is None:
-        socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
-
-
+    socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
