@@ -871,7 +871,14 @@ def handle_sms_receipt_verification(message):
         bot.send_message(message.chat.id, "❌ <b>የላኩት የደረሰኝ ጽሁፍ በጣም አጭር ነው። እባክዎን ትክክለኛውን የባንክ/ቴሌብር አጭር መልእክት (SMS) ሙሉውን ኮፒ አድርገው ይላኩ።</b>", parse_mode="HTML")
         return
 
-    txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
+    is_telebirr = re.search(r'(telebirr|transfer|sent|Payer|Customer Name)', text, re.IGNORECASE)
+    is_cbe = re.search(r'(CBE|Commercial Bank of Ethiopia|Debited|Credited|Account)', text, re.IGNORECASE)
+    
+    if not (is_telebirr or is_cbe):
+        bot.send_message(message.chat.id, "❌ <b>የላኩት መልእክት ትክክለኛ የ Telebirr ወይም CBE Birr የክፍያ SMS መሆኑን ማረጋገጥ አልተቻለም። እባክዎን ትክክለኛውን SMS ይላኩ።</b>", parse_mode="HTML")
+        return
+
+    txn_id_match = re.search(r'(?:Txn|ID|Ref|TRX|Transaction)[^\w]?([A-Za-z0-9]{8,})', text, re.IGNORECASE)
     txn_id = txn_id_match.group(1) if txn_id_match else hashlib.md5(text.encode()).hexdigest()[:12]
 
     if txn_id in used_txn_ids:
@@ -880,7 +887,7 @@ def handle_sms_receipt_verification(message):
 
     amounts = re.findall(r'(\d+(?:\.\d+)?)\s*(?:ETB|ብር|Birr)', text, re.IGNORECASE)
     if not amounts:
-        amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+        amounts = re.findall(r'(?:Transferred|Sent|Paid|Received|Amount|ETB)[^\d]*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
 
     if not amounts:
         numbers = [float(n) for n in re.findall(r'\b\d+(?:\.\d+)?\b', text) if float(n) >= 5.0]
@@ -1455,9 +1462,11 @@ def game_loop():
                 break
 
             game_state["drawn_numbers"].append(ball)
+            
+            # ለሁሉም ተጫዋቾች አዲሱ ቁጥር በሶኬት እንዲደርስ ማድረግ
             socketio.emit('new_number', {'ball': ball})
             
-            # ሰርቨሩ እስትንፋስ እንዲያገኝ እና ሉፑ እንዳይቋረጥ
+            # ሰርቨሩ እስትንፋስ እንዲያገኝ እና ሉፑ እንዳይቋረጥ (በየ 3.5 ሰከንድ እንዲቀያየር)
             socketio.sleep(3.5)
 
             # አሸናፊ መኖሩን ማረጋገጥ
@@ -1526,3 +1535,4 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
