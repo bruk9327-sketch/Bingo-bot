@@ -1,4 +1,4 @@
-import eventlet
+Import eventlet
 eventlet.monkey_patch(all=True)
 
 import os
@@ -128,7 +128,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BKBINGO Pro</title>
+    <title>Ethio Bingo For All</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -195,8 +195,8 @@ HTML_TEMPLATE = """
             <div class="flex items-center gap-2">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xl shadow-lg">🎯</div>
                 <div>
-                    <h1 class="font-orbitron text-lg font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
-                    <p class="text-[10px] text-purple-300/80">LIVE CASINO BINGO</p>
+                    <h1 class="font-orbitron text-lg font-black gold-gradient-text tracking-wider">ETHIO BINGO</h1>
+                    <p class="text-[10px] text-purple-300/80">FOR ALL</p>
                 </div>
             </div>
             <div class="bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-xl text-right">
@@ -707,7 +707,7 @@ def start_cmd(message):
 
     welcome_txt = (
         f"👋 ሰላም <b>{first_name}</b>!\n\n"
-        f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
+        f"ወደ <b>Ethio Bingo For All</b> እንኳን ደህና መጡ! 🎲\n"
         f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
         "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
     )
@@ -738,7 +738,7 @@ def admin_statistics(message):
                         total_withdraw_amount += float(nums[0])
 
     stats_msg = (
-        f"📊 <b>የ BKBINGO Pro አድሚን ስታስቲክስ (Statistics)</b>\n"
+        f"📊 <b>የ Ethio Bingo For All አድሚን ስታስቲክስ (Statistics)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"👥 አጠቃላይ የተጠቃሚዎች ቁጥር: <b>{total_users}</b>\n"
         f"📥 አጠቃላይ የገባ ገንዘብ (Total Deposit): <b>{total_deposit_amount:.2f} ETB</b>\n"
@@ -822,14 +822,14 @@ def handle_main_menu_callbacks(call):
     elif action == "btn_main_menu":
         welcome_txt = (
             f"👋 ሰላም <b>{call.from_user.first_name}</b>!\n\n"
-            f"ወደ <b>BKBINGO Pro</b> እንኳን ደህና መጡ! 🎲\n"
+            f"ወደ <b>Ethio Bingo For All</b> እንኳን ደህና መጡ! 🎲\n"
             f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
             "ለመጫወት ከታች ያለውን <b>'🎲 ጨዋታ ጀምር'</b> የሚለውን ይጫኑ።"
         )
         bot.edit_message_text(welcome_txt, call.message.chat.id, call.message.message_id, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_help":
-        bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
+        bot.send_message(call.message.chat.id, "ℹ️ <b>የ Ethio Bingo For All ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
 # =========================================================
 # MANUAL DEPOSIT & ADMIN APPROVAL/REJECTION DASHBOARD HANDLERS
@@ -1229,7 +1229,7 @@ def start_support_bot(message):
     welcome_msg = (
         f'<a href="{OPERATOR_IMAGE_URL}">&#8203;</a>'
         f"👋 ሰላም <b>{safe_name}</b>!\n\n"
-        f"ወደ <b>BKBINGO Pro</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
+        f"ወደ <b>Ethio Bingo For All</b> የደንበኞች አገልግሎት እንኳን ደህና መጡ! 🎧{user_info}\n\n"
         f"ያጋጠመዎትን ችግር ወይም ጥያቄ በአንድ መልእክት ጽፈው ይላኩልን። የደንበኞች አገልግሎት ኦፕሬተራችን ለማስተናገድ ዝግጁ ነው!"
     )
     
@@ -1457,8 +1457,8 @@ def game_loop():
             game_state["drawn_numbers"].append(ball)
             socketio.emit('new_number', {'ball': ball})
             
-            # ይህ sleep ጨዋታው በየሰከንዱ እንዲቀጥል ይረዳል
-            socketio.sleep(3) 
+            # ሰርቨሩ እስትንፋስ እንዲያገኝ እና ሉፑ እንዳይቋረጥ
+            socketio.sleep(3.5)
 
             # አሸናፊ መኖሩን ማረጋገጥ
             round_winners = []
