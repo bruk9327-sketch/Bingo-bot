@@ -106,23 +106,17 @@ game_state = {
 }
 
 def validate_bingo_board(board):
-    """
-    board: 5x5 ማትሪክስ (True/False የያዘ)
-    """
     if not board or len(board) != 5:
         return False
 
-    # 1. አግድም (Rows) ማረጋገጥ
     for r in range(5):
         if all(board[r][c] for c in range(5)):
             return True
 
-    # 2. ቀጥ አቀባዊ (Columns) ማረጋገጥ
     for c in range(5):
         if all(board[r][c] for r in range(5)):
             return True
 
-    # 3. ሰያፍ (Diagonals) ማረጋገጥ
     if all(board[i][i] for i in range(5)):
         return True
     if all(board[i][4 - i] for i in range(5)):
@@ -131,7 +125,7 @@ def validate_bingo_board(board):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE
+# 4. FRONTEND HTML TEMPLATE (የተስተካከለ - የተናጠል BINGO በተኖች ያሉት)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -270,12 +264,8 @@ HTML_TEMPLATE = """
                 <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-2xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300">
                     READY
                 </div>
-                <div id="my-cards-container" class="w-full space-y-3"></div>
-                
-                <!-- BINGO CLAIM BUTTON -->
-                <button onclick="claimBingo()" class="w-full mt-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/30 border border-emerald-400/50 transform active:scale-95 transition-all">
-                    🎉 BINGO! (ቢንጎ አሸነፍኩ)
-                </button>
+                <!-- እያንዳንዱ ካርቴላ ከነየተናጠል በተኑ እዚህ ይደረደራል -->
+                <div id="my-cards-container" class="w-full space-y-4"></div>
             </div>
         </div>
     </div>
@@ -396,30 +386,6 @@ HTML_TEMPLATE = """
             alert(data.message);
         });
 
-        function claimBingo() {
-            playSound('click');
-            if (mySelectedCards.length === 0) {
-                return alert("⚠️ ምንም ካርቴላ የለዎትም!");
-            }
-            
-            const cid = mySelectedCards[0];
-            const matrix = cardsDatabase[cid];
-            const markedSet = markedNumbersMap[cid] || new Set();
-
-            let boardValidationMatrix = [];
-            for(let r=0; r<5; r++) {
-                let rowArr = [];
-                for(let c=0; c<5; c++) {
-                    let val = matrix[r][c];
-                    let isHit = (val === 'FREE' || markedSet.has(val));
-                    rowArr.push(isHit);
-                }
-                boardValidationMatrix.push(rowArr);
-            }
-
-            socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
-        }
-
         function init75Grid() {
             const grid = document.getElementById('bingo-75-grid');
             grid.innerHTML = '';
@@ -478,11 +444,11 @@ HTML_TEMPLATE = """
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-2 rounded-2xl w-full border border-slate-700/80';
+            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700/80';
             cardDiv.innerHTML = `<div class="text-[11px] font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
 
             const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-1.5 rounded-xl';
+            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-1.5 rounded-xl mb-2';
 
             const headers = [
                 { title: 'B', class: 'bingo-header-b' },
@@ -533,12 +499,38 @@ HTML_TEMPLATE = """
                             });
                         };
                     }
-
                     mGrid.appendChild(cell);
                 });
             });
 
             cardDiv.appendChild(mGrid);
+
+            // እያንዳንዱ ካርቴላ የራሱ የሆነ የተናጠል የቢንጎ በተን እንዲኖረው ማድረግ
+            if (isPlayMode) {
+                const claimBtn = document.createElement('button');
+                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 border border-emerald-400/50 transform active:scale-95 transition-all';
+                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
+                claimBtn.onclick = () => {
+                    playSound('click');
+                    const matrixData = cardsDatabase[cid];
+                    const markedSet = markedNumbersMap[cid] || new Set();
+
+                    let boardValidationMatrix = [];
+                    for(let r=0; r<5; r++) {
+                        let rowArr = [];
+                        for(let c=0; c<5; c++) {
+                            let val = matrixData[r][c];
+                            let isHit = (val === 'FREE' || markedSet.has(val));
+                            rowArr.push(isHit);
+                        }
+                        boardValidationMatrix.push(rowArr);
+                    }
+
+                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+                };
+                cardDiv.appendChild(claimBtn);
+            }
+
             return cardDiv;
         }
 
@@ -638,7 +630,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT / HISTORY HANDLERS
+# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT / HISTORY HANDلERS
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -722,7 +714,6 @@ def start_cmd(message):
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
-# ADMIN STATISTICS HANDLER
 @bot.message_handler(commands=['stats'])
 def admin_statistics(message):
     uid = int(message.from_user.id)
@@ -840,9 +831,6 @@ def handle_main_menu_callbacks(call):
     elif action == "btn_help":
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
 
-# =========================================================
-# MANUAL DEPOSIT & ADMIN APPROVAL/REJECTION DASHBOARD HANDLERS
-# =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
 def handle_deposit_method_selection(call):
     uid = int(call.from_user.id)
@@ -1031,9 +1019,6 @@ def handle_admin_verification_action(call):
             parse_mode="HTML"
         )
 
-# =========================================================
-# WITHDRAWAL HANDLERS & ADMIN APPROVAL/REJECTION DASHBOARD
-# =========================================================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('wdmeth_'))
 def handle_withdraw_method(call):
     uid = int(call.from_user.id)
@@ -1217,9 +1202,6 @@ def handle_admin_withdraw_action(call):
             parse_mode="HTML"
         )
 
-# =========================================================
-# 6. SUPPORT BOT HANDLERS
-# =========================================================
 @support_bot.message_handler(commands=['start'])
 def start_support_bot(message):
     text = message.text
@@ -1300,11 +1282,6 @@ def send_support_reply(message):
         except Exception as ex:
             support_bot.send_message(ADMIN_ID, f"❌ መልእክቱን መላክ አልተቻለም፦ {ex}", parse_mode="HTML")
 
-# =========================================================
-# 7. REAL-TIME BINGO GAME LOOP & WINNER LOGIC
-# =========================================================
-player_marked_hits = {} # { uid: { card_id: set(marked_values) } }
-
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
     if not data or 'user_id' not in data:
@@ -1373,13 +1350,12 @@ def handle_bingo_claim(data):
     user_sid = request.sid
     uid = int(data.get('user_id'))
     card_id = int(data.get('card_id'))
-    board = data.get('board') # ከፍሮንተንድ የሚመጣው 5x5 ማትሪክስ (True/False)
+    board = data.get('board')
     
     if game_state["status"] != "PLAYING":
         emit('bingo_response', {'status': 'error', 'message': 'ጨዋታው ገና አልጀመረም!'}, room=user_sid)
         return
 
-    # ሰርቨር ላይ ማረጋገጥ
     is_valid = validate_bingo_board(board)
     
     if is_valid:
@@ -1413,6 +1389,8 @@ def handle_bingo_claim(data):
             'status': 'error', 
             'message': 'ስህተት! ገና በህጉ መሰረት ቢንጎ አልደረሱም!'
         }, room=user_sid)
+
+player_marked_hits = {}
 
 def game_loop():
     global game_state, player_marked_hits
@@ -1457,7 +1435,6 @@ def game_loop():
             socketio.emit('new_number', {'ball': ball})
             socketio.sleep(2.8) 
 
-        # ጨዋታው ተጠናቆ አሸናፊ ከሌለ
         if game_state["status"] == "PLAYING":
             game_state["status"] = "ENDED"
             socketio.emit('winner_announced', {
@@ -1470,9 +1447,6 @@ def game_loop():
 
         socketio.sleep(8)
 
-# =========================================================
-# 8. THREAD RUNNERS & MAIN EXECUTION
-# =========================================================
 def run_main_bot():
     while True:
         try:
