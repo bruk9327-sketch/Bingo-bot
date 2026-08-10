@@ -94,7 +94,7 @@ for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
 # =========================================================
-# 3. GAME STATE & BINGO WINNER CHECKER (WITH NEW BACKEND VALIDATION)
+# 3. GAME STATE & BINGO WINNER CHECKER (BACKEND VALIDATION)
 # =========================================================
 game_state = {
     "status": "WAITING",
@@ -104,20 +104,6 @@ game_state = {
     "player_cards": {},    
     "derash": 0.0
 }
-
-def check_bingo_winner(matrix, marked_set):
-    def is_hit(val):
-        return val == 'FREE' or val in marked_set
-
-    for row in matrix:
-        if all(is_hit(v) for v in row): return True
-    for col in range(5):
-        if all(is_hit(matrix[row][col]) for row in range(5)): return True
-    d1 = [matrix[i][i] for i in range(5)]
-    d2 = [matrix[i][4-i] for i in range(5)]
-    if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
-
-    return False
 
 def validate_bingo_board(board):
     """
@@ -145,7 +131,7 @@ def validate_bingo_board(board):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (WITH MANUAL PLAYER HITTING)
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -285,6 +271,11 @@ HTML_TEMPLATE = """
                     READY
                 </div>
                 <div id="my-cards-container" class="w-full space-y-3"></div>
+                
+                <!-- BINGO CLAIM BUTTON -->
+                <button onclick="claimBingo()" class="w-full mt-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/30 border border-emerald-400/50 transform active:scale-95 transition-all">
+                    🎉 BINGO! (ቢንጎ አሸነፍኩ)
+                </button>
             </div>
         </div>
     </div>
@@ -404,6 +395,30 @@ HTML_TEMPLATE = """
             }
             alert(data.message);
         });
+
+        function claimBingo() {
+            playSound('click');
+            if (mySelectedCards.length === 0) {
+                return alert("⚠️ ምንም ካርቴላ የለዎትም!");
+            }
+            
+            const cid = mySelectedCards[0];
+            const matrix = cardsDatabase[cid];
+            const markedSet = markedNumbersMap[cid] || new Set();
+
+            let boardValidationMatrix = [];
+            for(let r=0; r<5; r++) {
+                let rowArr = [];
+                for(let c=0; c<5; c++) {
+                    let val = matrix[r][c];
+                    let isHit = (val === 'FREE' || markedSet.has(val));
+                    rowArr.push(isHit);
+                }
+                boardValidationMatrix.push(rowArr);
+            }
+
+            socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+        }
 
         function init75Grid() {
             const grid = document.getElementById('bingo-75-grid');
@@ -1317,7 +1332,7 @@ def handle_card_selection(data):
 
         bal = users_db[uid]["balance"]
         
-        if card_id in game_state['selected_cards']:
+        if card_id in game_state['selected_cards'].values():
             emit('error_msg', {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'})
             return
 
@@ -1333,7 +1348,7 @@ def handle_card_selection(data):
         users_db[uid]["balance"] -= CARD_PRICE
         new_bal = users_db[uid]["balance"]
         
-        game_state['selected_cards'][card_id] = uid
+        game_state['selected_cards'][f"{uid}_{card_id}"] = card_id
         if uid not in game_state['player_cards']:
             game_state['player_cards'][uid] = []
         game_state['player_cards'][uid].append(card_id)
@@ -1341,7 +1356,7 @@ def handle_card_selection(data):
     matrix = cards_database.get(card_id)
     emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': new_bal}, broadcast=False)
     emit('balance_update', {'user_id': uid, 'balance': new_bal}, broadcast=False)
-    socketio.emit('update_selected_cards', {'taken_cards': list(game_state['selected_cards'].keys())})
+    socketio.emit('update_selected_cards', {'taken_cards': list(game_state['selected_cards'].values())})
 
 @socketio.on('player_mark_number')
 def handle_player_mark(data):
@@ -1356,8 +1371,14 @@ def handle_player_mark(data):
 @socketio.on('claim_bingo')
 def handle_bingo_claim(data):
     user_sid = request.sid
+    uid = int(data.get('user_id'))
+    card_id = int(data.get('card_id'))
     board = data.get('board') # ከፍሮንተንድ የሚመጣው 5x5 ማትሪክስ (True/False)
     
+    if game_state["status"] != "PLAYING":
+        emit('bingo_response', {'status': 'error', 'message': 'ጨዋታው ገና አልጀመረም!'}, room=user_sid)
+        return
+
     # ሰርቨር ላይ ማረጋገጥ
     is_valid = validate_bingo_board(board)
     
@@ -1367,7 +1388,26 @@ def handle_bingo_claim(data):
             'message': 'እንኳን ደስ አለዎት! ትክክለኛ ቢንጎ ማሸነፍዎ ተረጋግጧል!'
         }, room=user_sid)
         
-        emit('game_over', {'winner': user_sid}, broadcast=True)
+        prize = game_state['derash']
+        game_state['status'] = 'ENDED'
+
+        with db_lock:
+            if uid in users_db:
+                users_db[uid]["balance"] += prize
+                w_name = users_db[uid].get("name", f"Player {uid}")
+                socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+            else:
+                w_name = f"Player {uid}"
+
+        add_user_history(uid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{prize:.2f} ETB አሸንፈዋል")
+
+        socketio.emit('winner_announced', {
+            'winner_ids': [uid],
+            'winner_name': w_name,
+            'prize': prize,
+            'card_id': card_id,
+            'card_matrix': cards_database.get(card_id)
+        })
     else:
         emit('bingo_response', {
             'status': 'error', 
@@ -1378,17 +1418,21 @@ def game_loop():
     global game_state, player_marked_hits
     while True:
         game_state["status"] = "WAITING"
+        game_state["time_left"] = 15
         game_state["selected_cards"] = {}
         game_state["player_cards"] = {}
         game_state["drawn_numbers"] = []
         player_marked_hits = {}
         socketio.emit('reset_game')
+        socketio.emit('update_selected_cards', {'taken_cards': []})
 
         while len(game_state["selected_cards"]) == 0:
             socketio.sleep(1)
 
         game_state["status"] = "COUNTDOWN"
         for t in range(15, 0, -1):
+            if len(game_state["selected_cards"]) == 0:
+                break
             socketio.emit('timer_update', {
                 'time_left': t,
                 'sold_count': len(game_state["selected_cards"])
@@ -1404,55 +1448,25 @@ def game_loop():
 
         available_balls = list(range(1, 76))
         random.shuffle(available_balls)
-        drawn_set = set()
-        winner_found = False
 
         for ball in available_balls:
-            if winner_found:
+            if game_state["status"] != "PLAYING":
                 break
 
-            drawn_set.add(ball)
             game_state["drawn_numbers"].append(ball)
             socketio.emit('new_number', {'ball': ball})
             socketio.sleep(2.8) 
 
-            round_winners = []
-            for card_id, owner_id in game_state["selected_cards"].items():
-                matrix = cards_database[card_id]
-                player_marks = player_marked_hits.get(owner_id, {}).get(card_id, set())
-                if check_bingo_winner(matrix, player_marks):
-                    round_winners.append((card_id, owner_id, matrix))
-
-            if round_winners:
-                winner_found = True
-                split_prize = derash / len(round_winners)
-                winner_names = []
-                winner_ids = []
-
-                for cid, oid, mtx in round_winners:
-                    with db_lock:
-                        if oid in users_db:
-                            users_db[oid]["balance"] += split_prize
-                            w_name = users_db[oid].get("name", f"Player {oid}")
-                            socketio.emit('balance_update', {'user_id': oid, 'balance': users_db[oid]["balance"]})
-                        else:
-                            w_name = f"Player {oid}"
-
-                    winner_names.append(w_name)
-                    winner_ids.append(oid)
-                    add_user_history(oid, "የአሸናፊነት ሽልማት (Bingo Win)", f"+{split_prize:.2f} ETB አሸንፈዋል")
-
-                first_card = round_winners[0][0]
-                first_mtx = round_winners[0][2]
-
-                socketio.emit('winner_announced', {
-                    'winner_ids': winner_ids,
-                    'winner_name': ", ".join(winner_names),
-                    'prize': split_prize,
-                    'card_id': first_card,
-                    'card_matrix': first_mtx
-                })
-                break
+        # ጨዋታው ተጠናቆ አሸናፊ ከሌለ
+        if game_state["status"] == "PLAYING":
+            game_state["status"] = "ENDED"
+            socketio.emit('winner_announced', {
+                'winner_ids': [],
+                'winner_name': 'ምንም አሸናፊ የለም (Draw)',
+                'prize': 0.0,
+                'card_id': 0,
+                'card_matrix': None
+            })
 
         socketio.sleep(8)
 
@@ -1480,7 +1494,6 @@ def run_support_bot():
             time.sleep(3)
 
 if __name__ == '__main__':
-    # ቦቶቹን (Main Bot እና Support Bot) በራሳቸው Thread ማስጀመር
     main_bot_thread = Thread(target=run_main_bot)
     main_bot_thread.daemon = True
     main_bot_thread.start()
@@ -1489,9 +1502,7 @@ if __name__ == '__main__':
     support_bot_thread.daemon = True
     support_bot_thread.start()
 
-    # የቢንጎ ጨዋታ ሎፕ (Background Task) በ SocketIO ማስጀመር
     socketio.start_background_task(game_loop)
     
-    # ዌብ ሰርቨሩን (Flask & SocketIO) በ Render ፖርት ማስጀመር
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
