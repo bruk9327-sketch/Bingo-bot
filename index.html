@@ -1,3 +1,4 @@
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="am">
 <head>
@@ -44,47 +45,17 @@
             cursor: not-allowed;
             opacity: 0.6;
         }
-        .cell-manual-clicked {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-            color: #ffffff !important;
-            border: 1px solid #60a5fa !important;
-            box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+        .bingo-hit { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; 
+            color: #ffffff !important; 
+            font-weight: 800 !important;
+            box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.6);
         }
         .bingo-header-b { background: #ef4444; color: #fff; }
         .bingo-header-i { background: #3b82f6; color: #fff; }
         .bingo-header-n { background: #eab308; color: #000; }
         .bingo-header-g { background: #10b981; color: #fff; }
         .bingo-header-o { background: #a855f7; color: #fff; }
-
-        .bingo-btn {
-            background: linear-gradient(135deg, #f12711, #f5af19);
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            padding: 8px 20px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(241, 39, 17, 0.4);
-            transition: 0.3s ease;
-            width: 100%;
-            margin-top: 8px;
-            text-transform: uppercase;
-        }
-        .bingo-btn:active {
-            transform: scale(0.95);
-        }
-        .bingo-btn:disabled {
-            background: #475569;
-            cursor: not-allowed;
-            box-shadow: none;
-            opacity: 0.6;
-        }
-        .card-locked {
-            pointer-events: none;
-            opacity: 0.6;
-            filter: grayscale(50%);
-        }
     </style>
 </head>
 <body class="select-none pb-10 px-3">
@@ -154,6 +125,7 @@
         </div>
 
         <div class="flex gap-2">
+            <!-- Called Numbers Board -->
             <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
                 <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
@@ -163,7 +135,12 @@
                 <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-2xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300">
                     READY
                 </div>
-                <div id="my-cards-container" class="w-full space-y-4"></div>
+                <div id="my-cards-container" class="w-full space-y-3"></div>
+                
+                <!-- BINGO CLAIM BUTTON ADDED HERE -->
+                <button onclick="claimBingo()" class="w-full mt-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/30 border border-emerald-400/50 transform active:scale-95 transition-all">
+                    🎉 BINGO! (ቢንጎ አሸነፍኩ)
+                </button>
             </div>
         </div>
     </div>
@@ -212,6 +189,7 @@
 
         function speakNumber(ballNum) {
             if (!('speechSynthesis' in window)) return;
+            
             let letter = '';
             if (ballNum >= 1 && ballNum <= 15) letter = 'ቢ';
             else if (ballNum >= 16 && ballNum <= 30) letter = 'አይ';
@@ -220,10 +198,13 @@
             else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
 
             const phrase = `${letter} ${ballNum}`;
+            
             try {
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(phrase);
                 utterance.lang = 'am-ET';
                 utterance.rate = 0.85;
+                utterance.pitch = 1.0;
                 utterance.volume = 1.0;
                 window.speechSynthesis.speak(utterance);
             } catch (e) {
@@ -251,8 +232,8 @@
 
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
+        let markedNumbersMap = {}; 
         let cardsDatabase = {};
-        let lockedCards = new Set();
 
         socket.on('connect', () => {
             if (userId) {
@@ -270,6 +251,40 @@
             playSound('error');
             alert("⚠️ " + data.msg);
         });
+
+        socket.on('bingo_response', (data) => {
+            if (data.status === 'success') {
+                playSound('win');
+            } else {
+                playSound('error');
+            }
+            alert(data.message);
+        });
+
+        function claimBingo() {
+            playSound('click');
+            if (mySelectedCards.length === 0) {
+                return alert("⚠️ ምንም ካርቴላ የለዎትም!");
+            }
+            
+            // የካርቴላውን ማትሪክስ ወደ ሰርቨር በመላክ ማረጋገጥ
+            const cid = mySelectedCards[0];
+            const matrix = cardsDatabase[cid];
+            const markedSet = markedNumbersMap[cid] || new Set();
+
+            let boardValidationMatrix = [];
+            for(let r=0; r<5; r++) {
+                let rowArr = [];
+                for(let c=0; c<5; c++) {
+                    let val = matrix[r][c];
+                    let isHit = (val === 'FREE' || markedSet.has(val));
+                    rowArr.push(isHit);
+                }
+                boardValidationMatrix.push(rowArr);
+            }
+
+            socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+        }
 
         function init75Grid() {
             const grid = document.getElementById('bingo-75-grid');
@@ -321,6 +336,7 @@
             playSound('click');
             if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             cardsDatabase[data.card_id] = data.matrix;
+            if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
             document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
@@ -328,16 +344,8 @@
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
-            cardDiv.id = `card-wrapper-${cid}`;
-            cardDiv.className = 'glass-panel p-2 rounded-2xl w-full border border-slate-700/80 shadow-xl card-container';
-            
-            if (lockedCards.has(cid)) {
-                cardDiv.style.opacity = '0.4';
-                cardDiv.style.pointerEvents = 'none';
-                cardDiv.classList.add('card-locked');
-            }
-
-            cardDiv.innerHTML = `<div class="text-[11px] font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid} ${lockedCards.has(cid) ? '(ታግዷል ❌)' : ''}</div>`;
+            cardDiv.className = 'glass-panel p-2 rounded-2xl w-full border border-slate-700/80';
+            cardDiv.innerHTML = `<div class="text-[11px] font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
 
             const mGrid = document.createElement('div');
             mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-1.5 rounded-xl';
@@ -357,136 +365,47 @@
                 mGrid.appendChild(hCell);
             });
 
-            matrix.forEach((row) => {
-                row.forEach((val) => {
+            matrix.forEach(row => {
+                row.forEach(val => {
                     const cell = document.createElement('div');
                     if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
                     
                     const isFree = val === 'FREE';
-                    cell.className = `p-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                        isFree ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800/90 text-slate-200'
+                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
+
+                    cell.className = `p-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                        isFree 
+                        ? 'bg-amber-500 text-slate-950 font-black' 
+                        : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-200 cursor-pointer')
                     }`;
                     cell.innerText = val;
 
                     if (isPlayMode && !isFree) {
                         cell.onclick = () => {
+                            if (!drawnNumbersSet.has(val)) {
+                                playSound('error');
+                                return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                            }
                             playSound('click');
-                            cell.classList.toggle('cell-manual-clicked');
+                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                            markedNumbersMap[cid].add(val);
+                            
+                            cell.className = 'p-1.5 rounded-lg text-[10px] font-bold bingo-hit scale-105 transition-all';
+                            
+                            socket.emit('player_mark_number', {
+                                user_id: userId,
+                                card_id: cid,
+                                marked_numbers: Array.from(markedNumbersMap[cid])
+                            });
                         };
                     }
+
                     mGrid.appendChild(cell);
                 });
             });
 
             cardDiv.appendChild(mGrid);
-
-            if (isPlayMode) {
-                const bingoBtn = document.createElement('button');
-                bingoBtn.id = `bingo-btn-${cid}`;
-                bingoBtn.className = 'bingo-btn';
-                bingoBtn.innerText = `BINGO! #${cid} 🎉`;
-                
-                if (lockedCards.has(cid)) {
-                    bingoBtn.disabled = true;
-                }
-
-                bingoBtn.onclick = () => {
-                    checkCardBingo(cid);
-                };
-                cardDiv.appendChild(bingoBtn);
-            }
-
             return cardDiv;
-        }
-
-        // የተጫዋቹን ካርድ በሕጉ (አግድም፣ ቀጥ አቀባዊ እና ሰያፍ) ሙሉ በሙሉ መፈተሽ
-        function checkCardBingo(cid) {
-            if (lockedCards.has(cid)) {
-                alert(`ካርቴላ #${cid} ታስሯል! እስከ ጨዋታው ፍጻሜ ድረስ በዚህ ካርቴላ መጫወት አይችሉም።`);
-                return;
-            }
-
-            // 5 በ 5 ማትሪክስ መዋቅር ከዶክመንቱ (DOM) ማንበብ
-            const cardWrapper = document.getElementById(`card-wrapper-${cid}`);
-            const cellElements = cardWrapper.querySelectorAll('.grid > div:not(.bingo-header-b):not(.bingo-header-i):not(.bingo-header-n):not(.bingo-header-g):not(.bingo-header-o)');
-            
-            let board = [];
-            let currentRow = [];
-
-            cellElements.forEach((cell, index) => {
-                let isMarked = cell.classList.contains('cell-manual-clicked') || cell.innerText === 'FREE';
-                currentRow.push(isMarked);
-
-                if ((index + 1) % 5 === 0) {
-                    board.push(currentRow);
-                    currentRow = [];
-                }
-            });
-
-            // የቢንጎ ህግ ማረጋገጥ (ረድፍ፣ ዎድ፣ ወይም ዲያጎናል መሟላቱን ማጣራት)
-            let hasWon = false;
-
-            // 1. አግድም (Rows) ማረጋገጥ
-            for (let r = 0; r < 5; r++) {
-                if (board[r][0] && board[r][1] && board[r][2] && board[r][3] && board[r][4]) {
-                    hasWon = true;
-                }
-            }
-
-            // 2. ቀጥ አቀባዊ (Columns) ማረጋገጥ
-            for (let c = 0; c < 5; c++) {
-                if (board[0][c] && board[1][c] && board[2][c] && board[3][c] && board[4][c]) {
-                    hasWon = true;
-                }
-            }
-
-            // 3. ሰያፍ (Diagonals) ማረጋገጥ
-            if (board[0][0] && board[1][1] && board[2][2] && board[3][3] && board[4][4]) {
-                hasWon = true;
-            }
-            if (board[0][4] && board[1][3] && board[2][2] && board[3][1] && board[4][0]) {
-                hasWon = true;
-            }
-
-            // ውፅዓቱን ማስተናገድ
-            if (hasWon) {
-                playSound('win');
-                socket.emit('claim_bingo', { user_id: userId, card_id: cid });
-            } else {
-                playSound('error');
-                lockedCards.add(cid);
-                
-                const btn = document.getElementById(`bingo-btn-${cid}`);
-                if(btn) {
-                    btn.disabled = true;
-                    lockButtonTemporarily(btn);
-                }
-
-                if(cardWrapper) {
-                    cardWrapper.classList.add('card-locked');
-                    const titleDiv = cardWrapper.querySelector('div');
-                    if(titleDiv) titleDiv.innerText = `ካርቴላ #${cid} (ታግዷል ❌)`;
-                }
-                
-                alert(`❌ የተሳሳተ ቢንጎ በካርቴላ #${cid}! የቢንጎ ህግ (አግድም፣ ቀጥ ወይም ሰያፍ) ሙሉ በሙሉ አልተሟላም።`);
-                socket.emit('invalid_bingo', { user_id: userId, card_id: cid });
-            }
-        }
-
-        // ከህግ ውጭ የተደረገ ሙከራ ሲኖር በተኑን ለተወሰነ ሰከንድ መቆለፊያ
-        function lockButtonTemporarily(btn) {
-            let countdown = 5;
-            btn.innerText = `ስህተት! (${countdown}ሰ)`;
-
-            let timer = setInterval(() => {
-                countdown--;
-                if (countdown > 0) {
-                    btn.innerText = `ስህተት! (${countdown}ሰ)`;
-                } else {
-                    clearInterval(timer);
-                    btn.innerText = "ታግዷል ❌";
-                }
-            }, 1000);
         }
 
         function renderPreviewCards() {
@@ -506,7 +425,8 @@
 
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
-            lockedCards.clear();
+            markedNumbersMap = {};
+            mySelectedCards.forEach(cid => { markedNumbersMap[cid] = new Set(); });
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -527,6 +447,7 @@
         socket.on('new_number', (data) => {
             const ball = data.ball;
             drawnNumbersSet.add(ball);
+            
             speakNumber(ball);
 
             const ballEl = document.getElementById('current-ball');
@@ -563,7 +484,7 @@
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
-            lockedCards.clear();
+            markedNumbersMap = {};
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
