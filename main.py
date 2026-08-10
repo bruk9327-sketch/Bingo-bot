@@ -270,7 +270,7 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="w-2/3 flex flex-col items-center">
-                <!-- ትልቁ ክብ ዉስጥ ቁጥሩ ከነፊደሉ እንዲወጣ (ግንኙነት ለዲዛይን እንዲመች text-xl ተደርጓል) -->
+                <!-- ትልቁ ክብ ዉስጥ ቁጥሩ ከነፊደሉ እንዲወጣ -->
                 <div id="current-ball" class="w-24 h-24 rounded-full ball-glow flex items-center justify-center text-xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
                     READY
                 </div>
@@ -595,7 +595,7 @@ HTML_TEMPLATE = """
             speakNumber(ball, displayStr);
 
             const ballEl = document.getElementById('current-ball');
-            ballEl.innerText = displayStr; // B-7, I-22 ወዘተ ይወጣል
+            ballEl.innerText = displayStr;
             ballEl.classList.add('scale-110');
             setTimeout(() => ballEl.classList.remove('scale-110'), 200);
 
@@ -1451,7 +1451,6 @@ def game_loop():
 
             game_state["drawn_numbers"].append(ball)
             
-            # 1ኛ ነጥብ: ኳሱ ከነፊደሉ እንዲወጣ (ለምሳሌ: B-7)
             ball_info = get_letter_and_display(ball)
             
             socketio.emit('new_number', {
@@ -1459,7 +1458,7 @@ def game_loop():
                 'display': ball_info['display']
             })
             
-            # 3ኛ ነጥብ: የጊዜ ልዩነት በየ 30 ሰከንድ እንዲሆን ተደርጓል
+            # የኳስ መጥሪያ የጊዜ ልዩነት ወደ 3ስተ (30 ሰከንድ) ተስተካክሏል
             socketio.sleep(30) 
 
         if game_state["status"] == "PLAYING":
