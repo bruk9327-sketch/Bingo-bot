@@ -93,6 +93,15 @@ def generate_official_bingo_card(card_id):
 for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
+# BINGO Letter Helper Function
+def get_letter_and_display(num):
+    if num >= 1 and num <= 15: return {'letter': 'B', 'display': f'B-{num}'}
+    if num >= 16 and num <= 30: return {'letter': 'I', 'display': f'I-{num}'}
+    if num >= 31 and num <= 45: return {'letter': 'N', 'display': f'N-{num}'}
+    if num >= 46 and num <= 60: return {'letter': 'G', 'display': f'G-{num}'}
+    if num >= 61 and num <= 75: return {'letter': 'O', 'display': f'O-{num}'}
+    return {'letter': '', 'display': str(num)}
+
 # =========================================================
 # 3. GAME STATE & BINGO WINNER CHECKER (BACKEND VALIDATION)
 # =========================================================
@@ -125,7 +134,7 @@ def validate_bingo_board(board):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE (የተስተካከለ - የተናጠል BINGO በተኖች ያሉት)
+# 4. FRONTEND HTML TEMPLATE
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -261,10 +270,10 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="w-2/3 flex flex-col items-center">
-                <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-2xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300">
+                <!-- ትልቁ ክብ ዉስጥ ቁጥሩ ከነፊደሉ እንዲወጣ (ግንኙነት ለዲዛይን እንዲመች text-xl ተደርጓል) -->
+                <div id="current-ball" class="w-24 h-24 rounded-full ball-glow flex items-center justify-center text-xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
                     READY
                 </div>
-                <!-- እያንዳንዱ ካርቴላ ከነየተናጠል በተኑ እዚህ ይደረደራል -->
                 <div id="my-cards-container" class="w-full space-y-4"></div>
             </div>
         </div>
@@ -312,17 +321,17 @@ HTML_TEMPLATE = """
             }
         }
 
-        function speakNumber(ballNum) {
+        function speakNumber(ballNum, displayStr) {
             if (!('speechSynthesis' in window)) return;
             
-            let letter = '';
-            if (ballNum >= 1 && ballNum <= 15) letter = 'ቢ';
-            else if (ballNum >= 16 && ballNum <= 30) letter = 'አይ';
-            else if (ballNum >= 31 && ballNum <= 45) letter = 'ኤን';
-            else if (ballNum >= 46 && ballNum <= 60) letter = 'ጂ';
-            else if (ballNum >= 61 && ballNum <= 75) letter = 'ኦ';
+            let letterName = '';
+            if (ballNum >= 1 && ballNum <= 15) letterName = 'ቢ';
+            else if (ballNum >= 16 && ballNum <= 30) letterName = 'አይ';
+            else if (ballNum >= 31 && ballNum <= 45) letterName = 'ኤን';
+            else if (ballNum >= 46 && ballNum <= 60) letterName = 'ጂ';
+            else if (ballNum >= 61 && ballNum <= 75) letterName = 'ኦ';
 
-            const phrase = `${letter} ${ballNum}`;
+            const phrase = `${letterName} ${ballNum}`;
             
             try {
                 window.speechSynthesis.cancel();
@@ -386,14 +395,23 @@ HTML_TEMPLATE = """
             alert(data.message);
         });
 
+        function getFrontendLetterAndDisplay(num) {
+            if (num >= 1 && num <= 15) return `B-${num}`;
+            if (num >= 16 && num <= 30) return `I-${num}`;
+            if (num >= 31 && num <= 45) return `N-${num}`;
+            if (num >= 46 && num <= 60) return `G-${num}`;
+            if (num >= 61 && num <= 75) return `O-${num}`;
+            return `${num}`;
+        }
+
         function init75Grid() {
             const grid = document.getElementById('bingo-75-grid');
             grid.innerHTML = '';
             for(let i=1; i<=75; i++) {
                 const cell = document.createElement('div');
                 cell.id = `ball-cell-${i}`;
-                cell.className = 'p-1 bg-slate-800/80 rounded text-slate-400 font-bold';
-                cell.innerText = i;
+                cell.className = 'p-1 bg-slate-800/80 rounded text-slate-400 font-bold text-[9px]';
+                cell.innerText = getFrontendLetterAndDisplay(i);
                 grid.appendChild(cell);
             }
         }
@@ -505,7 +523,6 @@ HTML_TEMPLATE = """
 
             cardDiv.appendChild(mGrid);
 
-            // እያንዳንዱ ካርቴላ የራሱ የሆነ የተናጠል የቢንጎ በተን እንዲኖረው ማድረግ
             if (isPlayMode) {
                 const claimBtn = document.createElement('button');
                 claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 border border-emerald-400/50 transform active:scale-95 transition-all';
@@ -572,12 +589,13 @@ HTML_TEMPLATE = """
 
         socket.on('new_number', (data) => {
             const ball = data.ball;
+            const displayStr = data.display;
             drawnNumbersSet.add(ball);
             
-            speakNumber(ball);
+            speakNumber(ball, displayStr);
 
             const ballEl = document.getElementById('current-ball');
-            ballEl.innerText = ball;
+            ballEl.innerText = displayStr; // B-7, I-22 ወዘተ ይወጣል
             ballEl.classList.add('scale-110');
             setTimeout(() => ballEl.classList.remove('scale-110'), 200);
 
@@ -585,7 +603,7 @@ HTML_TEMPLATE = """
             
             const cell75 = document.getElementById(`ball-cell-${ball}`);
             if(cell75) {
-                cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all';
+                cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
             }
         });
 
@@ -630,7 +648,7 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 # =========================================================
-# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT / HISTORY HANDلERS
+# 5. TELEGRAM MAIN BOT & REFERRAL / DEPOSIT / HISTORY HANDLERS
 # =========================================================
 def main_menu_keyboard(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -1432,8 +1450,17 @@ def game_loop():
                 break
 
             game_state["drawn_numbers"].append(ball)
-            socketio.emit('new_number', {'ball': ball})
-            socketio.sleep(2.8) 
+            
+            # 1ኛ ነጥብ: ኳሱ ከነፊደሉ እንዲወጣ (ለምሳሌ: B-7)
+            ball_info = get_letter_and_display(ball)
+            
+            socketio.emit('new_number', {
+                'ball': ball, 
+                'display': ball_info['display']
+            })
+            
+            # 3ኛ ነጥብ: የጊዜ ልዩነት በየ 30 ሰከንድ እንዲሆን ተደርጓል
+            socketio.sleep(30) 
 
         if game_state["status"] == "PLAYING":
             game_state["status"] = "ENDED"
