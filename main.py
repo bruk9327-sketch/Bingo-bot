@@ -94,7 +94,7 @@ for c_num in range(1, 105):
     cards_database[c_num] = generate_official_bingo_card(c_num)
 
 # =========================================================
-# 3. GAME STATE & BINGO WINNER CHECKER
+# 3. GAME STATE & BINGO WINNER CHECKER (WITH NEW BACKEND VALIDATION)
 # =========================================================
 game_state = {
     "status": "WAITING",
@@ -116,6 +116,31 @@ def check_bingo_winner(matrix, marked_set):
     d1 = [matrix[i][i] for i in range(5)]
     d2 = [matrix[i][4-i] for i in range(5)]
     if all(is_hit(v) for v in d1) or all(is_hit(v) for v in d2): return True
+
+    return False
+
+def validate_bingo_board(board):
+    """
+    board: 5x5 ማትሪክስ (True/False የያዘ)
+    """
+    if not board or len(board) != 5:
+        return False
+
+    # 1. አግድም (Rows) ማረጋገጥ
+    for r in range(5):
+        if all(board[r][c] for c in range(5)):
+            return True
+
+    # 2. ቀጥ አቀባዊ (Columns) ማረጋገጥ
+    for c in range(5):
+        if all(board[r][c] for r in range(5)):
+            return True
+
+    # 3. ሰያፍ (Diagonals) ማረጋገጥ
+    if all(board[i][i] for i in range(5)):
+        return True
+    if all(board[i][4 - i] for i in range(5)):
+        return True
 
     return False
 
@@ -369,6 +394,15 @@ HTML_TEMPLATE = """
         socket.on('error_msg', (data) => {
             playSound('error');
             alert("⚠️ " + data.msg);
+        });
+
+        socket.on('bingo_response', (data) => {
+            if (data.status === 'success') {
+                playSound('win');
+            } else {
+                playSound('error');
+            }
+            alert(data.message);
         });
 
         function init75Grid() {
@@ -1271,7 +1305,7 @@ def handle_get_balance(data):
 @socketio.on('select_card')
 def handle_card_selection(data):
     if game_state["status"] == "PLAYING":
-        emit('error_msg', {'msg': 'ጨዋታው ተጀምሯል። እባክዎን አዲሱን ዙር ይጠብቁ!'})
+        emit('error_msg', {'msg': 'ጨዋታው ተጀምሯል። እባክዎን አዲሱን ዙር ይጠብጉ!'})
         return
 
     uid = int(data.get('user_id'))
@@ -1318,6 +1352,27 @@ def handle_player_mark(data):
     if uid not in player_marked_hits:
         player_marked_hits[uid] = {}
     player_marked_hits[uid][card_id] = set(marked_list)
+
+@socketio.on('claim_bingo')
+def handle_bingo_claim(data):
+    user_sid = request.sid
+    board = data.get('board') # ከፍሮንተንድ የሚመጣው 5x5 ማትሪክስ (True/False)
+    
+    # ሰርቨር ላይ ማረጋገጥ
+    is_valid = validate_bingo_board(board)
+    
+    if is_valid:
+        emit('bingo_response', {
+            'status': 'success', 
+            'message': 'እንኳን ደስ አለዎት! ትክክለኛ ቢንጎ ማሸነፍዎ ተረጋግጧል!'
+        }, room=user_sid)
+        
+        emit('game_over', {'winner': user_sid}, broadcast=True)
+    else:
+        emit('bingo_response', {
+            'status': 'error', 
+            'message': 'ስህተት! ገና በህጉ መሰረት ቢንጎ አልደረሱም!'
+        }, room=user_sid)
 
 def game_loop():
     global game_state, player_marked_hits
