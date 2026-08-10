@@ -44,12 +44,6 @@
             cursor: not-allowed;
             opacity: 0.6;
         }
-        .bingo-hit { 
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; 
-            color: #ffffff !important; 
-            font-weight: 800 !important;
-            box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.6);
-        }
         .cell-manual-clicked {
             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
             color: #ffffff !important;
@@ -62,7 +56,6 @@
         .bingo-header-g { background: #10b981; color: #fff; }
         .bingo-header-o { background: #a855f7; color: #fff; }
 
-        /* የቢንጎ በተን ስታይል ለእያንዳንዱ ካርቴላ */
         .bingo-btn {
             background: linear-gradient(135deg, #f12711, #f5af19);
             color: white;
@@ -80,6 +73,12 @@
         }
         .bingo-btn:active {
             transform: scale(0.95);
+        }
+        .bingo-btn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.6;
         }
         .card-locked {
             pointer-events: none;
@@ -164,7 +163,6 @@
                 <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-2xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300">
                     READY
                 </div>
-                <!-- ካርቴላዎች እና የራሳቸው ቢንጎ በተኖች የሚቀመጡበት ቦታ -->
                 <div id="my-cards-container" class="w-full space-y-4"></div>
             </div>
         </div>
@@ -382,7 +380,6 @@
 
             cardDiv.appendChild(mGrid);
 
-            // በጨዋታ ሰዓት ለእያንዳንዱ ካርቴላ ስር የራሱ የ BINGO በተን እንዲኖረው ማድረግ
             if (isPlayMode) {
                 const bingoBtn = document.createElement('button');
                 bingoBtn.id = `bingo-btn-${cid}`;
@@ -394,7 +391,7 @@
                 }
 
                 bingoBtn.onclick = () => {
-                    checkCardBingo(cid, matrix);
+                    checkCardBingo(cid);
                 };
                 cardDiv.appendChild(bingoBtn);
             }
@@ -402,15 +399,56 @@
             return cardDiv;
         }
 
-        // እያንዳንዱን ካርቴላ በተናጠል ማረጋገጫ (Check Bingo per card)
-        function checkCardBingo(cid, matrix) {
+        // የተጫዋቹን ካርድ በሕጉ (አግድም፣ ቀጥ አቀባዊ እና ሰያፍ) ሙሉ በሙሉ መፈተሽ
+        function checkCardBingo(cid) {
             if (lockedCards.has(cid)) {
                 alert(`ካርቴላ #${cid} ታስሯል! እስከ ጨዋታው ፍጻሜ ድረስ በዚህ ካርቴላ መጫወት አይችሉም።`);
                 return;
             }
 
-            let hasWon = checkBingoPattern(cid, matrix); 
+            // 5 በ 5 ማትሪክስ መዋቅር ከዶክመንቱ (DOM) ማንበብ
+            const cardWrapper = document.getElementById(`card-wrapper-${cid}`);
+            const cellElements = cardWrapper.querySelectorAll('.grid > div:not(.bingo-header-b):not(.bingo-header-i):not(.bingo-header-n):not(.bingo-header-g):not(.bingo-header-o)');
+            
+            let board = [];
+            let currentRow = [];
 
+            cellElements.forEach((cell, index) => {
+                let isMarked = cell.classList.contains('cell-manual-clicked') || cell.innerText === 'FREE';
+                currentRow.push(isMarked);
+
+                if ((index + 1) % 5 === 0) {
+                    board.push(currentRow);
+                    currentRow = [];
+                }
+            });
+
+            // የቢንጎ ህግ ማረጋገጥ (ረድፍ፣ ዎድ፣ ወይም ዲያጎናል መሟላቱን ማጣራት)
+            let hasWon = false;
+
+            // 1. አግድም (Rows) ማረጋገጥ
+            for (let r = 0; r < 5; r++) {
+                if (board[r][0] && board[r][1] && board[r][2] && board[r][3] && board[r][4]) {
+                    hasWon = true;
+                }
+            }
+
+            // 2. ቀጥ አቀባዊ (Columns) ማረጋገጥ
+            for (let c = 0; c < 5; c++) {
+                if (board[0][c] && board[1][c] && board[2][c] && board[3][c] && board[4][c]) {
+                    hasWon = true;
+                }
+            }
+
+            // 3. ሰያፍ (Diagonals) ማረጋገጥ
+            if (board[0][0] && board[1][1] && board[2][2] && board[3][3] && board[4][4]) {
+                hasWon = true;
+            }
+            if (board[0][4] && board[1][3] && board[2][2] && board[3][1] && board[4][0]) {
+                hasWon = true;
+            }
+
+            // ውፅዓቱን ማስተናገድ
             if (hasWon) {
                 playSound('win');
                 socket.emit('claim_bingo', { user_id: userId, card_id: cid });
@@ -419,35 +457,36 @@
                 lockedCards.add(cid);
                 
                 const btn = document.getElementById(`bingo-btn-${cid}`);
-                if(btn) btn.disabled = true;
+                if(btn) {
+                    btn.disabled = true;
+                    lockButtonTemporarily(btn);
+                }
 
-                const cardWrapper = document.getElementById(`card-wrapper-${cid}`);
                 if(cardWrapper) {
                     cardWrapper.classList.add('card-locked');
                     const titleDiv = cardWrapper.querySelector('div');
                     if(titleDiv) titleDiv.innerText = `ካርቴላ #${cid} (ታግዷል ❌)`;
                 }
                 
-                alert(`❌ የተሳሳተ ቢንጎ በካርቴላ #${cid}! የቢንጎ ህግ አልተሟላም። እስከ ጨዋታው ፍጻሜ ድረስ ይህ ካርቴላ ታግዷል!`);
+                alert(`❌ የተሳሳተ ቢንጎ በካርቴላ #${cid}! የቢንጎ ህግ (አግድም፣ ቀጥ ወይም ሰያፍ) ሙሉ በሙሉ አልተሟላም።`);
                 socket.emit('invalid_bingo', { user_id: userId, card_id: cid });
             }
         }
 
-        function checkBingoPattern(cid, matrix) {
-            let isValid = false;
-            matrix.forEach((row) => {
-                let rowComplete = true;
-                row.forEach((val) => {
-                    if (val !== 'FREE') {
-                        const cellEl = document.getElementById(`card-${cid}-val-${val}`);
-                        if (!cellEl || !cellEl.classList.contains('cell-manual-clicked')) {
-                            rowComplete = false;
-                        }
-                    }
-                });
-                if(rowComplete) isValid = true;
-            });
-            return isValid;
+        // ከህግ ውጭ የተደረገ ሙከራ ሲኖር በተኑን ለተወሰነ ሰከንድ መቆለፊያ
+        function lockButtonTemporarily(btn) {
+            let countdown = 5;
+            btn.innerText = `ስህተት! (${countdown}ሰ)`;
+
+            let timer = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    btn.innerText = `ስህተት! (${countdown}ሰ)`;
+                } else {
+                    clearInterval(timer);
+                    btn.innerText = "ታግዷል ❌";
+                }
+            }, 1000);
         }
 
         function renderPreviewCards() {
