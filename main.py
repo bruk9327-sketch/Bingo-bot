@@ -1616,7 +1616,8 @@ def game_loop():
                 'ball': ball, 
                 'display': ball_info['display']
             })
-            socketio.sleep(30) 
+            # ኳስ የሚወጣበት የጊዜ ልዩነት ወደ 4 ሰከንድ ተስተካክሏል
+            socketio.sleep(4) 
 
         if game_state["status"] == "PLAYING":
             game_state["status"] = "ENDED"
@@ -1645,7 +1646,7 @@ def run_support_bot():
     while True:
         try:
             support_bot.remove_webhook()
-            time.sleep(1)
+            time.sleep(1>
             support_bot.infinity_polling(skip_pending=True)
         except Exception as e:
             print(f"Support Bot Error: {e}")
