@@ -194,31 +194,47 @@ HTML_TEMPLATE = """
         .bingo-header-n { background: #eab308; color: #000; }
         .bingo-header-g { background: #10b981; color: #fff; }
         .bingo-header-o { background: #a855f7; color: #fff; }
+
+        /* የተስተካከሉ አዳዲስ የስታይል ማሻሻያዎች */
+        #audio-banner {
+            padding: 5px 8px; /* መጠኑን በግማሽ ቀንሰናል */
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .bingo-card-container {
+            width: 100%;
+            max-width: 100%;
+        }
+        .bingo-cell-custom {
+            font-size: 14px; /* የቁጥሮቹን ፎንት ሳይዝ ጨምረናል */
+            font-weight: 500; /* በጣም ያልደመቀ መካከለኛ (normal/medium) ስታይል */
+            padding: 10px 2px;
+        }
     </style>
 </head>
 <body class="select-none pb-10 px-3">
-    <div id="audio-banner" class="bg-amber-500 border border-amber-400 p-2.5 rounded-xl my-2 flex justify-between items-center text-xs shadow-lg animate-pulse">
-        <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለመስማት እዚህ ይጫኑ!</span>
-        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-3 py-1.5 rounded-lg font-black text-xs shadow">አንቃ (ENABLE)</button>
+    <div id="audio-banner" class="bg-amber-500 border border-amber-400 rounded-lg my-1 flex justify-between items-center shadow-lg animate-pulse">
+        <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለማንቃት ይጫኑ!</span>
+        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-2 py-1 rounded font-black text-[10px] shadow">አንቃ</button>
     </div>
 
-    <div class="relative overflow-hidden rounded-2xl mt-2 mb-3 border border-purple-500/30 glass-panel">
-        <div class="p-3.5 flex justify-between items-center">
+    <div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/30 glass-panel">
+        <div class="p-3 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xl shadow-lg">🎯</div>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-lg shadow-lg">🎯</div>
                 <div>
-                    <h1 class="font-orbitron text-lg font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
-                    <p class="text-[10px] text-purple-300/80">LIVE CASINO BINGO</p>
+                    <h1 class="font-orbitron text-base font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
+                    <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-xl text-right">
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
                 <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
                 <div id="user-balance-disp" class="text-xs font-black text-emerald-400">0.00 ETB</div>
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-2 mb-3 text-center text-xs font-bold">
+    <div class="grid grid-cols-3 gap-2 mb-2 text-center text-xs font-bold">
         <div class="glass-panel rounded-xl p-2 border-l-4 border-amber-400">
             <span class="text-[9px] text-slate-400 block mb-0.5">የተሸጡ ካርቴላዎች</span>
             <span id="sold-count" class="text-amber-400 text-sm font-black">0</span>
@@ -239,35 +255,35 @@ HTML_TEMPLATE = """
             <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">ዋጋ: 10 ETB</span>
         </div>
 
-        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-2xl max-h-[38vh] overflow-y-auto border border-slate-800"></div>
+        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-2xl max-h-[35vh] overflow-y-auto border border-slate-800"></div>
         <p class="text-center text-[10px] text-slate-400 my-2">⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ናቸው።</p>
         
-        <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2"></div>
+        <div id="preview-cards-container" class="grid grid-cols-1 gap-2 mt-2"></div>
     </div>
 
     <div id="game-screen" class="hidden mt-2">
-        <div class="glass-panel p-3 rounded-2xl mb-3 flex justify-between items-center border border-emerald-500/30">
+        <div class="glass-panel p-3 rounded-2xl mb-2 flex justify-between items-center border border-emerald-500/30">
             <div>
-                <span class="text-[10px] text-slate-400 block">የአሸናፊው ደራሽ (PRIZE)</span>
-                <span class="text-lg font-black text-emerald-400" id="derash-amount">0 ETB</span>
+                <span class="text-[9px] text-slate-400 block">የአሸናፊው ደራሽ (PRIZE)</span>
+                <span class="text-base font-black text-emerald-400" id="derash-amount">0 ETB</span>
             </div>
             <div class="text-right">
-                <span class="text-[10px] text-slate-400 block">የተጠራው ኳስ</span>
+                <span class="text-[9px] text-slate-400 block">የተጠራው ኳስ</span>
                 <span id="game-balls-count" class="text-xs font-bold text-purple-300">0/75</span>
             </div>
         </div>
 
         <div class="flex gap-2">
-            <div class="w-1/3 glass-panel rounded-2xl p-2 border border-slate-800">
+            <div class="w-1/3 glass-panel rounded-2xl p-1.5 border border-slate-800">
                 <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
-                <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[35vh] overflow-y-auto"></div>
+                <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[40vh] overflow-y-auto"></div>
             </div>
 
             <div class="w-2/3 flex flex-col items-center">
-                <div id="current-ball" class="w-24 h-24 rounded-full ball-glow flex items-center justify-center text-xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
+                <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-lg font-black mb-2 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
                     READY
                 </div>
-                <div id="my-cards-container" class="w-full space-y-4"></div>
+                <div id="my-cards-container" class="w-full space-y-3"></div>
             </div>
         </div>
     </div>
@@ -452,11 +468,11 @@ HTML_TEMPLATE = """
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700/80';
-            cardDiv.innerHTML = `<div class="text-[11px] font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
+            cardDiv.className = 'glass-panel p-3 rounded-2xl w-full border border-slate-700/80 bingo-card-container';
+            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-2 text-center">ካርቴላ #${cid}</div>`;
 
             const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-1.5 rounded-xl mb-2';
+            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-2 rounded-xl mb-2.5';
 
             const headers = [
                 { title: 'B', class: 'bingo-header-b' },
@@ -468,7 +484,7 @@ HTML_TEMPLATE = """
 
             headers.forEach(h => {
                 const hCell = document.createElement('div');
-                hCell.className = `p-1 rounded-lg font-black text-[10px] ${h.class}`;
+                hCell.className = `p-1 rounded-lg font-black text-[11px] ${h.class}`;
                 hCell.innerText = h.title;
                 mGrid.appendChild(hCell);
             });
@@ -481,9 +497,9 @@ HTML_TEMPLATE = """
                     const isFree = val === 'FREE';
                     const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
-                    cell.className = `p-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                    cell.className = `rounded-lg bingo-cell-custom transition-all ${
                         isFree 
-                        ? 'bg-amber-500 text-slate-950 font-black' 
+                        ? 'bg-amber-500 text-slate-950 font-black text-[12px]' 
                         : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-200 cursor-pointer')
                     }`;
                     cell.innerText = val;
@@ -498,7 +514,7 @@ HTML_TEMPLATE = """
                             if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                             markedNumbersMap[cid].add(val);
                             
-                            cell.className = 'p-1.5 rounded-lg text-[10px] font-bold bingo-hit scale-105 transition-all';
+                            cell.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
                             
                             socket.emit('player_mark_number', {
                                 user_id: userId,
