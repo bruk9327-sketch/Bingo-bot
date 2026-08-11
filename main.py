@@ -1646,7 +1646,7 @@ def run_support_bot():
     while True:
         try:
             support_bot.remove_webhook()
-            time.sleep(1>
+            time.sleep(1)
             support_bot.infinity_polling(skip_pending=True)
         except Exception as e:
             print(f"Support Bot Error: {e}")
