@@ -686,6 +686,10 @@ def set_bot_commands():
         BotCommand("balance", "ቀሪ ሂሳብ ለማየት"),
         BotCommand("deposit", "በ Telebirr ወይም CBE Birr ገንዘብ ገቢ ለማድረግ"),
         BotCommand("withdraw", "በ Telebirr ወይም CBE Birr ገንዘብ ለማውጣት"),
+        BotCommand("history", "የሂሳብ ዝውውር ታሪክዎን ለማየት"),
+        BotCommand("instructions", "የ ጨዋታው አጠቃቀም መመሪያዎችን ለማየት"),
+        BotCommand("register", "በቦቱ ላይ መመዝገቢያዎን ለማረጋገጥ"),
+        BotCommand("agent", "የኤጀንት ፕሮግራም መረጃዎችን ለማግኘት"),
         BotCommand("support", "የደንበኞች አገልግሎት (Support)")
     ]
     try:
@@ -797,6 +801,63 @@ def withdraw_command(message):
         InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE")
     )
     bot.send_message(message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
+
+@bot.message_handler(commands=['history'])
+def history_command(message):
+    uid = int(message.from_user.id)
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "name": message.from_user.first_name, "balance": 0.0, "history": []}
+        history_list = users_db[uid].get("history", [])
+
+    if not history_list:
+        hist_msg = "📜 <b>የታሪክ መዝገብ</b>\n\nእስካሁን የተመዘገበ ምንም አይነት የጨዋታ፣ ዲፖዚት ወይም ዊዝድሮ ታሪክ የለዎትም አሁን ይጀምሩ! 🎲"
+    else:
+        hist_msg = "📜 <b>የእርስዎ የቅርብ ጊዜ ታሪኮች (Activity History)</b>\n━━━━━━━━━━━━━━━━━━━\n"
+        for item in history_list[:10]:
+            hist_msg += f"⏱ <code>{item['time']}</code>\n📌 <b>{item['type']}</b>: {item['details']}\n\n"
+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🔙 ወደ ዋናው ምናሌ ተመለስ", callback_data="btn_main_menu"))
+    bot.send_message(message.chat.id, hist_msg, parse_mode="HTML", reply_markup=markup)
+
+@bot.message_handler(commands=['instructions'])
+def instructions_command(message):
+    instruction_text = (
+        "📖 <b>የ BKBINGO አጠቃቀም መመሪያ (Instructions):</b>\n\n"
+        "1. <code>/play</code> በመጫወት ጨዋታውን ይጀምሩ።\n"
+        "2. ሂሳብ ለመሙላት <code>/deposit</code> ይጠቀሙ።\n"
+        "3. ያሸነፉትን ገንዘብ ለማውጣት <code>/withdraw</code> ይጠቀሙ።\n"
+        "4. ለተጨማሪ እርዳታ ኤጀንቶቻችንን ያነጋግሩ።"
+    )
+    bot.send_message(message.chat.id, instruction_text, parse_mode="HTML")
+
+@bot.message_handler(commands=['register'])
+def register_command(message):
+    uid = int(message.from_user.id)
+    first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
+    with db_lock:
+        if uid not in users_db:
+            users_db[uid] = {
+                "id": uid,
+                "name": first_name,
+                "username": message.from_user.username or "የለውም",
+                "balance": 0.0,
+                "history": []
+            }
+    register_text = (
+        "✅ <b>ምዝገባ (Registration):</b>\n\n"
+        f"እንኳን ደህና መጡ <b>{first_name}</b>! አካውንትዎ በተሳካ ሁኔታ ተመዝግቧል። አሁን በነፃነት መጫወት ይችላሉ!"
+    )
+    bot.send_message(message.chat.id, register_text, parse_mode="HTML")
+
+@bot.message_handler(commands=['agent'])
+def agent_command(message):
+    agent_text = (
+        "🤝 <b>የኤጀንት ፕሮግራሞች (Agent):</b>\n\n"
+        "ሰዎችን በመጋበዝ ኮሚሽን መሰብሰብ ይፈልጋሉ? ኤጀንት ለመሆን የሚከተለውን አስተዳዳሪ ያነጋግሩ: @AdminUsername"
+    )
+    bot.send_message(message.chat.id, agent_text, parse_mode="HTML")
 
 @bot.message_handler(commands=['support'])
 def support_command(message):
@@ -1181,7 +1242,7 @@ def handle_withdraw_method(call):
 
 @bot.message_handler(func=lambda m: user_states.get(int(m.from_user.id)) == "WAITING_WITHDRAW_ACC")
 def handle_withdraw_account(message):
-    uid = int(m.from_user.id)
+    uid = int(message.from_user.id)
     account_num = message.text.strip()
     
     if uid not in withdraw_data:
@@ -1592,7 +1653,7 @@ def run_support_bot():
 
 if __name__ == '__main__':
     main_bot_thread = Thread(target=run_main_bot)
-    main_bot_thread.daemon = Data = True
+    main_bot_thread.daemon = True
     main_bot_thread.start()
 
     support_bot_thread = Thread(target=run_support_bot)
