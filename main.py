@@ -59,6 +59,7 @@ admin_reply_state = {}
 pending_deposits = {}    
 pending_withdrawals = {} 
 used_txn_ids = set()     
+broadcast_state = {}     # ለአድሚን ብሮድካስት መቆጣጠሪያ
 
 # =========================================================
 # 2. BINGO CARDS DATABASE (1-104 CARDS)
@@ -244,7 +245,7 @@ HTML_TEMPLATE = """
         </div>
 
         <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-2xl max-h-[38vh] overflow-y-auto border border-slate-800"></div>
-        <p class="text-center text-[10px] text-slate-400 my-2">⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ነው።</p>
+        <p class="text-center text-[10px] text-slate-400 my-2">⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ናቸው።</p>
         
         <div id="preview-cards-container" class="grid grid-cols-2 gap-2 mt-2"></div>
     </div>
@@ -270,7 +271,6 @@ HTML_TEMPLATE = """
             </div>
 
             <div class="w-2/3 flex flex-col items-center">
-                <!-- ትልቁ ክብ ዉስጥ ቁጥሩ ከነፊደሉ እንዲወጣ -->
                 <div id="current-ball" class="w-24 h-24 rounded-full ball-glow flex items-center justify-center text-xl font-black mb-3 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
                     READY
                 </div>
@@ -766,6 +766,65 @@ def admin_statistics(message):
 
     bot.send_message(message.chat.id, stats_msg, parse_mode="HTML")
 
+# =========================================================
+# BROADCAST FEATURE (ለተጠቃሚዎች መልእክት ወይም ምስል ማስተላለፊያ)
+# =========================================================
+@bot.message_handler(commands=['broadcast'])
+def broadcast_command(message):
+    uid = int(message.from_user.id)
+    if uid != ADMIN_ID:
+        bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው።")
+        return
+    
+    broadcast_state[ADMIN_ID] = True
+    bot.send_message(
+        message.chat.id, 
+        "📢 <b>የብሮድካስት ሁነታ (Broadcast Mode) ተከፍቷል!</b>\n\n"
+        "ለተጠቃሚዎች ማስተላለፍ የሚፈልጉትን <b>ጽሁፍ፣ ፎቶ፣ ቪዲዮ ወይም ዶክመንት</b> አሁን ይላኩ።", 
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(func=lambda m: int(m.from_user.id) == ADMIN_ID and broadcast_state.get(ADMIN_ID) == True, content_types=['text', 'photo', 'video', 'document'])
+def send_broadcast_to_users(message):
+    broadcast_state[ADMIN_ID] = False
+    
+    with db_lock:
+        all_user_ids = list(users_db.keys())
+
+    success_count = 0
+    fail_count = 0
+
+    bot.send_message(message.chat.id, f"⏳ መልእክቱ ለ <b>{len(all_user_ids)}</b> ተጠቃሚዎች በመላክ ላይ ይገኛል...", parse_mode="HTML")
+
+    for uid in all_user_ids:
+        try:
+            if message.photo:
+                photo_file_id = message.photo[-1].file_id
+                caption = message.caption or ""
+                bot.send_photo(uid, photo_file_id, caption=caption, parse_mode="HTML")
+            elif message.video:
+                video_file_id = message.video.file_id
+                caption = message.caption or ""
+                bot.send_video(uid, video_file_id, caption=caption, parse_mode="HTML")
+            elif message.document:
+                doc_file_id = message.document.file_id
+                caption = message.caption or ""
+                bot.send_document(uid, doc_file_id, caption=caption, parse_mode="HTML")
+            elif message.text:
+                bot.send_message(uid, message.text, parse_mode="HTML")
+            success_count += 1
+            time.sleep(0.05) # Telegram API Rate Limit ለመከላከል
+        except Exception:
+            fail_count += 1
+
+    bot.send_message(
+        message.chat.id, 
+        f"✅ <b>ብሮድካስቱ በተሳካ ሁኔታ ተጠናቋል!</b>\n\n"
+        f"📤 የደረሳቸው: <b>{success_count}</b> ተጠቃሚዎች\n"
+        f"❌ ያልደረሳቸው: <b>{fail_count}</b> ተጠቃሚዎች", 
+        parse_mode="HTML"
+    )
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('btn_'))
 def handle_main_menu_callbacks(call):
     uid = int(call.from_user.id)
@@ -867,7 +926,7 @@ def handle_deposit_method_selection(call):
     user_states[uid] = "WAITING_SMS_RECEIPT"
 
     instructions = (
-        f"የ <b>{method_title}</b> አክዮንት\n\n"
+        f"የ <b>{method_title}</b> አካውንት\n\n"
         f"<b>{merchant_info}</b>\n\n"
         "<b>መመሪያ</b>\n"
         f"1. ከላይ ባለው የ {method_title} Pay for Merchant በሚለው ገንዘቡን ያስገቡ\n"
@@ -1458,7 +1517,6 @@ def game_loop():
                 'display': ball_info['display']
             })
             
-            # የኳስ መጥሪያ የጊዜ ልዩነት ወደ 3ስተ (30 ሰከንድ) ተስተካክሏል
             socketio.sleep(30) 
 
         if game_state["status"] == "PLAYING":
