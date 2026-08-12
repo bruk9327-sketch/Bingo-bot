@@ -236,9 +236,15 @@ HTML_TEMPLATE = """
                     <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
-                <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
-                <div id="user-balance-disp" class="text-xs font-black text-emerald-400">0.00 ETB</div>
+            <div class="flex items-center gap-2">
+                <div class="bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                    <span class="text-[9px] text-slate-300 font-bold">Auto-Daub</span>
+                    <input type="checkbox" id="auto-daub-toggle" class="w-4 h-4 accent-emerald-500 cursor-pointer" onchange="toggleAutoDaub(this)">
+                </div>
+                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
+                    <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
+                    <div id="user-balance-disp" class="text-xs font-black text-emerald-400">0.00 ETB</div>
+                </div>
             </div>
         </div>
     </div>
@@ -325,6 +331,12 @@ HTML_TEMPLATE = """
         }
 
         let speechUnlocked = false;
+        let isAutoDaubEnabled = false;
+
+        function toggleAutoDaub(checkbox) {
+            isAutoDaubEnabled = checkbox.checked;
+            playSound('click');
+        }
 
         function enableAudioSystem() {
             if ('speechSynthesis' in window) {
@@ -619,6 +631,33 @@ HTML_TEMPLATE = """
             const cell75 = document.getElementById(`ball-cell-${ball}`);
             if(cell75) {
                 cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
+            }
+
+            // AUTO-DAUB LOGIC (IF ENABLED)
+            if (isAutoDaubEnabled) {
+                mySelectedCards.forEach(cid => {
+                    const matrix = cardsDatabase[cid];
+                    if (!matrix) return;
+                    matrix.forEach(row => {
+                        row.forEach(val => {
+                            if (val === ball) {
+                                if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                                markedNumbersMap[cid].add(val);
+
+                                const cellEl = document.getElementById(`card-${cid}-val-${val}`);
+                                if (cellEl) {
+                                    cellEl.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
+                                }
+
+                                socket.emit('player_mark_number', {
+                                    user_id: userId,
+                                    card_id: cid,
+                                    marked_numbers: Array.from(markedNumbersMap[cid])
+                                });
+                            }
+                        });
+                    });
+                });
             }
         });
 
