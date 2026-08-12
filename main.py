@@ -66,7 +66,7 @@ Broadcast_state = {}
 # =========================================================
 Cards_database = {}
 
-Def generate_official_bingo_card(card_id):
+def generate_official_bingo_card(card_id):
     Seed = int(card_id) * 997
     Def get_col(min_v, max_v, count):
         Nums = list(range(min_v, max_v + 1))
