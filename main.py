@@ -805,7 +805,6 @@ def main_menu_keyboard(user_id):
         InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
     )
     
-    # የኤጀንት ቁልፍ የሚታየው ለአድሚን ብቻ እንዲሆን ተደርጓል
     if int(user_id) == ADMIN_ID:
         markup.add(
             InlineKeyboardButton(text="🤝 የኤጀንት ዳሽቦርድ (Agent)", callback_data="btn_agent_menu")
@@ -1034,7 +1033,7 @@ def history_command(message):
 @bot.message_handler(commands=['instructions'])
 def instructions_command(message):
     instruction_text = (
-        "📖 <b>የ BKBINGO አጠቃቀም መመሪያ (Instructions):</b>\n\n"
+        "📖 <b>የ BKBINGO Pro አጠቃቀም መመሪያ (Instructions):</b>\n\n"
         "1. <code>/play</code> በመጫወት ጨዋታውን ይጀምሩ።\n"
         "2. ሂሳብ ለመሙላት <code>/deposit</code> ይጠቀሙ።\n"
         "3. ያሸነፉትን ገንዘብ ለማውጣት <code>/withdraw</code> ይጠቀሙ።"
