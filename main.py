@@ -42,6 +42,7 @@ TELEBIRR_NAME = "BIRUK RETA"
 
 CARD_PRICE = 10.0
 COMMISSION_RATE = 0.10  # 10% የቦት ኮሚሽን
+AGENT_COMMISSION_RATE = 0.05 # ከኤጀንት ተጫዋቾች የሚገኝ 5% ኮሚሽን
 MAX_CARDS_PER_PLAYER = 2 
 MIN_WITHDRAWAL = 50.0   # ዝቅተኛው ዊዝድሮው
 MILESTONE_REFERRAL_TARGET = 100  # 100 ሰው ሲጋብዝ
@@ -52,6 +53,7 @@ OPERATOR_IMAGE_URL = os.environ.get("OPERATOR_IMAGE_URL", "https://i.ibb.co/6y4G
 # DATABASE, LOCKS & USER STATES
 db_lock = Lock()
 users_db = {}            
+agents_db = {}           # {agent_id: {"balance": 0.0, "total_earned": 0.0, "referred_players": []}}
 user_states = {}         
 deposit_data = {}        
 withdraw_data = {}       
@@ -134,7 +136,7 @@ def validate_bingo_board(board):
     return False
 
 # =========================================================
-# 4. FRONTEND HTML TEMPLATE
+# 4. FRONTEND HTML TEMPLATE (MAIN GAME & AGENT DASHBOARD)
 # =========================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -633,7 +635,6 @@ HTML_TEMPLATE = """
                 cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
             }
 
-            // AUTO-DAUB LOGIC (IF ENABLED)
             if (isAutoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
                     const matrix = cardsDatabase[cid];
@@ -697,9 +698,91 @@ HTML_TEMPLATE = """
 </html>
 """
 
+AGENT_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BKBINGO Pro - Agent Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: #fff; min-height: 100vh; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-md mx-auto">
+        <div class="glass-panel p-4 rounded-2xl mb-4 text-center border border-purple-500/30">
+            <h1 class="text-lg font-black text-amber-400">🤝 BKBINGO AGENT PANEL</h1>
+            <p class="text-xs text-slate-400 mt-1">የኤጀንት መቆጣጠሪያ ማዕከል</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="glass-panel p-3 rounded-xl text-center border-l-4 border-emerald-400">
+                <span class="text-[10px] text-slate-400 block">የኮሚሽን ባላንስ</span>
+                <span id="agent-bal" class="text-sm font-black text-emerald-400">0.00 ETB</span>
+            </div>
+            <div class="glass-panel p-3 rounded-xl text-center border-l-4 border-amber-400">
+                <span class="text-[10px] text-slate-400 block">የተጋበዙ ተጫዋቾች</span>
+                <span id="agent-refs" class="text-sm font-black text-amber-400">0</span>
+            </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl mb-4">
+            <h2 class="text-xs font-bold text-slate-300 mb-2">🔗 የእርስዎ ልዩ የኤጀንት ሊንክ</h2>
+            <div class="bg-slate-950 p-2.5 rounded-xl text-xs text-amber-300 break-all select-all border border-slate-800" id="agent-link-text">
+                लोडिंग...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const agentId = urlParams.get('agent_id');
+        
+        if(window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.expand();
+        }
+
+        fetch(`/api/agent_data?agent_id=${agentId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('agent-bal').innerText = `${data.balance.toFixed(2)} ETB`;
+                document.getElementById('agent-refs').innerText = data.referred_players.length;
+                document.getElementById('agent-link-text').innerText = data.link;
+            });
+    </script>
+</body>
+</html>
+"""
+
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
+
+@app.route('/agent')
+def agent_dashboard_web():
+    return render_template_string(AGENT_HTML_TEMPLATE)
+
+@app.route('/api/agent_data')
+def api_agent_data():
+    agent_id = request.args.get('agent_id', type=int)
+    with db_lock:
+        if agent_id not in agents_db:
+            return jsonify({"balance": 0.0, "total_earned": 0.0, "referred_players": [], "link": ""})
+        
+        data = agents_db[agent_id]
+        bot_username = bot.get_me().username
+        link = f"https://t.me/{bot_username}?start=agent_{agent_id}"
+        return jsonify({
+            "balance": data["balance"],
+            "total_earned": data["total_earned"],
+            "referred_players": data["referred_players"],
+            "link": link
+        })
 
 # =========================================================
 # 5. TELEGRAM MAIN BOT & COMMAND HANDLERS
@@ -720,6 +803,9 @@ def main_menu_keyboard(user_id):
     markup.add(
         InlineKeyboardButton(text="📤 ዊዝድሮው (Withdraw)", callback_data="btn_withdraw"),
         InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
+    )
+    markup.add(
+        InlineKeyboardButton(text="🤝 የኤጀንት ዳሽቦርድ (Agent)", callback_data="btn_agent_menu")
     )
     markup.add(
         InlineKeyboardButton(text="📜 የግብይት እና ጨዋታ ታሪክ (History)", callback_data="btn_history")
@@ -750,10 +836,9 @@ def set_bot_commands():
         BotCommand("balance", "ቀሪ ሂሳብ ለማየት"),
         BotCommand("deposit", "በ Telebirr ወይም CBE Birr ገንዘብ ገቢ ለማድረግ"),
         BotCommand("withdraw", "በ Telebirr ወይም CBE Birr ገንዘብ ለማውጣት"),
+        BotCommand("agent", "የኤጀንት ፓነል እና ሊንክ ለማግኘት"),
         BotCommand("history", "የሂሳብ ዝውውር ታሪክዎን ለማየት"),
         BotCommand("instructions", "የ ጨዋታው አጠቃቀም መመሪያዎችን ለማየት"),
-        BotCommand("register", "በቦቱ ላይ መመዝገቢያዎን ለማረጋገጥ"),
-        BotCommand("agent", "የኤጀንት ፕሮግራም መረጃዎችን ለማግኘት"),
         BotCommand("support", "የደንበኞች አገልግሎት (Support)")
     ]
     try:
@@ -769,13 +854,23 @@ def start_cmd(message):
 
     args = message.text.split()
     referred_by = None
-    if len(args) > 1 and args[1].startswith('ref_'):
-        try:
-            ref_id = int(args[1].split('_')[1])
-            if ref_id != uid:
-                referred_by = ref_id
-        except ValueError:
-            pass
+    agent_referred_by = None
+
+    if len(args) > 1:
+        if args[1].startswith('ref_'):
+            try:
+                ref_id = int(args[1].split('_')[1])
+                if ref_id != uid:
+                    referred_by = ref_id
+            except ValueError:
+                pass
+        elif args[1].startswith('agent_'):
+            try:
+                ag_id = int(args[1].split('_')[1])
+                if ag_id != uid:
+                    agent_referred_by = ag_id
+            except ValueError:
+                pass
 
     with db_lock:
         if uid not in users_db:
@@ -785,6 +880,7 @@ def start_cmd(message):
                 "username": username,
                 "balance": 0.0,
                 "referred_by": referred_by,
+                "agent_referred_by": agent_referred_by,
                 "referral_count": 0,
                 "has_deposited": False,
                 "milestone_rewarded": False,
@@ -792,6 +888,12 @@ def start_cmd(message):
             }
             if referred_by and referred_by in users_db:
                 users_db[referred_by]["referral_count"] = users_db[referred_by].get("referral_count", 0) + 1
+            
+            if agent_referred_by:
+                if agent_referred_by not in agents_db:
+                    agents_db[agent_referred_by] = {"balance": 0.0, "total_earned": 0.0, "referred_players": []}
+                if uid not in agents_db[agent_referred_by]["referred_players"]:
+                    agents_db[agent_referred_by]["referred_players"].append(uid)
 
         bal = users_db[uid]['balance']
 
@@ -816,7 +918,7 @@ def play_command(message):
         f"🎲 <b>BKBINGO Pro ጨዋታ</b>\n\n"
         f"ሰላም <b>{first_name}</b>፣ ለመጫወት ዝግጁ ኖት?\n"
         f"💰 ባላንስዎ፦ <b>{bal:.2f} ETB</b>\n\n"
-        "ከታች ያለውን ቁልፍ በመጫን አፑንከፈቱ ይጫወቱ!"
+        "ከታች ያለውን ቁልፍ በመጫን አፑን ከፍተው ይጫወቱ!"
     )
     bot.send_message(message.chat.id, welcome_txt, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
@@ -842,7 +944,7 @@ def deposit_command(message):
     )
     bot.send_message(
         message.chat.id,
-        "💳 <b>የማንኛውን መንገድ ይምረጡ (Select Deposit Method)</b>\n\nእባክዎ ሂሳብ ለመሙላት የሚጠቀሙበትን መንገድ ይምረጡ፦",
+        "💳 <b>የክፍያ መንገድ ይምረጡ (Select Deposit Method)</b>\n\nእባክዎ ሂሳብ ለመሙላት የሚጠቀሙበትን መንገድ ይምረጡ፦",
         reply_markup=markup,
         parse_mode="HTML"
     )
@@ -865,6 +967,43 @@ def withdraw_command(message):
         InlineKeyboardButton("🏦 CBE Birr", callback_data="wdmeth_CBE")
     )
     bot.send_message(message.chat.id, f"📤 <b>ገንዘብ ማውጫ ዘዴ ይምረጡ፦</b>\n💰 የሚገኝ ባላንስ፦ <b>{bal:.2f} ETB</b>", reply_markup=markup, parse_mode="HTML")
+
+@bot.message_handler(commands=['agent'])
+def agent_command(message):
+    uid = int(message.from_user.id)
+    first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
+    
+    with db_lock:
+        if uid not in agents_db:
+            agents_db[uid] = {
+                "balance": 0.0,
+                "total_earned": 0.0,
+                "referred_players": []
+            }
+        agent_info = agents_db[uid]
+        bal = agent_info["balance"]
+        earned = agent_info["total_earned"]
+        ref_players = len(agent_info["referred_players"])
+
+    bot_username = bot.get_me().username
+    agent_link = f"https://t.me/{bot_username}?start=agent_{uid}"
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(text="📊 ሙሉ ዳሽቦርድ ክፈት (Open Web App)", web_app=WebAppInfo(url=f"{RENDER_WEBAPP_URL}/agent?agent_id={uid}")),
+        InlineKeyboardButton(text="💸 ኮሚሽን ወደ ዋና ባላንስ አስተላልፍ", callback_data="agent_transfer_bal")
+    )
+
+    agent_msg = (
+        f"🤝 <b>የ BKBINGO Pro ኤጀንት ዳሽቦርድ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"ሰላም <b>{first_name}</b>፣ የእርስዎ የኤጀንት ዝርዝር መረጃ ከታች ተቀምጧል፦\n\n"
+        f"👥 በሊንክዎ የተመዘገቡ ተጫዋቾች: <b>{ref_players}</b>\n"
+        f"💰 የሚገኝ የኮሚሽን ባላንስ: <b>{bal:.2f} ETB</b>\n"
+        f"🏆 አጠቃላይ የተገኘ ገቢ: <b>{earned:.2f} ETB</b>\n\n"
+        f"🔗 <b>የእርስዎ ኤጀንት ሊንክ፦</b>\n<code>{agent_link}</code>"
+    )
+    bot.send_message(message.chat.id, agent_msg, reply_markup=markup, parse_mode="HTML")
 
 @bot.message_handler(commands=['history'])
 def history_command(message):
@@ -892,36 +1031,9 @@ def instructions_command(message):
         "1. <code>/play</code> በመጫወት ጨዋታውን ይጀምሩ።\n"
         "2. ሂሳብ ለመሙላት <code>/deposit</code> ይጠቀሙ።\n"
         "3. ያሸነፉትን ገንዘብ ለማውጣት <code>/withdraw</code> ይጠቀሙ።\n"
-        "4. ለተጨማሪ እርዳታ ኤጀንቶቻችንን ያነጋግሩ።"
+        "4. ኤጀንት ለመሆን <code>/agent</code> ይጠቀሙ።"
     )
     bot.send_message(message.chat.id, instruction_text, parse_mode="HTML")
-
-@bot.message_handler(commands=['register'])
-def register_command(message):
-    uid = int(message.from_user.id)
-    first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
-    with db_lock:
-        if uid not in users_db:
-            users_db[uid] = {
-                "id": uid,
-                "name": first_name,
-                "username": message.from_user.username or "የለውም",
-                "balance": 0.0,
-                "history": []
-            }
-    register_text = (
-        "✅ <b>ምዝገባ (Registration):</b>\n\n"
-        f"እንኳን ደህና መጡ <b>{first_name}</b>! አካውንትዎ በተሳካ ሁኔታ ተመዝግቧል። አሁን በነፃነት መጫወት ይችላሉ!"
-    )
-    bot.send_message(message.chat.id, register_text, parse_mode="HTML")
-
-@bot.message_handler(commands=['agent'])
-def agent_command(message):
-    agent_text = (
-        "🤝 <b>የኤጀንት ፕሮግራሞች (Agent):</b>\n\n"
-        "ሰዎችን በመጋበዝ ኮሚሽን መሰብሰብ ይፈልጋሉ? ኤጀንት ለመሆን የሚከተለውን አስተዳዳሪ ያነጋግሩ: @AdminUsername"
-    )
-    bot.send_message(message.chat.id, agent_text, parse_mode="HTML")
 
 @bot.message_handler(commands=['support'])
 def support_command(message):
@@ -949,6 +1061,7 @@ def admin_statistics(message):
 
     with db_lock:
         total_users = len(users_db)
+        total_agents = len(agents_db)
         total_deposit_amount = 0.0
         total_withdraw_amount = 0.0
 
@@ -967,6 +1080,7 @@ def admin_statistics(message):
         f"📊 <b>የ BKBINGO Pro አድሚን ስታስቲክስ (Statistics)</b>\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"👥 አጠቃላይ የተጠቃሚዎች ቁጥር: <b>{total_users}</b>\n"
+        f"🤝 አጠቃላይ ኤጀንቶች: <b>{total_agents}</b>\n"
         f"📥 አጠቃላይ የገባ ገንዘብ (Total Deposit): <b>{total_deposit_amount:.2f} ETB</b>\n"
         f"📤 አጠቃላይ የወጣ ገንዘብ (Total Withdrawal): <b>{total_withdraw_amount:.2f} ETB</b>\n"
         f"💰 የተጣራ ልዩነት (Net Flow): <b>{(total_deposit_amount - total_withdraw_amount):.2f} ETB</b>"
@@ -1045,7 +1159,7 @@ def handle_main_menu_callbacks(call):
         )
         bot.send_message(
             call.message.chat.id,
-            "💳 <b>የማንኛውን መንገድ ይምረጡ (Select Deposit Method)</b>\n\nእባክዎ ሂሳብ ለመሙላት የሚጠቀሙበትን መንገድ ይምረጡ፦",
+            "💳 <b>የክፍያ መንገድ ይምረጡ (Select Deposit Method)</b>\n\nእባክዎ ሂሳብ ለመሙላት የሚጠቀሙበትን መንገድ ይምረጡ፦",
             reply_markup=markup,
             parse_mode="HTML"
         )
@@ -1074,6 +1188,34 @@ def handle_main_menu_callbacks(call):
         )
         bot.send_message(call.message.chat.id, ref_msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
+    elif action == "btn_agent_menu":
+        with db_lock:
+            if uid not in agents_db:
+                agents_db[uid] = {"balance": 0.0, "total_earned": 0.0, "referred_players": []}
+            agent_info = agents_db[uid]
+            ag_bal = agent_info["balance"]
+            ag_earned = agent_info["total_earned"]
+            ag_refs = len(agent_info["referred_players"])
+
+        bot_username = bot.get_me().username
+        agent_link = f"https://t.me/{bot_username}?start=agent_{uid}"
+
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton(text="📊 ሙሉ ዳሽቦርድ ክፈት (Open Web App)", web_app=WebAppInfo(url=f"{RENDER_WEBAPP_URL}/agent?agent_id={uid}")),
+            InlineKeyboardButton(text="💸 ኮሚሽን ወደ ዋና ባላንስ አስተላልፍ", callback_data="agent_transfer_bal")
+        )
+
+        agent_menu_msg = (
+            f"📈 <b>የ BKBINGO Pro ኤጀንት ዳሽቦርድ</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"👥 በሊንክዎ የተመዘገቡ ተጫዋቾች: <b>{ag_refs}</b>\n"
+            f"💰 የሚገኝ የኮሚሽን ባላንስ: <b>{ag_bal:.2f} ETB</b>\n"
+            f"🏆 አጠቃላይ የተገኘ ገቢ: <b>{ag_earned:.2f} ETB</b>\n\n"
+            f"🔗 <b>የእርስዎ ኤጀንት ሊንክ፦</b>\n<code>{agent_link}</code>"
+        )
+        bot.send_message(call.message.chat.id, agent_menu_msg, reply_markup=markup, parse_mode="HTML")
+
     elif action == "btn_history":
         with db_lock:
             history_list = users_db.get(uid, {}).get("history", [])
@@ -1100,6 +1242,26 @@ def handle_main_menu_callbacks(call):
 
     elif action == "btn_help":
         bot.send_message(call.message.chat.id, "ℹ️ <b>የ BKBINGO Pro ህጎች</b>\n1. የካርቴላ ዋጋ 10 ETB ነው።\n2. በአንድ ዙር ቢበዛ 2 ካርቴላ መግዛት ይቻላል።\n3. አሸናፊው ደራሹን በሙሉ ይወስዳል።", parse_mode="HTML")
+
+@bot.callback_query_handler(func=lambda call: call.data == "agent_transfer_bal")
+def handle_agent_transfer_callback(call):
+    uid = int(call.from_user.id)
+    with db_lock:
+        if uid in agents_db and agents_db[uid]["balance"] > 0:
+            amount = agents_db[uid]["balance"]
+            agents_db[uid]["balance"] = 0.0
+            if uid not in users_db:
+                users_db[uid] = {"id": uid, "name": call.from_user.first_name, "balance": 0.0, "history": []}
+            users_db[uid]["balance"] += amount
+            new_bal = users_db[uid]["balance"]
+            
+            bot.answer_callback_query(call.id, f"{amount:.2f} ETB ወደ ዋና ባላንስዎ ተዛውሯል!", show_alert=True)
+            add_user_history(uid, "የኤጀንት ኮሚሽን ዝውውር", f"+{amount:.2f} ETB ወደ ዋና ባላንስ ገብቷል")
+            
+            socketio.emit('balance_update', {'user_id': uid, 'balance': new_bal})
+            bot.send_message(call.message.chat.id, f"✅ <b>{amount:.2f} ETB</b> የኮሚሽን ባላንስዎ በተሳካ ሁኔታ ወደ ዋናው አካውንትዎ ተዛውሯል!\n💳 አዲሱ ባላንስዎ፦ <b>{new_bal:.2f} ETB</b>", parse_mode="HTML")
+        else:
+            bot.answer_callback_query(call.id, "❌ በቂ የኮሚሽን ባላንስ የለዎትም!", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('depmeth_'))
 def handle_deposit_method_selection(call):
@@ -1225,6 +1387,21 @@ def handle_admin_verification_action(call):
             new_bal = users_db[uid]["balance"]
             users_db[uid]["has_deposited"] = True
             
+            # --- AGENT COMMISSION DISTRIBUTION ---
+            agent_owner_id = users_db[uid].get("agent_referred_by")
+            if agent_owner_id and agent_owner_id in agents_db:
+                agent_comm = amount * AGENT_COMMISSION_RATE
+                agents_db[agent_owner_id]["balance"] += agent_comm
+                agents_db[agent_owner_id]["total_earned"] += agent_comm
+                try:
+                    bot.send_message(
+                        agent_owner_id,
+                        f"🤝 <b>አዲስ የኤጀንት ኮሚሽን ደርሶዎታል!</b>\n\nበሊንክዎ የተመዘገበ ተጫዋች <b>{amount:.2f} ETB</b> ዲፖዚት በማድረጉ ምክንያት <b>{agent_comm:.2f} ETB</b> (5%) ኮሚሽን አግኝተዋል!",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
             referrer_id = users_db[uid].get("referred_by")
             if referrer_id and referrer_id in users_db:
                 ref_user = users_db[referrer_id]
