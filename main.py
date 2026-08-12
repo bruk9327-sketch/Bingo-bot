@@ -68,7 +68,7 @@ Cards_database = {}
 
 def generate_official_bingo_card(card_id):
     Seed = int(card_id) * 997
-    Def get_col(min_v, max_v, count):
+    def get_col(min_v, max_v, count):
         Nums = list(range(min_v, max_v + 1))
         Nums.sort(key=lambda x: (abs(hash(str(seed + x)))))
         Return sorted(nums[:count])
@@ -94,7 +94,7 @@ def generate_official_bingo_card(card_id):
 For c_num in range(1, 105):
     Cards_database[c_num] = generate_official_bingo_card(c_num)
 
-Def get_letter_and_display(num):
+def get_letter_and_display(num):
     If num >= 1 and num <= 15: return {'letter': 'B', 'display': f'B-{num}'}
     If num >= 16 and num <= 30: return {'letter': 'I', 'display': f'I-{num}'}
     If num >= 31 and num <= 45: return {'letter': 'N', 'display': f'N-{num}'}
@@ -114,7 +114,7 @@ Game_state = {
     "derash": 0.0
 }
 
-Def validate_bingo_board(board):
+def validate_bingo_board(board):
     If not board or len(board) != 5:
         Return False
 
@@ -666,7 +666,7 @@ def index():
 # =========================================================
 # 5. TELEGRAM MAIN BOT & COMMAND HANDLERS
 # =========================================================
-Def main_menu_keyboard(user_id):
+def main_menu_keyboard(user_id):
     Markup = InlineKeyboardMarkup(row_width=2)
     App_url = f"{RENDER_WEBAPP_URL}?user_id={user_id}"
     
@@ -692,7 +692,7 @@ Def main_menu_keyboard(user_id):
     )
     Return markup
 
-Def add_user_history(uid, history_type, details):
+def add_user_history(uid, history_type, details):
     With db_lock:
         If uid in users_db:
             If "history" not in users_db[uid]:
@@ -706,7 +706,7 @@ Def add_user_history(uid, history_type, details):
             If len(users_db[uid]["history"]) > 20:
                 Users_db[uid]["history"].pop()
 
-Def set_bot_commands():
+def set_bot_commands():
     Commands = [
         BotCommand("play", "ጨዋታውን ለመጀመር (Open App)"),
         BotCommand("balance", "ቀሪ ሂሳብ ለማየት"),
@@ -1596,7 +1596,7 @@ def handle_bingo_claim(data):
 
 Player_marked_hits = {}
 
-Def game_loop():
+def game_loop():
     Global game_state, player_marked_hits
     While True:
         Game_state["status"] = "WAITING"
@@ -1656,7 +1656,7 @@ Def game_loop():
 
         Socketio.sleep(8)
 
-Def run_main_bot():
+def run_main_bot():
     Set_bot_commands()
     While True:
         Try:
@@ -1667,7 +1667,7 @@ Def run_main_bot():
             Print(f"Main Bot Error: {e}")
             Time.sleep(3)
 
-Def run_support_bot():
+def run_support_bot():
     While True:
         Try:
             Support_bot.remove_webhook()
