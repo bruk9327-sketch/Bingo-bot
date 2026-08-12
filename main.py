@@ -804,9 +804,13 @@ def main_menu_keyboard(user_id):
         InlineKeyboardButton(text="📤 ዊዝድሮው (Withdraw)", callback_data="btn_withdraw"),
         InlineKeyboardButton(text="👥 ሪፈራል / ግብዣ", callback_data="btn_referral")
     )
-    markup.add(
-        InlineKeyboardButton(text="🤝 የኤጀንት ዳሽቦርድ (Agent)", callback_data="btn_agent_menu")
-    )
+    
+    # የኤጀንት ቁልፍ የሚታየው ለአድሚን ብቻ እንዲሆን ተደርጓል
+    if int(user_id) == ADMIN_ID:
+        markup.add(
+            InlineKeyboardButton(text="🤝 የኤጀንት ዳሽቦርድ (Agent)", callback_data="btn_agent_menu")
+        )
+
     markup.add(
         InlineKeyboardButton(text="📜 የግብይት እና ጨዋታ ታሪክ (History)", callback_data="btn_history")
     )
@@ -836,7 +840,6 @@ def set_bot_commands():
         BotCommand("balance", "ቀሪ ሂሳብ ለማየት"),
         BotCommand("deposit", "በ Telebirr ወይም CBE Birr ገንዘብ ገቢ ለማድረግ"),
         BotCommand("withdraw", "በ Telebirr ወይም CBE Birr ገንዘብ ለማውጣት"),
-        BotCommand("agent", "የኤጀንት ፓነል እና ሊንክ ለማግኘት"),
         BotCommand("history", "የሂሳብ ዝውውር ታሪክዎን ለማየት"),
         BotCommand("instructions", "የ ጨዋታው አጠቃቀም መመሪያዎችን ለማየት"),
         BotCommand("support", "የደንበኞች አገልግሎት (Support)")
@@ -971,6 +974,10 @@ def withdraw_command(message):
 @bot.message_handler(commands=['agent'])
 def agent_command(message):
     uid = int(message.from_user.id)
+    if uid != ADMIN_ID:
+        bot.send_message(message.chat.id, "❌ ይህ ትዕዛዝ ለአድሚን ብቻ የተፈቀደ ነው።")
+        return
+
     first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
     
     with db_lock:
@@ -1030,8 +1037,7 @@ def instructions_command(message):
         "📖 <b>የ BKBINGO አጠቃቀም መመሪያ (Instructions):</b>\n\n"
         "1. <code>/play</code> በመጫወት ጨዋታውን ይጀምሩ።\n"
         "2. ሂሳብ ለመሙላት <code>/deposit</code> ይጠቀሙ።\n"
-        "3. ያሸነፉትን ገንዘብ ለማውጣት <code>/withdraw</code> ይጠቀሙ።\n"
-        "4. ኤጀንት ለመሆን <code>/agent</code> ይጠቀሙ።"
+        "3. ያሸነፉትን ገንዘብ ለማውጣት <code>/withdraw</code> ይጠቀሙ።"
     )
     bot.send_message(message.chat.id, instruction_text, parse_mode="HTML")
 
@@ -1189,6 +1195,8 @@ def handle_main_menu_callbacks(call):
         bot.send_message(call.message.chat.id, ref_msg, reply_markup=main_menu_keyboard(uid), parse_mode="HTML")
 
     elif action == "btn_agent_menu":
+        if uid != ADMIN_ID:
+            return
         with db_lock:
             if uid not in agents_db:
                 agents_db[uid] = {"balance": 0.0, "total_earned": 0.0, "referred_players": []}
@@ -1246,6 +1254,8 @@ def handle_main_menu_callbacks(call):
 @bot.callback_query_handler(func=lambda call: call.data == "agent_transfer_bal")
 def handle_agent_transfer_callback(call):
     uid = int(call.from_user.id)
+    if uid != ADMIN_ID:
+        return
     with db_lock:
         if uid in agents_db and agents_db[uid]["balance"] > 0:
             amount = agents_db[uid]["balance"]
@@ -1387,7 +1397,6 @@ def handle_admin_verification_action(call):
             new_bal = users_db[uid]["balance"]
             users_db[uid]["has_deposited"] = True
             
-            # --- AGENT COMMISSION DISTRIBUTION ---
             agent_owner_id = users_db[uid].get("agent_referred_by")
             if agent_owner_id and agent_owner_id in agents_db:
                 agent_comm = amount * AGENT_COMMISSION_RATE
