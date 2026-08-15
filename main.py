@@ -368,14 +368,30 @@ def game_loop_background_worker():
 # =========================================================
 # 7. INITIALIZATION & EXECUTION
 # =========================================================
+# =========================================================
+# 7. INITIALIZATION & EXECUTION
+# =========================================================
 if __name__ == '__main__':
     set_bot_commands()
     
-    t_main = Thread(target=bot.infinity_polling, kwargs={"skip_pending": True})
+    # ቦቶቹ ያለማቋረጥ እንዲሰሩ እና ከሰርቨሩ ጋር እንዳይጋጩ
+    def run_main_bot():
+        try:
+            bot.infinity_polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"Main bot polling error: {e}")
+
+    def run_support_bot():
+        try:
+            support_bot.infinity_polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"Support bot polling error: {e}")
+
+    t_main = Thread(target=run_main_bot)
     t_main.daemon = True
     t_main.start()
 
-    t_support = Thread(target=support_bot.infinity_polling, kwargs={"skip_prior_updates": True})
+    t_support = Thread(target=run_support_bot)
     t_support.daemon = True
     t_support.start()
 
@@ -383,3 +399,7 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host='0.0.0.0', port=port)
+
+
+
+
