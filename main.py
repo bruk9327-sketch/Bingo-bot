@@ -16,7 +16,7 @@ SUPPORT_TOKEN = "YOUR_SUPPORT_BOT_TOKEN"     # የድጋፍ ቦት ቶከን ያ
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 
-# የ Render PostgreSQL Database URL (Render ላይ 'postgres://' የሚለውን ቃል በ 'postgresql://' መቀየር ስለሚያስፈልግ ራሱ ያስተካክለዋል)
+# የ Render PostgreSQL Database URL
 db_url = "postgresql://bkbingo_user:Ll2Eje6ty0BnpkIJ4nmPZgSBBlugYbfT@dpg-da07aae1egvs7382q0l0-a/bkbingo"
 if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -51,10 +51,10 @@ db_lock = threading.Lock()
 class User(db.Model):
     __tablename__ = 'users'
     
-    id = db.BigInteger(primary_key=True)  # የቴሌግራም User ID
-    balance = db.Float(default=0.0)       # የአካውንት ሂሳብ
-    name = db.String(100), nullable=True
-    created_at = db.DateTime(server_default=db.func.now())
+    id = db.Column(db.BigInteger, primary_key=True)  # የቴሌግራም User ID
+    balance = db.Column(db.Float, default=0.0)       # የአካውንት ሂሳብ
+    name = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
     
     histories = db.relationship('History', backref='user', lazy=True, cascade="all, delete-orphan")
 
@@ -65,11 +65,11 @@ class User(db.Model):
 class History(db.Model):
     __tablename__ = 'histories'
     
-    id = db.Integer(primary_key=True, autoincrement=True)
-    user_id = db.BigInteger(db.ForeignKey('users.id'), nullable=False)
-    action_type = db.String(50), nullable=False  # ምሳሌ፦ 'ካርቴላ ግዢ', 'ዲፖዚት', 'ቢንጎ አሸናፊ'
-    description = db.String(255), nullable=True
-    timestamp = db.DateTime(server_default=db.func.now())
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.BigInteger, db.ForeignKey('users.id'), nullable=False)
+    action_type = db.Column(db.String(50), nullable=False)  # ምሳሌ፦ 'ካርቴላ ግዢ', 'ዲፖዚት', 'ቢንጎ አሸናፊ'
+    description = db.Column(db.String(255), nullable=True)
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
 
     def __repr__(self):
         return f"<History {self.action_type} for User {self.user_id}>"
@@ -125,7 +125,6 @@ def generate_bingo_card():
         matrix.append(row)
     return matrix
 
-# ናሙና ካርቴላዎች ዳታቤዝ (በ RAM ውስጥ የሚቀመጡ የማይንቀሳቀሱ ካርቴላዎች)
 cards_database = {i: generate_bingo_card() for i in range(1, 101)}
 
 def get_letter_and_display(number):
@@ -140,15 +139,12 @@ def get_letter_and_display(number):
 def validate_bingo_board(board):
     if not board or len(board) != 5:
         return False
-    # መስመሮችን (Rows) ማረጋገጥ
     for row in board:
         if all(cell == 'MARKED' or cell == 'FREE' for cell in row):
             return True
-    # አምዶችን (Columns) ማረጋገጥ
     for col in range(5):
         if all(board[row][col] == 'MARKED' or board[row][col] == 'FREE' for row in range(5)):
             return True
-    # ሰያፍ መስመሮችን (Diagonals) ማረጋገጥ
     if all(board[i][i] == 'MARKED' or board[i][i] == 'FREE' for i in range(5)):
         return True
     if all(board[i][4 - i] == 'MARKED' or board[i][4 - i] == 'FREE' for i in range(5)):
@@ -177,7 +173,7 @@ def send_welcome(message):
         get_or_create_user(uid, name)
 
     markup = telebot.types.InlineKeyboardMarkup()
-    web_app = telebot.types.WebAppInfo(url="https://your-render-app-url.onrender.com") # የRender ሊንክዎን ያስገቡ
+    web_app = telebot.types.WebAppInfo(url="https://your-render-app-url.onrender.com")
     markup.add(telebot.types.InlineKeyboardButton("🎮 Play BKBINGO Pro", web_app=web_app))
     markup.add(telebot.types.InlineKeyboardButton("💬 የደንበኛ አገልግሎት (Support)", url="https://t.me/BkbingosupportBot"))
     
