@@ -2169,27 +2169,192 @@ def background_game_loop():
                         game_state["drawn_numbers"].append(ball)
 
                     display_info = get_letter_and_display(ball)
-                    socketio.emit('new_number', {
-                        'ball': ball,
-                        'display': display_info['display'],
-                        'letter': display_info['letter']
-                    })
-                    
-                    time.sleep(4.0)
+@support_bot.callback_query_handler(func=lambda call: call.data.startswith('suppreply_'))
+def prepare_support_reply(call):
+    target_uid = int(call.data.split('_')[1])
+    admin_reply_state[ADMIN_ID] = target_uid
+    support_bot.answer_callback_query(call.id)
+    support_bot.send_message(
+        ADMIN_ID,
+        f"✍️ ለተጫዋች (<code>{target_uid}</code>) መላክ የሚፈልጉትን መልእክት አሁን ይጻፉ፦",
+        parse_mode="HTML"
+    )
 
-                if game_state["status"] == "PLAYING":
-                    with db_lock:
-                        game_state["status"] = "FINISHED"
-                    
-                    socketio.emit('winner_announced', {
-                        'winner_ids': [],
-                        'winner_name': 'ማንም አላሸነፈም (No Winner)',
-                        'prize': 0.0,
-                        'card_id': 1,
-                        'card_matrix': cards_database[1]
-                    })
-                    
-                    time.sleep(6)
+@support_bot.message_handler(func=lambda m: int(m.from_user.id) == ADMIN_ID and admin_reply_state.get(ADMIN_ID) is not None)
+def send_admin_support_reply(message):
+    target_uid = admin_reply_state[ADMIN_ID]
+    admin_reply_state[ADMIN_ID] = None
+    reply_text = message.text.replace('<', '&lt;').replace('>', '&gt;') if message.text else 'رسالة من الإدارة'
+
+    try:
+        support_bot.send_message(
+            target_uid,
+            f"🎧 <b>ከደንበኞች አገልግሎት (Support) የተሰጠ ምላሽ፦</b>\n\n{reply_text}",
+            parse_mode="HTML"
+        )
+        support_bot.send_message(
+            ADMIN_ID,
+            f"✅ መልእክቱ ለተጫዋች (<code>{target_uid}</code>) በተሳካ ሁኔታ ተልኳል!",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        support_bot.send_message(
+            ADMIN_ID,
+            f"❌ መልእክቱን መላክ አልተቻለም: {e}",
+            parse_mode="HTML"
+        )
+
+# =========================================================
+# 8. SOCKET.IO REALTIME GAMEPLAY & BINGO ENGINE
+# =========================================================
+@socketio.on('get_user_balance')
+def handle_get_user_balance(data):
+    uid = int(data.get('user_id'))
+    with db_lock:
+        bal = users_db.get(uid, {}).get("balance", 0.0)
+    emit('balance_update', {'user_id': uid, 'balance': bal})
+
+@socketio.on('select_card')
+def handle_select_card(data):
+    uid = int(data.get('user_id'))
+    card_id = int(data.get('card_id'))
+
+    with db_lock:
+        if game_state["status"] != "WAITING":
+            emit('error_msg', {'msg': 'ጨዋታው ተጀምሯል! አሁን ካርቴላ መምረጥ አይቻልም።'}, room=request.sid)
+            return
+
+        if uid not in users_db:
+            users_db[uid] = {"id": uid, "balance": 0.0, "history": []}
+
+        user_bal = users_db[uid]["balance"]
+        
+        current_user_cards_count = sum(1 for cid, owner_id in game_state["selected_cards"].items() if owner_id == uid)
+        if current_user_cards_count >= MAX_CARDS_PER_PLAYER:
+            emit('error_msg', {'msg': f'በአንድ ዙር ቢበዛ {MAX_CARDS_PER_PLAYER} ካርቴላዎች ብቻ መግዛት ይቻላል!'}, room=request.sid)
+            return
+
+        if card_id in game_state["selected_cards"]:
+            emit('error_msg', {'msg': f'ካርቴላ #{card_id} በሌላ ተጫዋች ተይዟል!'}, room=request.sid)
+            return
+
+        if user_bal < CARD_PRICE:
+            emit('error_msg', {'msg': f'በቂ ባላንስ የለዎትም! የካርቴላ ዋጋ {CARD_PRICE} ETB ነው።'}, room=request.sid)
+            return
+
+        users_db[uid]["balance"] -= CARD_PRICE
+        new_bal = users_db[uid]["balance"]
+        
+        game_state["selected_cards"][card_id] = uid
+        game_state["derash"] += CARD_PRICE * (1.0 - COMMISSION_RATE)
+
+        if uid not in game_state["player_cards"]:
+            game_state["player_cards"][uid] = []
+        if card_id not in game_state["player_cards"][uid]:
+            game_state["player_cards"][uid].append(card_id)
+
+        add_user_history(uid, "ካርቴላ ግዢ (Card Purchase)", f"-{CARD_PRICE:.2f} ETB ለካርቴላ #{card_id} ተከፍሏል")
+
+    emit('balance_update', {'user_id': uid, 'balance': new_bal})
+    socketio.emit('update_selected_cards', {'taken_cards': list(game_state["selected_cards"].keys())})
+    
+    matrix = cards_database.get(card_id)
+    emit('card_confirmed', {
+        'card_id': card_id,
+        'matrix': matrix,
+        'new_balance': new_bal
+    }, room=request.sid)
+
+@socketio.on('player_mark_number')
+def handle_player_mark_number(data):
+    pass
+
+@socketio.on('claim_bingo')
+def handle_claim_bingo(data):
+    uid = int(data.get('user_id'))
+    card_id = int(data.get('card_id'))
+    board = data.get('board')
+
+    with db_lock:
+        if game_state["status"] != "PLAYING":
+            emit('bingo_response', {'status': 'error', 'message': '⚠️ ጨዋታው በሂደት ላይ አይደለም!'}, room=request.sid)
+            return
+
+        if uid not in game_state["player_cards"] or card_id not in game_state["player_cards"][uid]:
+            emit('bingo_response', {'status': 'error', 'message': '⚠️ ይህ ካርቴላ የእርስዎ አይደለም!'}, room=request.sid)
+            return
+
+        is_valid = validate_bingo_board(board)
+        if is_valid:
+            prize = game_state["derash"]
+            users_db[uid]["balance"] += prize
+            winner_name = users_db[uid].get("name", f"User {uid}")
+            
+            add_user_history(uid, "ቢንጎ ድል (Bingo Win)", f"+{prize:.2f} ETB በካርቴላ #{card_id} አሸንፈዋል")
+
+            game_state["status"] = "FINISHED"
+            
+            matrix_data = cards_database.get(card_id)
+
+            socketio.emit('winner_announced', {
+                'winner_name': winner_name,
+                'winner_ids': [uid],
+                'prize': prize,
+                'card_id': card_id,
+                'card_matrix': matrix_data
+            })
+
+            socketio.emit('balance_update', {'user_id': uid, 'balance': users_db[uid]["balance"]})
+        else:
+            emit('bingo_response', {'status': 'error', 'message': '❌ የተሳሳተ የቢንጎ እጥፍ (Invalid Bingo)! ገና አላሸነፉም።'}, room=request.sid)
+
+# =========================================================
+# 9. BACKGROUND GAME LOOP THREAD
+# =========================================================
+def background_game_loop():
+    while True:
+        try:
+            with db_lock:
+                if game_state["status"] == "WAITING":
+                    sold_count = len(game_state["selected_cards"])
+                    if sold_count > 0:
+                        game_state["time_left"] -= 1
+                        socketio.emit('timer_update', {
+                            'time_left': game_state["time_left"],
+                            'sold_count': sold_count
+                        })
+
+                        if game_state["time_left"] <= 0:
+                            game_state["status"] = "PLAYING"
+                            game_state["drawn_numbers"] = []
+                            socketio.emit('game_started', {
+                                'derash': game_state["derash"]
+                            })
+                    else:
+                        game_state["time_left"] = 20
+                        socketio.emit('timer_update', {
+                            'time_left': 20,
+                            'sold_count': 0
+                        })
+
+                elif game_state["status"] == "PLAYING":
+                    available_balls = [n for n in range(1, 76) if n not in game_state["drawn_numbers"]]
+                    if available_balls:
+                        next_ball = random.choice(available_balls)
+                        game_state["drawn_numbers"].append(next_ball)
+                        
+                        ball_info = get_letter_and_display(next_ball)
+                        socketio.emit('new_number', {
+                            'ball': next_ball,
+                            'display': ball_info['display'],
+                            'letter': ball_info['letter']
+                        })
+
+                    eventlet.sleep(4.0)
+                    continue
+
+                elif game_state["status"] == "FINISHED":
+                    eventlet.sleep(8.0)
                     with db_lock:
                         game_state["status"] = "WAITING"
                         game_state["time_left"] = 20
@@ -2198,20 +2363,39 @@ def background_game_loop():
                         game_state["player_cards"] = {}
                         game_state["derash"] = 0.0
                     socketio.emit('reset_game')
+                    socketio.emit('update_selected_cards', {'taken_cards': []})
 
+            eventlet.sleep(1.0)
         except Exception as e:
             print(f"Error in background game loop: {e}")
-            time.sleep(1)
+            eventlet.sleep(1.0)
 
 # =========================================================
-# 10. MAIN ENTRY POINT
+# 10. MAIN APPLICATION ENTRY POINT
 # =========================================================
 if __name__ == '__main__':
     set_bot_commands()
     
-    Thread(target=background_game_loop, daemon=True).start()
-    Thread(target=support_bot.infinity_polling, kwargs={'skip_pending': True}, daemon=True).start()
-    
+    def run_main_bot():
+        while True:
+            try:
+                bot.infinity_polling(timeout=60, long_polling_timeout=60)
+            except Exception as e:
+                print(f"Main bot polling error: {e}")
+                time.sleep(5)
+
+    def run_support_bot():
+        while True:
+            try:
+                support_bot.infinity_polling(timeout=60, long_polling_timeout=60)
+            except Exception as e:
+                print(f"Support bot polling error: {e}")
+                time.sleep(5)
+
+    Thread(target=run_main_bot, daemon=True).start()
+    Thread(target=run_support_bot, daemon=True).start()
+    socketio.start_background_task(background_game_loop)
+
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 BKBINGO Pro Server is running on port {port}...")
+    print(f"🚀 BKBINGO Pro Server starting on port {port}...")
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
