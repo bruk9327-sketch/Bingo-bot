@@ -5,6 +5,3 @@ eventlet==0.35.2
 greenlet==3.0.3
 pyTelegramBotAPI==4.16.1
 requests==2.31.0
-Flask
-Flask-SQLAlchemy
-psycopg2-binary
