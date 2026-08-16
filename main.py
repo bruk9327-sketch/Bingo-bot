@@ -783,6 +783,44 @@ def api_agent_data():
             "referred_players": data["referred_players"],
             "link": link
         })
+@bot.message_handler(commands=['agent'])
+def agent_command(message):
+    uid = int(message.from_user.id)
+    first_name = message.from_user.first_name.replace('<', '&lt;').replace('>', '&gt;')
+    
+    with db_lock:
+        if uid not in agents_db:
+            agents_db[uid] = {
+                "balance": 0.0,
+                "total_earned": 0.0,
+                "referred_players": [],
+                "weekly_earnings": [0,0,0,0,0,0,0]
+            }
+        agent_info = agents_db[uid]
+        bal = agent_info["balance"]
+        earned = agent_info["total_earned"]
+        ref_players = len(agent_info["referred_players"])
+
+    bot_username = bot.get_me().username
+    agent_link = f"https://t.me/{bot_username}?start=agent_{uid}"
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(text="📊 ሙሉ የኤጀንት ዳሽቦርድ ክፈት (Web App)", web_app=WebAppInfo(url=f"{RENDER_WEBAPP_URL}/agent?agent_id={uid}")),
+        InlineKeyboardButton(text="💸 ኮሚሽን ወደ ዋና ባላንስ አስተላልፍ", callback_data="agent_transfer_bal")
+    )
+
+    agent_msg = (
+        f"🤝 <b>የ BKBINGO Pro የኤጀንት ዳሽቦርድ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"ሰላም <b>{first_name}</b>፣ የእርስዎ የኤጀንት ዝርዝር መረጃ ከታች ተቀምጧል፦\n\n"
+        f"👥 በሊንክዎ የተመዘገቡ ተጫዋቾች: <b>{ref_players}</b>\n"
+        f"💰 የሚገኝ የኮሚሽን ባላንስ: <b>{bal:.2f} ETB</b>\n"
+        f"🏆 አጠቃላይ የተገኘ ገቢ: <b>{earned:.2f} ETB</b>\n\n"
+        f"🔗 <b>የእርስዎ ኤጀንት ሊንክ፦</b>\n<code>{agent_link}</code>"
+    )
+    bot.send_message(message.chat.id, agent_msg, reply_markup=markup, parse_mode="HTML")
+
 
 # =========================================================
 # 5. TELEGRAM MAIN BOT & COMMAND HANDLERS
@@ -1905,3 +1943,4 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+    
