@@ -62,6 +62,7 @@ pending_deposits = {}
 pending_withdrawals = {} 
 used_txn_ids = set()     
 broadcast_state = {}     
+player_marked_hits = {}
 
 # =========================================================
 # 2. BINGO CARDS DATABASE (1-104 CARDS)
