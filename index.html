@@ -55,13 +55,6 @@
         .bingo-header-n { background: #eab308; color: #000; }
         .bingo-header-g { background: #10b981; color: #fff; }
         .bingo-header-o { background: #a855f7; color: #fff; }
-
-        #audio-banner {
-            padding: 6px 12px;
-            font-size: 11px;
-            margin-bottom: 6px;
-            border-radius: 12px;
-        }
         .stat-card {
             border-radius: 12px;
             border: 2px solid rgba(255, 255, 255, 0.1);
@@ -71,10 +64,6 @@
             align-items: center;
             justify-content: center;
         }
-        .bingo-card-container {
-            width: 100%;
-            max-width: 100%;
-        }
         .bingo-cell-custom {
             font-size: 14px; 
             font-weight: 500; 
@@ -83,12 +72,14 @@
     </style>
 </head>
 <body class="select-none pb-10 px-3">
-    <div id="audio-banner" class="bg-amber-500 border border-amber-400 my-1 flex justify-between items-center shadow-lg animate-pulse">
-        <span class="text-slate-950 font-black">🔊 የድምፅ ማስታወቂያ ለማንቃት ይጫኑ!</span>
-        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-2 py-1 rounded font-black text-[10px] shadow">አንቃ</button>
+    <!-- ድምፅ ማስታወቂያ ማስተካከያ -->
+    <div id="audio-banner" class="bg-amber-500 border border-amber-400 my-1 px-3 py-1.5 flex justify-between items-center shadow-lg rounded-xl animate-pulse">
+        <span class="text-slate-950 font-black text-xs">🔊 ድምፅ ለማንቃት እዚህ ይጫኑ!</span>
+        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-2.5 py-1 rounded-lg font-black text-[10px] shadow">አንቃ</button>
     </div>
 
-    <div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/30 glass-panel">
+    <!-- setHeader -->
+    <div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/35 glass-panel">
         <div class="p-3 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-lg shadow-lg">🎯</div>
@@ -98,18 +89,19 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <div class="bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
-                    <span class="text-[9px] text-slate-300 font-bold">Auto-Daub</span>
+                <div class="bg-slate-800/80 border border-slate-700 px-2 py-1 rounded-xl flex items-center gap-1">
+                    <span class="text-[9px] text-slate-300 font-bold">Auto</span>
                     <input type="checkbox" id="auto-daub-toggle" class="w-4 h-4 accent-emerald-500 cursor-pointer" onchange="toggleAutoDaub(this)">
                 </div>
                 <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
                     <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
-                    <div id="user-balance-disp" class="text-xs font-black text-emerald-400">0.00 ETB</div>
+                    <div id="user-balance-disp" class="text-xs font-black text-emerald-400">10.00 ETB</div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Stats -->
     <div class="grid grid-cols-3 gap-2 mb-2 text-center text-xs font-bold">
         <div class="glass-panel stat-card border-l-4 border-amber-400">
             <span class="text-[9px] text-slate-400 block mb-0.5">የተሸጡ ካርቴላዎች</span>
@@ -125,6 +117,7 @@
         </div>
     </div>
 
+    <!-- Selection Screen -->
     <div id="selection-screen">
         <div class="flex justify-between items-center mb-2 px-1">
             <span class="text-xs font-bold text-slate-300">ካርቴላ ይምረጡ (1-104)</span>
@@ -132,11 +125,12 @@
         </div>
 
         <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-2xl max-h-[35vh] overflow-y-auto border border-slate-800"></div>
-        <p class="text-center text-[10px] text-slate-400 my-2">⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ናቸው።</p>
+        <p class="text-center text-[10px] text-slate-400 my-2">🎁 ለመጀመርያ ጊዜ 10 ብር ቦነስ ተሰጥቶዎታል! በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።</p>
         
         <div id="preview-cards-container" class="grid grid-cols-1 gap-2 mt-2"></div>
     </div>
 
+    <!-- Game Screen -->
     <div id="game-screen" class="hidden mt-2">
         <div class="glass-panel p-3 rounded-2xl mb-2 flex justify-between items-center border border-emerald-500/30">
             <div>
@@ -164,6 +158,7 @@
         </div>
     </div>
 
+    <!-- Winner Modal -->
     <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm text-center border-2 border-amber-400 shadow-2xl">
             <div class="text-4xl mb-1">🎉</div>
@@ -183,84 +178,59 @@
             error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3')
         };
 
-        function playSound(effectName) {
-            if (sounds[effectName]) {
-                sounds[effectName].currentTime = 0;
-                sounds[effectName].volume = 0.5;
-                sounds[effectName].play().catch(e => console.log("Audio restriction:", e));
+        function playSound(name) {
+            if (sounds[name]) {
+                sounds[name].currentTime = 0;
+                sounds[name].volume = 0.5;
+                sounds[name].play().catch(e => console.log(e));
             }
         }
 
         let speechUnlocked = false;
         let isAutoDaubEnabled = false;
 
-        function toggleAutoDaub(checkbox) {
-            isAutoDaubEnabled = checkbox.checked;
-            playSound('click');
-        }
-
+        function toggleAutoDaub(cb) { isAutoDaubEnabled = cb.checked; playSound('click'); }
         function enableAudioSystem() {
             if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance("ድምፅ ተጀምሯል");
-                utterance.lang = 'am-ET';
-                utterance.volume = 1.0;
-                window.speechSynthesis.speak(utterance);
+                const u = new SpeechSynthesisUtterance("ድምፅ ተጀምሯል");
+                u.lang = 'am-ET';
+                window.speechSynthesis.speak(u);
                 speechUnlocked = true;
-                const banner = document.getElementById('audio-banner');
-                if (banner) banner.style.display = 'none';
+                document.getElementById('audio-banner').style.display = 'none';
             }
         }
 
-        function speakNumber(ballNum, displayStr) {
+        function speakNumber(ballNum) {
             if (!('speechSynthesis' in window)) return;
-            let letterName = '';
-            if (ballNum >= 1 && ballNum <= 15) letterName = 'ቢ';
-            else if (ballNum >= 16 && ballNum <= 30) letterName = 'አይ';
-            else if (ballNum >= 31 && ballNum <= 45) letterName = 'ኤን';
-            else if (ballNum >= 46 && ballNum <= 60) letterName = 'ጂ';
-            else if (ballNum >= 61 && ballNum <= 75) letterName = 'ኦ';
-
-            const phrase = `${letterName} ${ballNum}`;
+            let letter = ballNum <= 15 ? 'ቢ' : (ballNum <= 30 ? 'አይ' : (ballNum <= 45 ? 'ኤን' : (ballNum <= 60 ? 'ጂ' : 'ኦ')));
             try {
                 window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(phrase);
-                utterance.lang = 'am-ET';
-                utterance.rate = 0.85;
-                utterance.pitch = 1.0;
-                utterance.volume = 1.0;
-                window.speechSynthesis.speak(utterance);
-            } catch (e) {
-                console.log("Speech error:", e);
-            }
+                const u = new SpeechSynthesisUtterance(`${letter} ${ballNum}`);
+                u.lang = 'am-ET';
+                u.rate = 0.85;
+                window.speechSynthesis.speak(u);
+            } catch(e) {}
         }
-
-        document.addEventListener('click', () => {
-            if (!speechUnlocked && 'speechSynthesis' in window) {
-                enableAudioSystem();
-            }
-        }, { once: true });
 
         const socket = io();
         let userId = null;
         let takenCards = [];
 
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 12345;
+            userId = parseInt(urlParams.get('user_id')) || Math.floor(Math.random() * 1000000);
         }
 
         let mySelectedCards = [];
         let drawnNumbersSet = new Set();
-        let markedNumbersMap = {}; 
+        let markedNumbersMap = {};
         let cardsDatabase = {};
 
         socket.on('connect', () => {
-            if (userId) {
-                socket.emit('get_user_balance', { user_id: userId });
-            }
+            socket.emit('get_user_balance', { user_id: userId });
         });
 
         socket.on('balance_update', (data) => {
@@ -275,21 +245,13 @@
         });
 
         socket.on('bingo_response', (data) => {
-            if (data.status === 'success') {
-                playSound('win');
-            } else {
-                playSound('error');
-            }
+            if (data.status === 'success') playSound('win');
+            else playSound('error');
             alert(data.message);
         });
 
         function getFrontendLetterAndDisplay(num) {
-            if (num >= 1 && num <= 15) return `B-${num}`;
-            if (num >= 16 && num <= 30) return `I-${num}`;
-            if (num >= 31 && num <= 45) return `N-${num}`;
-            if (num >= 46 && num <= 60) return `G-${num}`;
-            if (num >= 61 && num <= 75) return `O-${num}`;
-            return `${num}`;
+            return num <= 15 ? `B-${num}` : (num <= 30 ? `I-${num}` : (num <= 45 ? `N-${num}` : (num <= 60 ? `G-${num}` : `O-${num}`)));
         }
 
         function init75Grid() {
@@ -350,24 +312,17 @@
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
             const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-3 rounded-2xl w-full border border-slate-700/80 bingo-card-container';
+            cardDiv.className = 'glass-panel p-3 rounded-2xl w-full border border-slate-700/80';
             cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-2 text-center">ካርቴላ #${cid}</div>`;
 
             const mGrid = document.createElement('div');
             mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-2 rounded-xl mb-2.5';
 
-            const headers = [
-                { title: 'B', class: 'bingo-header-b' },
-                { title: 'I', class: 'bingo-header-i' },
-                { title: 'N', class: 'bingo-header-n' },
-                { title: 'G', class: 'bingo-header-g' },
-                { title: 'O', class: 'bingo-header-o' }
-            ];
-
-            headers.forEach(h => {
+            ['B','I','N','G','O'].forEach((h, idx) => {
+                const cls = ['bingo-header-b','bingo-header-i','bingo-header-n','bingo-header-g','bingo-header-o'][idx];
                 const hCell = document.createElement('div');
-                hCell.className = `p-1 rounded-lg font-black text-[11px] ${h.class}`;
-                hCell.innerText = h.title;
+                hCell.className = `p-1 rounded-lg font-black text-[11px] ${cls}`;
+                hCell.innerText = h;
                 mGrid.appendChild(hCell);
             });
 
@@ -375,15 +330,10 @@
                 row.forEach(val => {
                     const cell = document.createElement('div');
                     if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
-                    
                     const isFree = val === 'FREE';
                     const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
-                    cell.className = `rounded-lg bingo-cell-custom transition-all ${
-                        isFree 
-                        ? 'bg-amber-500 text-slate-950 font-black text-[12px]' 
-                        : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-200 cursor-pointer')
-                    }`;
+                    cell.className = `rounded-lg bingo-cell-custom transition-all ${isFree ? 'bg-amber-500 text-slate-950 font-black text-[12px]' : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-250 cursor-pointer')}`;
                     cell.innerText = val;
 
                     if (isPlayMode && !isFree) {
@@ -395,14 +345,7 @@
                             playSound('click');
                             if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                             markedNumbersMap[cid].add(val);
-                            
                             cell.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
-                            
-                            socket.emit('player_mark_number', {
-                                user_id: userId,
-                                card_id: cid,
-                                marked_numbers: Array.from(markedNumbersMap[cid])
-                            });
                         };
                     }
                     mGrid.appendChild(cell);
@@ -413,40 +356,24 @@
 
             if (isPlayMode) {
                 const claimBtn = document.createElement('button');
-                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 border border-emerald-400/50 transform active:scale-95 transition-all';
+                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 border border-emerald-400/50 active:scale-95';
                 claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
                 claimBtn.onclick = () => {
                     playSound('click');
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
-
-                    let boardValidationMatrix = [];
-                    for(let r=0; r<5; r++) {
-                        let rowArr = [];
-                        for(let c=0; c<5; c++) {
-                            let val = matrixData[r][c];
-                            let isHit = (val === 'FREE' || markedSet.has(val));
-                            rowArr.push(isHit);
-                        }
-                        boardValidationMatrix.push(rowArr);
-                    }
-
+                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
                     socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
                 };
                 cardDiv.appendChild(claimBtn);
             }
-
             return cardDiv;
         }
 
         function renderPreviewCards() {
             const container = document.getElementById('preview-cards-container');
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => {
-                const matrix = cardsDatabase[cid];
-                if(!matrix) return;
-                container.appendChild(createCardHTML(cid, matrix, false));
-            });
+            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
         socket.on('timer_update', (data) => {
@@ -457,66 +384,42 @@
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
             markedNumbersMap = {};
-            mySelectedCards.forEach(cid => { markedNumbersMap[cid] = new Set(); });
+            mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
             init75Grid();
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
             document.getElementById('derash-amount').innerText = `${parseFloat(data.derash).toFixed(2)} ETB`;
-            renderMyGameCards();
-        });
-
-        function renderMyGameCards() {
+            
             const container = document.getElementById('my-cards-container');
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => {
-                const matrix = cardsDatabase[cid];
-                if(!matrix) return;
-                container.appendChild(createCardHTML(cid, matrix, true));
-            });
-        }
+            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
+        });
 
         socket.on('new_number', (data) => {
-            const ball = data.ball;
-            const displayStr = data.display;
-            drawnNumbersSet.add(ball);
-            
-            speakNumber(ball, displayStr);
+            drawnNumbersSet.add(data.ball);
+            speakNumber(data.ball);
 
             const ballEl = document.getElementById('current-ball');
-            ballEl.innerText = displayStr;
-            ballEl.classList.add('scale-110');
-            setTimeout(() => ballEl.classList.remove('scale-110'), 200);
-
+            ballEl.innerText = data.display;
             document.getElementById('game-balls-count').innerText = `${drawnNumbersSet.size}/75`;
             
-            const cell75 = document.getElementById(`ball-cell-${ball}`);
-            if(cell75) {
-                cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
-            }
+            const cell75 = document.getElementById(`ball-cell-${data.ball}`);
+            if(cell75) cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
 
             if (isAutoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
-                    const matrix = cardsDatabase[cid];
-                    if (!matrix) return;
-                    matrix.forEach(row => {
-                        row.forEach(val => {
-                            if (val === ball) {
-                                if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                                markedNumbersMap[cid].add(val);
-
-                                const cellEl = document.getElementById(`card-${cid}-val-${val}`);
-                                if (cellEl) {
-                                    cellEl.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
+                    if (cardsDatabase[cid]) {
+                        cardsDatabase[cid].forEach(row => {
+                            row.forEach(val => {
+                                if (val === data.ball) {
+                                    if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                                    markedNumbersMap[cid].add(val);
+                                    const cellEl = document.getElementById(`card-${cid}-val-${val}`);
+                                    if (cellEl) cellEl.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
                                 }
-
-                                socket.emit('player_mark_number', {
-                                    user_id: userId,
-                                    card_id: cid,
-                                    marked_numbers: Array.from(markedNumbersMap[cid])
-                                });
-                            }
+                            });
                         });
-                    });
+                    }
                 });
             }
         });
@@ -525,16 +428,9 @@
             playSound('win');
             document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
-            
-            if(data.winner_ids && data.winner_ids.includes(userId)) {
-                socket.emit('get_user_balance', { user_id: userId });
-            }
-
             const wGrid = document.getElementById('winner-card-matrix');
             wGrid.innerHTML = '';
-            if(data.card_matrix) {
-                wGrid.appendChild(createCardHTML(data.card_id, data.card_matrix, false));
-            }
+            if(data.card_matrix) wGrid.appendChild(createCardHTML(data.card_id, data.card_matrix, false));
             document.getElementById('winner-modal').classList.remove('hidden');
         });
 
@@ -548,7 +444,7 @@
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('preview-cards-container').innerHTML = '';
             initCartelaGrid();
-            if(userId) socket.emit('get_user_balance', { user_id: userId });
+            socket.emit('get_user_balance', { user_id: userId });
         });
 
         initCartelaGrid();
