@@ -16,16 +16,14 @@
 </head>
 <body class="p-3 max-w-md mx-auto">
 
-    <!-- MAIN DASHBOARD -->
+    <!-- 1. MAIN DASHBOARD -->
     <div id="menu-dashboard" class="space-y-3 my-2">
-        <!-- ሰፋ እና ጎላ ያለ BKBINGO PRO ሄደር -->
         <div class="relative overflow-hidden rounded-3xl border border-purple-500/40 glass-panel p-5 text-center shadow-xl">
             <div class="w-14 h-14 mx-auto mb-2 rounded-2xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-2xl shadow-lg">🎯</div>
             <h1 class="font-orbitron text-2xl font-black gold-gradient-text tracking-wider mb-1">BKBINGO PRO</h1>
             <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
 
-        <!-- 웰컴 ማስታወቂያ ባነር -->
         <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
             <div class="flex items-start gap-2.5">
                 <span class="text-xl">🌟</span>
@@ -36,12 +34,10 @@
             </div>
         </div>
 
-        <!-- ጨዋታውን ጀምር (Play) -->
         <button onclick="openGameSelection()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- ግሪድ ሜኑዎች -->
         <div class="grid grid-cols-2 gap-2.5">
             <button onclick="openRegisterModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-purple-500/50 transition-all cursor-pointer active:scale-95">
                 <span class="text-base bg-purple-500/20 p-2 rounded-xl">📝</span>
@@ -76,7 +72,6 @@
             </button>
         </div>
 
-        <!-- ታሪክ እና ሌሎች -->
         <button onclick="openHistory()" class="w-full py-3 px-4 glass-panel rounded-2xl border border-slate-700/80 flex items-center justify-between text-left hover:border-purple-500/40 transition-all cursor-pointer">
             <div class="flex items-center gap-3">
                 <span class="text-base bg-amber-600/20 p-2 rounded-xl">📜</span>
@@ -106,8 +101,14 @@
         </div>
     </div>
 
-    <!-- የካርቴላ መምረጫ ስክሪን -->
+    <!-- 2. CARTELA SELECTION SCREEN (ልክ እንደ ምስል 1 እና 2) -->
     <div id="selection-screen" class="hidden space-y-3">
+        <!-- ሄደር እና የድምፅ ማብሪያ አዝራር (እንደ ምስል 2) -->
+        <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
+            <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
+            <button onclick="toggleAudio()" id="audio-toggle-btn" class="bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px]">ክፈት</button>
+        </div>
+
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
@@ -117,8 +118,13 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <div class="bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                    <span class="text-[9px] text-slate-400">Auto</span>
+                    <input type="checkbox" id="auto-check" class="accent-purple-500 w-3.5 h-3.5 cursor-pointer">
+                </div>
                 <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
                 <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
+                    <div class="text-[8px] text-emerald-300">ሕሳብ (BAL)</div>
                     <div id="user-balance-disp-2" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
                 </div>
             </div>
@@ -149,13 +155,13 @@
         </div>
 
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
-            ⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ነው።
+            🎁 ለመጀመሪያ ጊዜ 10 ብር ሪን ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
         </div>
 
         <div id="preview-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- ጨዋታው ሲጀመር የሚታይ ስክሪን -->
+    <!-- 3. LIVE GAME SCREEN (ልክ እንደ ምስል 3) -->
     <div id="game-screen" class="hidden space-y-3">
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -165,9 +171,15 @@
                     <p class="text-[8px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
-                <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
-                <div id="user-balance-disp-3" class="text-xs font-black text-emerald-400">50.00 ETB</div>
+            <div class="flex items-center gap-2">
+                <div class="bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                    <span class="text-[9px] text-slate-400">Auto</span>
+                    <input type="checkbox" id="auto-check-game" class="accent-purple-500 w-3.5 h-3.5 cursor-pointer">
+                </div>
+                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
+                    <div class="text-[8px] text-emerald-300">ሕሳብ (BAL)</div>
+                    <div id="user-balance-disp-3" class="text-xs font-black text-emerald-400">50.00 ETB</div>
+                </div>
             </div>
         </div>
 
@@ -186,26 +198,27 @@
             </div>
         </div>
 
-        <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex justify-between items-center">
-            <div>
+        <!-- የሽልማት ደራሽ እና የተጠራው ቁጥር ክበብ (እንደ ምስል 3) -->
+        <div class="grid grid-cols-2 gap-2">
+            <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex flex-col justify-center">
                 <div class="text-[9px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
-                <div id="derash-amount" class="text-sm font-black text-emerald-400">0.00 ETB</div>
+                <div id="derash-amount" class="text-base font-black text-emerald-400">0.00 ETB</div>
             </div>
-            <div class="text-right border-l border-slate-700 pl-4">
-                <div class="text-[9px] text-slate-400">የተጠራ ቁጥር</div>
-                <div id="current-ball" class="text-lg font-black text-amber-400">--</div>
+            <div class="glass-panel p-2.5 rounded-2xl border border-purple-500/50 flex items-center justify-between px-4">
+                <div>
+                    <div class="text-[8px] text-slate-400">የተጣራው ቁጥር</div>
+                    <div class="text-[10px] text-purple-300 font-bold">የወጣ</div>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-500 border-2 border-purple-400 flex items-center justify-center font-black text-sm shadow-lg text-white" id="current-ball-circle">
+                    --
+                </div>
             </div>
-        </div>
-
-        <div class="glass-panel p-2.5 rounded-2xl border border-slate-700">
-            <div class="text-[10px] font-bold text-slate-300 mb-1.5 text-center">የቁጥሮች ሰሌዳ (75 Balls)</div>
-            <div id="bingo-75-grid" class="grid grid-cols-15 gap-1 text-center"></div>
         </div>
 
         <div id="my-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- 1. REGISTER MODAL -->
+    <!-- MODALS (Register, Balance, Deposit, Withdraw, Winner) -->
     <div id="register-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -213,30 +226,15 @@
                 <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ሙሉ ስም (Full Name)</label>
-                    <input type="text" id="reg-fullname" placeholder="ሙሉ ስምዎን ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ዩዘርናም (Username)</label>
-                    <input type="text" id="reg-username" placeholder="Username ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ስልክ ቁጥር (Phone Number)</label>
-                    <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ኢሜይል (Email)</label>
-                    <input type="email" id="reg-email" placeholder="example@gmail.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <button onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/30 mt-2 cursor-pointer">
-                    ምዝገባውን አጠናቅ (Register)
-                </button>
+                <input type="text" id="reg-fullname" placeholder="ሙሉ ስምዎን ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="text" id="reg-username" placeholder="Username ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="text" id="reg-phone" placeholder="ስልክ ቁጥር (09xxxxxxxx)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="email" id="reg-email" placeholder="ኢሜይል (አማራጭ)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <button onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer">ምዝገባውን አጠናቅ</button>
             </div>
         </div>
     </div>
 
-    <!-- BALANCE MODAL -->
     <div id="balance-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">💰</div>
@@ -246,7 +244,6 @@
         </div>
     </div>
 
-    <!-- 2. DEPOSIT MODAL (Telebirr & CBE) -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -254,34 +251,22 @@
                 <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ አማራጭ ይምረጡ</label>
-                    <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="Telebirr">Telebirr (ቴሌብር)</option>
-                        <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
-                    </select>
-                </div>
+                <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
+                    <option value="Telebirr">Telebirr (ቴሌብር)</option>
+                    <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
+                </select>
                 <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
                     <p class="font-bold text-amber-400 mb-1">📌 የገቢ ማድረጊያ ቁጥሮች:</p>
                     <p>• ቴሌብር: <span class="font-black text-white">0912345678 (BKBINGO PRO)</span></p>
                     <p>• ንግድ ባንክ (CBE): <span class="font-black text-white">1000888888888</span></p>
                 </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የሚጫኑትን መጠን (ETB)</label>
-                    <input type="number" id="deposit-amount" placeholder="ለምሳሌ: 100" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ ማረጋገጫ ቁጥር (Transaction ID)</label>
-                    <input type="text" id="deposit-txref" placeholder="የባንክ ወይም የቴሌብር ሪፈረንስ ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <button onclick="submitDeposit()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 mt-1 cursor-pointer">
-                    ክፍያ አረጋግጥ (Submit Deposit)
-                </button>
+                <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="text" id="deposit-txref" placeholder="የክፍያ ማረጋገጫ ቁጥር (Transaction ID)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <button onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ክፍያ አረጋግጥ</button>
             </div>
         </div>
     </div>
 
-    <!-- 3. WITHDRAW MODAL (Telebirr & CBE) -->
     <div id="withdraw-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -289,29 +274,17 @@
                 <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የገንዘብ መቀበያ አማራጭ</label>
-                    <select id="withdraw-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="Telebirr">Telebirr (ቴሌብር)</option>
-                        <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የሂሳብ/ስልክ ቁጥር (Account/Phone No)</label>
-                    <input type="text" id="withdraw-account" placeholder="ገንዘቡ የሚላክበት ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የሚወጣው መጠን (ETB)</label>
-                    <input type="number" id="withdraw-amount" placeholder="ቢያንስ 50 ብር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                </div>
-                <button onclick="submitWithdraw()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 mt-1 cursor-pointer">
-                    ጥያቄ ላክ (Submit Withdraw)
-                </button>
+                <select id="withdraw-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
+                    <option value="Telebirr">Telebirr (ቴሌብር)</option>
+                    <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
+                </select>
+                <input type="text" id="withdraw-account" placeholder="የሂሳብ/ስልክ ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="number" id="withdraw-amount" placeholder="የሚወጣው መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <button onclick="submitWithdraw()" class="w-full py-3 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
             </div>
         </div>
     </div>
 
-    <!-- አሸናፊ ሞዳል -->
     <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">🎉</div>
@@ -323,6 +296,19 @@
     </div>
 
     <script>
+        let soundEnabled = false;
+        function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('audio-toggle-btn');
+            if (soundEnabled) {
+                btn.innerText = "በርቷል";
+                btn.className = "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px]";
+            } else {
+                btn.innerText = "ክፈት";
+                btn.className = "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px]";
+            }
+        }
+
         const sounds = {
             click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
             win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
@@ -330,26 +316,21 @@
         };
 
         function playSound(name) {
-            if (sounds[name]) {
+            if (soundEnabled && sounds[name]) {
                 sounds[name].currentTime = 0;
                 sounds[name].volume = 0.5;
                 sounds[name].play().catch(e => console.log(e));
             }
         }
 
-        // Modal Open/Close Controls
         function openRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.remove('hidden'); }
         function closeRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.add('hidden'); }
-
         function openBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.remove('hidden'); }
         function closeBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.add('hidden'); }
-
         function openDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.remove('hidden'); }
         function closeDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.add('hidden'); }
-
         function openWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.remove('hidden'); }
         function closeWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.add('hidden'); }
-
         function closeWinnerModal() { playSound('click'); document.getElementById('winner-modal').classList.add('hidden'); }
 
         function openGameSelection() {
@@ -372,12 +353,7 @@
             const fname = document.getElementById('reg-fullname').value.trim();
             const uname = document.getElementById('reg-username').value.trim();
             const phone = document.getElementById('reg-phone').value.trim();
-            const email = document.getElementById('reg-email').value.trim();
-
-            if (!fname || !uname || !phone) {
-                playSound('error');
-                return alert("⚠️ እባክዎ必要的 መረጃዎችን ሙሉ በሙሉ ይሙሉ!");
-            }
+            if (!fname || !uname || !phone) { playSound('error'); return alert("⚠️ እባክዎ አስፈላጊ መረጃዎችን ሙሉ በሙሉ ይሙሉ!"); }
             playSound('win');
             alert("✅ ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!");
             closeRegisterModal();
@@ -387,11 +363,7 @@
             const amount = parseFloat(document.getElementById('deposit-amount').value);
             const txRef = document.getElementById('deposit-txref').value.trim();
             const method = document.getElementById('deposit-method').value;
-
-            if (!amount || amount <= 0 || !txRef) {
-                playSound('error');
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የክፍያ ማረጋገጫ ቁጥር ያስገቡ!");
-            }
+            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የክፍያ ማረጋገጫ ቁጥር ያስገቡ!"); }
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
         }
@@ -400,13 +372,9 @@
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
-
-            if (!amount || amount <= 0 || !account) {
-                playSound('error');
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!");
-            }
+            if (!amount || amount <= 0 || !account) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!"); }
             playSound('win');
-            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል! በቅርብ ቀን ይጸድቃል።`);
+            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
         }
 
@@ -435,9 +403,7 @@
             if(parseInt(data.user_id) === userId) {
                 const bStr = `${parseFloat(data.balance).toFixed(2)} ETB`;
                 document.getElementById('modal-balance-amount').innerText = bStr;
-                document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
-                    if(el) el.innerText = bStr;
-                });
+                document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
             }
         });
 
@@ -446,11 +412,7 @@
             alert(data.msg);
             const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
             document.getElementById('modal-balance-amount').innerText = bStr;
-            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
-                if(el) el.innerText = bStr;
-            });
-            document.getElementById('deposit-amount').value = '';
-            document.getElementById('deposit-txref').value = '';
+            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
         });
 
         socket.on('error_msg', (data) => {
@@ -502,9 +464,7 @@
             renderPreviewCards();
             const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
             document.getElementById('modal-balance-amount').innerText = bStr;
-            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
-                if(el) el.innerText = bStr;
-            });
+            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
         });
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
@@ -525,7 +485,6 @@
             matrix.forEach(row => {
                 row.forEach(val => {
                     const cell = document.createElement('div');
-                    if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
                     const isFree = val === 'FREE';
                     const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
@@ -593,13 +552,28 @@
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('derash-amount').innerText = `${parseFloat(data.derash).toFixed(2)} ETB`;
+            document.getElementById('derash-amount').innerText = `${parseFloat(data.derash).evalue || parseFloat(data.derash || 8).toFixed(2)} ETB`;
             
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
                 mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
             }
+        });
+
+        socket.on('number_drawn', (data) => {
+            const num = data.number;
+            drawnNumbersSet.add(num);
+            let prefix = 'N';
+            if(num <= 15) prefix = 'B';
+            else if(num <= 30) prefix = 'I';
+            else if(num <= 45) prefix = 'N';
+            else if(num <= 60) prefix = 'G';
+            else prefix = 'O';
+
+            const circle = document.getElementById('current-ball-circle');
+            if(circle) circle.innerText = `${prefix}-${num}`;
+            playSound('click');
         });
 
         socket.on('winner_announced', (data) => {
