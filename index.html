@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="am">
 <head>
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-<meta name="theme-color" content="#4f46e5">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
     <title>BKBINGO Pro - Dashboard</title>
+    
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
     <style>
         body {
             background-color: #0f172a;
@@ -91,6 +93,15 @@
     </div>
 
     <script>
+        // Service Worker Registration for PWA / Mobile Support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+                    .then(reg => console.log('Service Worker Registered Successfully!', reg))
+                    .catch(err => console.log('Service Worker Registration Failed:', err));
+            });
+        }
+
         function openApp() {
             alert("የቢንጎ ጨዋታ ክፍፍል ወደ ሚጀምርበት ገጽ በመውሰድ ላይ...");
             // ወደ ጨዋታው ማዘዋወሪያ ኮድ እዚህ ይገባል
