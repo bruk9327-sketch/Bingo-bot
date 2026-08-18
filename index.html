@@ -448,6 +448,52 @@
         });
 
         initCartelaGrid();
+
+function openDepositModal() {
+    playSound('click');
+    document.getElementById('deposit-modal').classList.remove('hidden');
+}
+
+function closeDepositModal() {
+    playSound('click');
+    document.getElementById('deposit-modal').classList.add('hidden');
+}
+
+function submitDeposit() {
+    const amount = parseFloat(document.getElementById('deposit-amount').value);
+    const txRef = document.getElementById('deposit-txref').value.trim();
+    const method = document.getElementById('pay-method').value;
+
+    if (!amount || amount <= 0) {
+        playSound('error');
+        return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን ያስገቡ!");
+    }
+    if (!txRef) {
+        playSound('error');
+        return alert("⚠️ እባክዎ የትራንዛክሽን ማረጋገጫ ቁጥር (Transaction ID) ያስገቡ!");
+    }
+
+    // ወደ ሰርቨር መረጃውን መላክ
+    socket.emit('request_deposit', {
+        user_id: userId,
+        amount: amount,
+        tx_ref: txRef,
+        method: method
+    });
+
+    closeDepositModal();
+}
+
+socket.on('deposit_success', (data) => {
+    playSound('win');
+    alert(data.msg);
+    document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
+    document.getElementById('deposit-amount').value = '';
+    document.getElementById('deposit-txref').value = '';
+});
+
+
+        
     </script>
 </body>
 </html>
