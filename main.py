@@ -188,7 +188,8 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    # ሰዓት ቆጣሪውን በጀርባ (Background) ማስጀመር
     timer_thread = threading.Thread(target=game_timer_loop, daemon=True)
     timer_thread.start()
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    # allow_unsafe_werkzeug=True በመጨመር ስህተቱን እናስተካክለዋለን
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+
