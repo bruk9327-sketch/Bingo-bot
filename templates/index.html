@@ -17,9 +17,21 @@
 </head>
 <body class="p-3 max-w-md mx-auto">
 
-    <!-- ሄደር (Auto እና Balance የሌለበት ንጹህ ሄደር) -->
-    <div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/35 glass-panel">
-        <div class="p-3.5 flex items-center justify-between">
+    <!-- የድምፅ ማስታወቂያ ሰሌዳ ባነር (Audio Alert Banner) -->
+    <div class="mb-2.5 bg-amber-500 rounded-2xl p-2.5 flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-2 text-slate-950 font-bold text-xs">
+            <span>🔊</span>
+            <span>የድምፅ ማስታወቂያ ለማሰማት እዚህ ይጫኑ!</span>
+        </div>
+        <button onclick="enableAudio()" class="bg-slate-950 text-amber-400 font-black text-xs px-3 py-1.5 rounded-xl shadow cursor-pointer active:scale-95">
+            እነቃ (ENABLE)
+        </button>
+    </div>
+
+    <!-- የሜኑ ዳሽቦርድ (Menu Dashboard) -->
+    <div id="menu-dashboard" class="space-y-2.5 my-2">
+        <!-- ሄደር በሜኑ ሰዓት -->
+        <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3.5 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xl shadow-lg">🎯</div>
                 <div>
@@ -27,25 +39,23 @@
                     <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO MINI APP</p>
                 </div>
             </div>
-            <!-- ሚስጥራዊ የተደበቀ የባላንስ ማቆያ (ኮዱ በትክክል እንዲሰራ) -->
-            <div id="user-balance-disp" class="hidden">50.00 ETB</div>
-        </div>
-    </div>
-
-    <!-- 웰컴 ማስታወቂያ ባነር (Welcome Banner) -->
-    <div class="mb-3 p-3 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl relative overflow-hidden">
-        <div class="absolute -right-4 -bottom-4 text-4xl opacity-15">🎁</div>
-        <div class="flex items-start gap-2.5">
-            <span class="text-xl">🌟</span>
-            <div>
-                <h2 class="text-xs font-black text-amber-400 mb-0.5">እንኳን ወደ BKBINGO PRO በደህና መጡ!</h2>
-                <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! በጨዋታው መጀመሪያ <span class="text-emerald-400 font-bold">50 ብር ቦነስ</span> ተሰጥቶዎታል። መልካም እድል!</p>
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-right">
+                <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
+                <div id="user-balance-disp" class="text-xs font-black text-emerald-400">50.00 ETB</div>
             </div>
         </div>
-    </div>
 
-    <!-- የሜኑ ዳሽቦርድ (Menu Dashboard - ልክ እንደ ቴሌግራም ቦቱ) -->
-    <div id="menu-dashboard" class="space-y-2.5 my-3">
+        <!-- 웰컴 ማስታወቂያ ባነር -->
+        <div class="p-3 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl relative overflow-hidden">
+            <div class="flex items-start gap-2.5">
+                <span class="text-xl">🌟</span>
+                <div>
+                    <h2 class="text-xs font-black text-amber-400 mb-0.5">እንኳን ወደ BKBINGO PRO በደህና መጡ!</h2>
+                    <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! በጨዋታው መጀመሪያ <span class="text-emerald-400 font-bold">50 ብር ቦነስ</span> ተሰጥቶዎታል። መልካም እድል!</p>
+                </div>
+            </div>
+        </div>
+
         <button onclick="openGameSelection()" class="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-lg shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
             <span class="text-base">🎲</span> ጨዋታ ጀምር (Open App)
         </button>
@@ -104,21 +114,55 @@
         </div>
     </div>
 
-    <!-- የካርቴላ መምረጫ እና ጨዋታ ስክሪን -->
+    <!-- የካርቴላ መምረጫ ስክሪን (በምስል 3 መሰረት የተስተካከለ) -->
     <div id="selection-screen" class="hidden space-y-3">
-        <div class="flex justify-between items-center bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-            <button onclick="backToMenu()" class="text-xs text-purple-400 font-bold flex items-center gap-1 cursor-pointer">← ወደ ሜኑ ተመለስ</button>
-            <div class="text-xs font-black text-amber-400">ካርቴላ ይምረጡ (ከ 1 እስከ 104)</div>
+        <!-- ሄደር በጨዋታ መምረጫ ሰዓት -->
+        <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
+                <div>
+                    <h1 class="font-orbitron text-xs font-black gold-gradient-text">BKBINGO PRO</h1>
+                    <p class="text-[8px] text-purple-300/80">LIVE CASINO BINGO</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2 py-1 rounded-lg cursor-pointer">← ወደ ሜኑ</button>
+                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-1 rounded-xl text-right">
+                    <div id="user-balance-disp-2" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3ቱ የስታቲስቲክስ ሳጥኖች (እንደ ምስል 2/3) -->
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የተሸጡ ካርቴላዎች</div>
+                <div id="sold-count" class="text-base font-black text-amber-400">0</div>
+            </div>
+            <div class="glass-panel p-2.5 rounded-2xl border border-rose-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የቀረ ጊዜ</div>
+                <div id="timer" class="text-base font-black text-rose-400">--s</div>
+            </div>
+            <div class="glass-panel p-2.5 rounded-2xl border border-purple-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የወጡ ቁጥሮች</div>
+                <div class="text-base font-black text-purple-300">0/75</div>
+            </div>
+        </div>
+
+        <!-- የካርቴላ መምረጫ ርዕስ እና ዋጋ -->
+        <div class="flex justify-between items-center px-1">
+            <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
+            <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
         
+        <!-- የካርቴላዎች ግሪድ -->
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-300">ቀጣይ ዙር የሚጀምርበት:</span>
-                <span id="timer" class="text-xs font-black text-emerald-400">--s</span>
-            </div>
-            <div class="text-[11px] text-slate-400 mb-2">የተሸጡ ካርቴላዎች: <span id="sold-count" class="text-white font-bold">0</span></div>
-            
-            <div id="cartela-grid" class="grid grid-cols-6 gap-1.5 max-h-64 overflow-y-auto p-1"></div>
+            <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 max-h-56 overflow-y-auto p-1"></div>
+        </div>
+
+        <!-- የማስጠንቀቂያ ማስታወሻ -->
+        <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
+            ⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ነው።
         </div>
 
         <div id="preview-cards-container" class="space-y-3"></div>
@@ -126,21 +170,50 @@
 
     <!-- ጨዋታው ሲጀመር የሚታይ ስክሪን -->
     <div id="game-screen" class="hidden space-y-3">
-        <div class="glass-panel p-3 rounded-2xl border border-purple-500/40 text-center">
-            <div class="text-[10px] text-purple-300 font-bold">የአሁኑ ደራሽ (Prize Pool)</div>
-            <div id="derash-amount" class="text-base font-black text-amber-400 mb-1">0.00 ETB</div>
-            <div class="flex justify-center items-center gap-3 bg-slate-950/60 p-2 rounded-xl">
+        <!-- ሄደር በጨዋታ ሰዓት -->
+        <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
                 <div>
-                    <div class="text-[9px] text-slate-400">የተጠራ ቁጥር</div>
-                    <div id="current-ball" class="text-lg font-black text-emerald-400">--</div>
+                    <h1 class="font-orbitron text-xs font-black gold-gradient-text">BKBINGO PRO</h1>
+                    <p class="text-[8px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
-                <div class="border-l border-slate-800 pl-3">
-                    <div class="text-[9px] text-slate-400">የወጡ አጠቃላይ</div>
-                    <div id="game-balls-count" class="text-xs font-bold text-white">0/75</div>
-                </div>
+            </div>
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
+                <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
+                <div id="user-balance-disp-3" class="text-xs font-black text-emerald-400">50.00 ETB</div>
             </div>
         </div>
 
+        <!-- 3ቱ የስታቲስቲክስ ሳጥኖች በጨዋታ ሰዓት -->
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የተሸጡ ካርቴላዎች</div>
+                <div id="sold-count-game" class="text-base font-black text-amber-400">0</div>
+            </div>
+            <div class="glass-panel p-2.5 rounded-2xl border border-rose-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የቀረ ጊዜ</div>
+                <div id="timer-game" class="text-base font-black text-rose-400">0s</div>
+            </div>
+            <div class="glass-panel p-2.5 rounded-2xl border border-purple-500/40">
+                <div class="text-[9px] text-slate-300 font-bold mb-1">የወጡ ቁጥሮች</div>
+                <div id="game-balls-count" class="text-base font-black text-purple-300">0/75</div>
+            </div>
+        </div>
+
+        <!-- የደራሽ እና የተጠራ ቁጥር ባነር -->
+        <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex justify-between items-center">
+            <div>
+                <div class="text-[9px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
+                <div id="derash-amount" class="text-sm font-black text-emerald-400">0.00 ETB</div>
+            </div>
+            <div class="text-right border-l border-slate-700 pl-4">
+                <div class="text-[9px] text-slate-400">የተጠራ ቁጥር</div>
+                <div id="current-ball" class="text-lg font-black text-amber-400">--</div>
+            </div>
+        </div>
+
+        <!-- 75 የቁጥሮች ሰሌዳ -->
         <div class="glass-panel p-2.5 rounded-2xl border border-slate-700">
             <div class="text-[10px] font-bold text-slate-300 mb-1.5 text-center">የቁጥሮች ሰሌዳ (75 Balls)</div>
             <div id="bingo-75-grid" class="grid grid-cols-15 gap-1 text-center"></div>
@@ -216,7 +289,12 @@
             }
         }
 
-        let isAutoDaubEnabled = true; // በነባሪ Auto የተመረጠ እንዲሆን
+        function enableAudio() {
+            playSound('click');
+            alert("🔊 የድምፅ ማስታወቂያዎች በትክክል ገብተዋል!");
+        }
+
+        let isAutoDaubEnabled = true;
 
         function openDepositModal() {
             playSound('click');
@@ -322,14 +400,20 @@
 
         socket.on('balance_update', (data) => {
             if(parseInt(data.user_id) === userId) {
-                document.getElementById('user-balance-disp').innerText = `${parseFloat(data.balance).toFixed(2)} ETB`;
+                const bStr = `${parseFloat(data.balance).toFixed(2)} ETB`;
+                document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+                    if(el) el.innerText = bStr;
+                });
             }
         });
 
         socket.on('deposit_success', (data) => {
             playSound('win');
             alert(data.msg);
-            document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
+            const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
+            document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+                if(el) el.innerText = bStr;
+            });
             document.getElementById('deposit-amount').value = '';
             document.getElementById('deposit-txref').value = '';
         });
@@ -381,7 +465,10 @@
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
-            document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
+            const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
+            document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+                if(el) el.innerText = bStr;
+            });
         });
 
         function createCardHTML(cid, matrix, isPlayMode = false) {
@@ -451,10 +538,16 @@
         }
 
         socket.on('timer_update', (data) => {
-            const timerEl = document.getElementById('timer');
-            const soldEl = document.getElementById('sold-count');
-            if(timerEl) timerEl.innerText = `${data.time_left}s`;
-            if(soldEl) soldEl.innerText = data.sold_count;
+            const tVal = `${data.time_left}s`;
+            const sVal = data.sold_count;
+            ['timer', 'timer-game'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = tVal;
+            });
+            ['sold-count', 'sold-count-game'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = sVal;
+            });
         });
 
         socket.on('game_started', (data) => {
