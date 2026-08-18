@@ -768,6 +768,15 @@ def index():
 def agent_dashboard_web():
     return render_template_string(AGENT_HTML_TEMPLATE)
 
+# === አዲሱን የጨዋታ ሩት እዚህ ጋር ይጨምሩ ===
+@app.route('/game')
+def game_page():
+    # የተለየ የ HTML ፋይል (HTML file) የሚጠቀሙ ከሆነ render_template('game.html') 
+    # ይጠቀሙ፤ አሁን ባለው ሁኔታ ግን በኮዱ ውስጥ ያለውን 'HTML_TEMPLATE' መጠቀም ከፈለጉ 
+    # render_template_string(HTML_TEMPLATE) ማለት ይችላሉ።
+    return render_template_string(HTML_TEMPLATE)
+
+
 @app.route('/api/agent_data')
 def api_agent_data():
     agent_id = request.args.get('agent_id', type=int)
