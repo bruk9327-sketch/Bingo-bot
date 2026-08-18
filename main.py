@@ -8,6 +8,30 @@ app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 # async_mode='threading' በማድረግ የሰዓት ቆጣሪውን ፍሰት የተረጋጋ እናደርገዋለን
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+# የዲፖዚት ጥያቄ መቀበያ 
+@socketio.on('request_deposit')
+def handle_request_deposit(data):
+    user_id = data.get('user_id')
+    amount = float(data.get('amount', 0))
+    tx_ref = data.get('tx_ref') # የባንክ ወይም የቴሌብር Transaction ID
+    payment_method = data.get('method') # Telebirr ወይም CBE
+
+    if amount < 10:
+        emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'})
+        return
+
+    # ለጊዜው በሙከራ (Testing) የገባውን ገንዘብ በቀጥታ ወደ አካውንቱ እንጨምራለን 
+    # (ወደፊት ከኦፊሻል የቴሌብር/CBE API ጋር ሲያያይዙ እዚህ ጋር ማረጋገጫ ይደረጋል)
+    if user_id not in user_balances:
+        user_balances[user_id] = 0.0
+    
+    user_balances[user_id] += amount
+
+    # ለተጠቃሚው የተስተካከለውን ባላንስ መላክ
+    emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
+    emit('deposit_success', {'msg': f'🎉 በሰኬት {amount} ብር ተጭኗል!', 'new_balance': user_balances[user_id]})
+
+
 # ዳታቤዝ እና የጨዋታ ሁኔታዎች (Memory Storage)
 user_balances = {}       # {user_id: balance}
 taken_cards_global = []  # በወቅቱ የተያዙ ካርቴላዎች
@@ -46,6 +70,7 @@ def handle_select_card(data):
 
     if user_id not in user_balances:
         user_balances[user_id] = 10.00
+        
 
     # የተጠቃሚውን ብር ማረጋገጥ
     if user_balances[user_id] < card_price:
