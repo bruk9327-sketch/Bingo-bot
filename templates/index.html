@@ -170,6 +170,72 @@
             <div class="text-[10px] text-slate-400 mt-3">አዲስ ዙር በቅርቡ ይጀምራል...</div>
         </div>
     </div>
+<!-- setHeader -->
+<div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/35 glass-panel">
+    <div class="p-3 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-lg shadow-lg">🎯</div>
+            <div>
+                <h1 class="font-orbitron text-base font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
+                <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="bg-slate-800/80 border border-slate-700 px-2 py-1 rounded-xl flex items-center gap-1">
+                <span class="text-[9px] text-slate-300 font-bold">Auto</span>
+                <input type="checkbox" id="auto-daub-toggle" class="w-4 h-4 accent-emerald-500 cursor-pointer" onchange="toggleAutoDaub(this)">
+            </div>
+            <!-- ባላንስ እና የዲፖዚት አዝራር -->
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right flex items-center gap-2">
+                <div>
+                    <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
+                    <div id="user-balance-disp" class="text-xs font-black text-emerald-400">10.00 ETB</div>
+                </div>
+                <button onclick="openDepositModal()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-2 py-1 rounded-lg text-[10px] font-black shadow transition-all">+ ጫን</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- የዲፖዚት (Deposit) ፖፕ-አፕ ሞዳል -->
+<div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-sm font-black text-emerald-400">💳 አካውንትዎ ላይ ብር ይጫኑ</h3>
+            <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base">✕</button>
+        </div>
+        
+        <div class="space-y-3 text-left">
+            <div>
+                <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ መንገድ ይምረጡ</label>
+                <select id="pay-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                    <option value="Telebirr">Telebirr (ቴሌብር)</option>
+                    <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
+                </select>
+            </div>
+
+            <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+                <p class="font-bold text-amber-400 mb-1">📌 የሂሳብ ቁጥር / አካውንት:</p>
+                <p>• ቴሌብር (Telebirr): <span class="font-black text-white">09xxxxxxxx</span></p>
+                <p>• ንግድ ባንክ (CBE): <span class="font-black text-white">1000xxxxxxxx</span></p>
+            </div>
+
+            <div>
+                <label class="text-[10px] text-slate-300 font-bold block mb-1">የሚጫኑትን መጠን (ETB)</label>
+                <input type="number" id="deposit-amount" placeholder="ለምሳሌ: 50" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+            </div>
+
+            <div>
+                <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ ማረጋገጫ (Transaction ID / Ref)</label>
+                <input type="text" id="deposit-txref" placeholder="የባንኩን ወይም የቴሌብር ትራንዛክሽን ቁጥር ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+            </div>
+
+            <button onclick="submitDeposit()" class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 mt-2">
+                ክፍያ አረጋግጥ (Submit Deposit)
+            </button>
+        </div>
+    </div>
+</div>
 
     <script>
         const sounds = {
