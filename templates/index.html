@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BKBINGO Pro</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -17,106 +16,98 @@
 </head>
 <body class="p-3 max-w-md mx-auto">
 
-    <!-- የድምፅ ማስታወቂያ ሰሌዳ ባነር (Audio Alert Banner) -->
-    <div class="mb-2.5 bg-amber-500 rounded-2xl p-2.5 flex items-center justify-between shadow-lg">
-        <div class="flex items-center gap-2 text-slate-950 font-bold text-xs">
-            <span>🔊</span>
-            <span>የድምፅ ማስታወቂያ ለማሰማት እዚህ ይጫኑ!</span>
-        </div>
-        <button onclick="enableAudio()" class="bg-slate-950 text-amber-400 font-black text-xs px-3 py-1.5 rounded-xl shadow cursor-pointer active:scale-95">
-            እነቃ (ENABLE)
-        </button>
-    </div>
-
-    <!-- የሜኑ ዳሽቦርድ (Menu Dashboard) -->
-    <div id="menu-dashboard" class="space-y-2.5 my-2">
-        <!-- ሄደር በሜኑ ሰዓት -->
-        <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3.5 flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xl shadow-lg">🎯</div>
-                <div>
-                    <h1 class="font-orbitron text-base font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
-                    <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO MINI APP</p>
-                </div>
-            </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-right">
-                <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
-                <div id="user-balance-disp" class="text-xs font-black text-emerald-400">50.00 ETB</div>
-            </div>
+    <!-- MAIN DASHBOARD -->
+    <div id="menu-dashboard" class="space-y-3 my-2">
+        <!-- ሰፋ እና ጎላ ያለ BKBINGO PRO ሄደር -->
+        <div class="relative overflow-hidden rounded-3xl border border-purple-500/40 glass-panel p-5 text-center shadow-xl">
+            <div class="w-14 h-14 mx-auto mb-2 rounded-2xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-2xl shadow-lg">🎯</div>
+            <h1 class="font-orbitron text-2xl font-black gold-gradient-text tracking-wider mb-1">BKBINGO PRO</h1>
+            <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
 
         <!-- 웰컴 ማስታወቂያ ባነር -->
-        <div class="p-3 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl relative overflow-hidden">
+        <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
             <div class="flex items-start gap-2.5">
                 <span class="text-xl">🌟</span>
                 <div>
                     <h2 class="text-xs font-black text-amber-400 mb-0.5">እንኳን ወደ BKBINGO PRO በደህና መጡ!</h2>
-                    <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! በጨዋታው መጀመሪያ <span class="text-emerald-400 font-bold">50 ብር ቦነስ</span> ተሰጥቶዎታል። መልካም እድል!</p>
+                    <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! በጨዋታው መጀመሪያ <span class="text-emerald-400 font-bold">50 ብር ቦነስ</span> ተሰጥቶዎታል።</p>
                 </div>
             </div>
         </div>
 
-        <button onclick="openGameSelection()" class="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-lg shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
-            <span class="text-base">🎲</span> ጨዋታ ጀምር (Open App)
+        <!-- ጨዋታውን ጀምር (Play) -->
+        <button onclick="openGameSelection()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
+            <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <div class="grid grid-cols-2 gap-2">
-            <button onclick="openProfile()" class="glass-panel p-2.5 rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left hover:border-purple-500/50 transition-all cursor-pointer active:scale-95">
-                <span class="text-sm bg-purple-500/20 p-2 rounded-lg">👤</span>
+        <!-- ግሪድ ሜኑዎች -->
+        <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="openRegisterModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-purple-500/50 transition-all cursor-pointer active:scale-95">
+                <span class="text-base bg-purple-500/20 p-2 rounded-xl">📝</span>
                 <div>
-                    <div class="text-[11px] font-black text-white">ፕሮፋይል / ባላንስ</div>
-                    <div class="text-[9px] text-purple-300">አካውንትዎ ይመልከቱ</div>
+                    <div class="text-xs font-black text-white">Register</div>
+                    <div class="text-[9px] text-purple-300">ይመዝገቡ</div>
                 </div>
             </button>
 
-            <button onclick="openDepositModal()" class="glass-panel p-2.5 rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left hover:border-emerald-500/50 transition-all cursor-pointer active:scale-95">
-                <span class="text-sm bg-emerald-500/20 p-2 rounded-lg">📥</span>
+            <button onclick="openBalanceModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-emerald-500/50 transition-all cursor-pointer active:scale-95">
+                <span class="text-base bg-emerald-500/20 p-2 rounded-xl">💰</span>
                 <div>
-                    <div class="text-[11px] font-black text-emerald-400">ዲፖዚት (Deposit)</div>
-                    <div class="text-[9px] text-slate-300">ብር ይጫኑ</div>
+                    <div class="text-xs font-black text-emerald-400">Balance</div>
+                    <div class="text-[9px] text-slate-300">ሂሳብዎ ይመልከቱ</div>
                 </div>
             </button>
 
-            <button onclick="openWithdrawModal()" class="glass-panel p-2.5 rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left hover:border-amber-500/50 transition-all cursor-pointer active:scale-95">
-                <span class="text-sm bg-amber-500/20 p-2 rounded-lg">📤</span>
+            <button onclick="openDepositModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-emerald-500/50 transition-all cursor-pointer active:scale-95">
+                <span class="text-base bg-emerald-500/20 p-2 rounded-xl">📥</span>
                 <div>
-                    <div class="text-[11px] font-black text-amber-400">ዊዝድሮ (Withdraw)</div>
-                    <div class="text-[9px] text-slate-300">ገንዘብ ያውጡ</div>
+                    <div class="text-xs font-black text-emerald-400">Deposit</div>
+                    <div class="text-[9px] text-slate-300">ብር ይጫኑ (Tele/CBE)</div>
                 </div>
             </button>
 
-            <button onclick="openReferral()" class="glass-panel p-2.5 rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left hover:border-blue-500/50 transition-all cursor-pointer active:scale-95">
-                <span class="text-sm bg-blue-500/20 p-2 rounded-lg">👥</span>
+            <button onclick="openWithdrawModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-amber-500/50 transition-all cursor-pointer active:scale-95">
+                <span class="text-base bg-amber-500/20 p-2 rounded-xl">📤</span>
                 <div>
-                    <div class="text-[11px] font-black text-blue-400">ሪፈራል / ግብዣ</div>
-                    <div class="text-[9px] text-slate-300">ወዳጅ ዘመድ ይጋብዙ</div>
+                    <div class="text-xs font-black text-amber-400">Withdraw</div>
+                    <div class="text-[9px] text-slate-300">ገንዘብ ያውጡ (Tele/CBE)</div>
                 </div>
             </button>
         </div>
 
-        <button onclick="openHistory()" class="w-full py-2.5 px-3.5 glass-panel rounded-xl border border-slate-700/80 flex items-center justify-between text-left hover:border-purple-500/40 transition-all cursor-pointer">
-            <div class="flex items-center gap-2.5">
-                <span class="text-sm bg-amber-600/20 p-2 rounded-lg">📜</span>
-                <span class="text-[11px] font-black text-white">የግብይት እና ጨዋታ ታሪክ (History)</span>
+        <!-- ታሪክ እና ሌሎች -->
+        <button onclick="openHistory()" class="w-full py-3 px-4 glass-panel rounded-2xl border border-slate-700/80 flex items-center justify-between text-left hover:border-purple-500/40 transition-all cursor-pointer">
+            <div class="flex items-center gap-3">
+                <span class="text-base bg-amber-600/20 p-2 rounded-xl">📜</span>
+                <div>
+                    <div class="text-xs font-black text-white">History</div>
+                    <div class="text-[9px] text-slate-300">የግብይት እና ጨዋታ ታሪክ</div>
+                </div>
             </div>
-            <span class="text-slate-400 text-xs font-bold">›</span>
+            <span class="text-slate-400 text-sm font-bold">›</span>
         </button>
 
-        <div class="grid grid-cols-2 gap-2">
-            <button onclick="openHelp()" class="py-2.5 px-3 glass-panel rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left cursor-pointer hover:border-slate-600 transition-all">
-                <span class="text-xs bg-slate-800 p-1.5 rounded-lg">ℹ️</span>
-                <span class="text-[10px] font-bold text-slate-300">እረዳት እና ህጎች</span>
+        <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="openInstruction()" class="py-3 px-3.5 glass-panel rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer hover:border-slate-600 transition-all">
+                <span class="text-sm bg-slate-800 p-2 rounded-xl">ℹ️</span>
+                <div>
+                    <div class="text-xs font-bold text-white">Instruction</div>
+                    <div class="text-[9px] text-slate-400">ህጎች እና መመሪያ</div>
+                </div>
             </button>
-            <button onclick="openSupport()" class="py-2.5 px-3 glass-panel rounded-xl border border-slate-700/80 flex items-center gap-2.5 text-left cursor-pointer hover:border-slate-600 transition-all">
-                <span class="text-xs bg-slate-800 p-1.5 rounded-lg">🎧</span>
-                <span class="text-[10px] font-bold text-slate-300">የደንበኞች አገልግሎት</span>
+            <button onclick="openSupport()" class="py-3 px-3.5 glass-panel rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer hover:border-slate-600 transition-all">
+                <span class="text-sm bg-slate-800 p-2 rounded-xl">🎧</span>
+                <div>
+                    <div class="text-xs font-bold text-white">Support</div>
+                    <div class="text-[9px] text-slate-400">የደንበኞች አገልግሎት</div>
+                </div>
             </button>
         </div>
     </div>
 
-    <!-- የካርቴላ መምረጫ ስክሪን (በምስል 3 መሰረት የተስተካከለ) -->
+    <!-- የካርቴላ መምረጫ ስክሪን -->
     <div id="selection-screen" class="hidden space-y-3">
-        <!-- ሄደር በጨዋታ መምረጫ ሰዓት -->
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
@@ -126,14 +117,13 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2 py-1 rounded-lg cursor-pointer">← ወደ ሜኑ</button>
-                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-1 rounded-xl text-right">
+                <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
+                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
                     <div id="user-balance-disp-2" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
                 </div>
             </div>
         </div>
 
-        <!-- 3ቱ የስታቲስቲክስ ሳጥኖች (እንደ ምስል 2/3) -->
         <div class="grid grid-cols-3 gap-2 text-center">
             <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/40">
                 <div class="text-[9px] text-slate-300 font-bold mb-1">የተሸጡ ካርቴላዎች</div>
@@ -149,18 +139,15 @@
             </div>
         </div>
 
-        <!-- የካርቴላ መምረጫ ርዕስ እና ዋጋ -->
         <div class="flex justify-between items-center px-1">
             <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
         
-        <!-- የካርቴላዎች ግሪድ -->
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
             <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 max-h-56 overflow-y-auto p-1"></div>
         </div>
 
-        <!-- የማስጠንቀቂያ ማስታወሻ -->
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
             ⚠️ በአንድ ዙር መግዛት የሚችሉት ቢበዛ 2 ካርቴላዎች ብቻ ነው።
         </div>
@@ -170,7 +157,6 @@
 
     <!-- ጨዋታው ሲጀመር የሚታይ ስክሪን -->
     <div id="game-screen" class="hidden space-y-3">
-        <!-- ሄደር በጨዋታ ሰዓት -->
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
@@ -185,7 +171,6 @@
             </div>
         </div>
 
-        <!-- 3ቱ የስታቲስቲክስ ሳጥኖች በጨዋታ ሰዓት -->
         <div class="grid grid-cols-3 gap-2 text-center">
             <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/40">
                 <div class="text-[9px] text-slate-300 font-bold mb-1">የተሸጡ ካርቴላዎች</div>
@@ -201,7 +186,6 @@
             </div>
         </div>
 
-        <!-- የደራሽ እና የተጠራ ቁጥር ባነር -->
         <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex justify-between items-center">
             <div>
                 <div class="text-[9px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
@@ -213,7 +197,6 @@
             </div>
         </div>
 
-        <!-- 75 የቁጥሮች ሰሌዳ -->
         <div class="glass-panel p-2.5 rounded-2xl border border-slate-700">
             <div class="text-[10px] font-bold text-slate-300 mb-1.5 text-center">የቁጥሮች ሰሌዳ (75 Balls)</div>
             <div id="bingo-75-grid" class="grid grid-cols-15 gap-1 text-center"></div>
@@ -222,41 +205,107 @@
         <div id="my-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- የዲፖዚት ሞዳል -->
+    <!-- 1. REGISTER MODAL -->
+    <div id="register-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-purple-400">📝 አዲስ አካውንት መመዝገቢያ (Register)</h3>
+                <button onclick="closeRegisterModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ሙሉ ስም (Full Name)</label>
+                    <input type="text" id="reg-fullname" placeholder="ሙሉ ስምዎን ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ዩዘርናም (Username)</label>
+                    <input type="text" id="reg-username" placeholder="Username ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ስልክ ቁጥር (Phone Number)</label>
+                    <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">ኢሜይል (Email)</label>
+                    <input type="email" id="reg-email" placeholder="example@gmail.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <button onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/30 mt-2 cursor-pointer">
+                    ምዝገባውን አጠናቅ (Register)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BALANCE MODAL -->
+    <div id="balance-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl text-center">
+            <div class="text-3xl mb-2">💰</div>
+            <h3 class="text-xs font-bold text-slate-300 mb-1">የአካውንትዎ ቀሪ ሂሳብ (Balance)</h3>
+            <div id="modal-balance-amount" class="text-2xl font-black text-emerald-400 mb-4">50.00 ETB</div>
+            <button onclick="closeBalanceModal()" class="w-full py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
+        </div>
+    </div>
+
+    <!-- 2. DEPOSIT MODAL (Telebirr & CBE) -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-black text-emerald-400">💳 አካውንትዎ ላይ ብር ይጫኑ</h3>
+                <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit)</h3>
                 <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
-            
             <div class="space-y-3 text-left">
                 <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ መንገድ ይምረጡ</label>
-                    <select id="pay-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ አማራጭ ይምረጡ</label>
+                    <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
                         <option value="Telebirr">Telebirr (ቴሌብር)</option>
                         <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
                     </select>
                 </div>
-
-                <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
-                    <p class="font-bold text-amber-400 mb-1">📌 የሂሳብ ቁጥር / አካውንት:</p>
-                    <p>• ቴሌብር (Telebirr): <span class="font-black text-white">09xxxxxxxx</span></p>
-                    <p>• ንግድ ባንክ (CBE): <span class="font-black text-white">1000xxxxxxxx</span></p>
+                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+                    <p class="font-bold text-amber-400 mb-1">📌 የገቢ ማድረጊያ ቁጥሮች:</p>
+                    <p>• ቴሌብር: <span class="font-black text-white">0912345678 (BKBINGO PRO)</span></p>
+                    <p>• ንግድ ባንክ (CBE): <span class="font-black text-white">1000888888888</span></p>
                 </div>
-
                 <div>
                     <label class="text-[10px] text-slate-300 font-bold block mb-1">የሚጫኑትን መጠን (ETB)</label>
-                    <input type="number" id="deposit-amount" placeholder="ለምሳሌ: 50" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                    <input type="number" id="deposit-amount" placeholder="ለምሳሌ: 100" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 </div>
-
                 <div>
-                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ ማረጋገጫ (Transaction ID / Ref)</label>
-                    <input type="text" id="deposit-txref" placeholder="የባንኩን ወይም የቴሌብር ትራንዛክሽን ቁጥር ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የክፍያ ማረጋገጫ ቁጥር (Transaction ID)</label>
+                    <input type="text" id="deposit-txref" placeholder="የባንክ ወይም የቴሌብር ሪፈረንስ ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 </div>
-
-                <button onclick="submitDeposit()" class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 mt-2 cursor-pointer">
+                <button onclick="submitDeposit()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 mt-1 cursor-pointer">
                     ክፍያ አረጋግጥ (Submit Deposit)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. WITHDRAW MODAL (Telebirr & CBE) -->
+    <div id="withdraw-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-amber-400">📤 ገንዘብ ማውጣት (Withdraw)</h3>
+                <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የገንዘብ መቀበያ አማራጭ</label>
+                    <select id="withdraw-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
+                        <option value="Telebirr">Telebirr (ቴሌብር)</option>
+                        <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የሂሳብ/ስልክ ቁጥር (Account/Phone No)</label>
+                    <input type="text" id="withdraw-account" placeholder="ገንዘቡ የሚላክበት ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-bold block mb-1">የሚወጣው መጠን (ETB)</label>
+                    <input type="number" id="withdraw-amount" placeholder="ቢያንስ 50 ብር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <button onclick="submitWithdraw()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 mt-1 cursor-pointer">
+                    ጥያቄ ላክ (Submit Withdraw)
                 </button>
             </div>
         </div>
@@ -273,7 +322,6 @@
         </div>
     </div>
 
-    <!-- ጃቫስክሪፕት ኮዶች -->
     <script>
         const sounds = {
             click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
@@ -289,27 +337,20 @@
             }
         }
 
-        function enableAudio() {
-            playSound('click');
-            alert("🔊 የድምፅ ማስታወቂያዎች በትክክል ገብተዋል!");
-        }
+        // Modal Open/Close Controls
+        function openRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.remove('hidden'); }
+        function closeRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.add('hidden'); }
 
-        let isAutoDaubEnabled = true;
+        function openBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.remove('hidden'); }
+        function closeBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.add('hidden'); }
 
-        function openDepositModal() {
-            playSound('click');
-            document.getElementById('deposit-modal').classList.remove('hidden');
-        }
+        function openDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.remove('hidden'); }
+        function closeDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.add('hidden'); }
 
-        function closeDepositModal() {
-            playSound('click');
-            document.getElementById('deposit-modal').classList.add('hidden');
-        }
+        function openWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.remove('hidden'); }
+        function closeWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.add('hidden'); }
 
-        function closeWinnerModal() {
-            playSound('click');
-            document.getElementById('winner-modal').classList.add('hidden');
-        }
+        function closeWinnerModal() { playSound('click'); document.getElementById('winner-modal').classList.add('hidden'); }
 
         function openGameSelection() {
             playSound('click');
@@ -323,58 +364,50 @@
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        function openProfile() {
-            playSound('click');
-            alert(`👤 የዩዘር መታወቂያ: ${userId}\n💰 አካውንት ባላንስ: 50.00 ETB (ቦነስ ተካትቷል)`);
-        }
+        function openHistory() { playSound('click'); alert("📜 እስካሁን ያደረጓቸው የግብይት እና የጨዋታ ታሪኮች እዚህ ይታያሉ።"); }
+        function openInstruction() { playSound('click'); alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።"); }
+        function openSupport() { playSound('click'); alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot"); }
 
-        function openWithdrawModal() {
-            playSound('click');
-            alert("📤 የገንዘብ ማውጣት (Withdrawal) ሲስተም በቅርብ ቀን ይፋ ይሆናል!");
-        }
+        function submitRegister() {
+            const fname = document.getElementById('reg-fullname').value.trim();
+            const uname = document.getElementById('reg-username').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
 
-        function openReferral() {
-            playSound('click');
-            alert("👥 ጓደኛዎን በመጋበዝ ቦነስ ያግኙ! የሪፈራል ሊንክዎ በቅርብ ቀን ይደርሰዎታል።");
-        }
-
-        function openHistory() {
-            playSound('click');
-            alert("📜 እስካሁን ያደረጓቸው የጨዋታ እና የዲፖዚት ታሪኮች እዚህ ይታያሉ።");
-        }
-
-        function openHelp() {
-            playSound('click');
-            alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።");
-        }
-
-        function openSupport() {
-            playSound('click');
-            alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot");
+            if (!fname || !uname || !phone) {
+                playSound('error');
+                return alert("⚠️ እባክዎ必要的 መረጃዎችን ሙሉ በሙሉ ይሙሉ!");
+            }
+            playSound('win');
+            alert("✅ ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!");
+            closeRegisterModal();
         }
 
         function submitDeposit() {
             const amount = parseFloat(document.getElementById('deposit-amount').value);
             const txRef = document.getElementById('deposit-txref').value.trim();
-            const method = document.getElementById('pay-method').value;
+            const method = document.getElementById('deposit-method').value;
 
-            if (!amount || amount <= 0) {
+            if (!amount || amount <= 0 || !txRef) {
                 playSound('error');
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን ያስገቡ!");
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የክፍያ ማረጋገጫ ቁጥር ያስገቡ!");
             }
-            if (!txRef) {
-                playSound('error');
-                return alert("⚠️ እባክዎ የትራንዛክሽን ማረጋገጫ ቁጥር (Transaction ID) ያስገቡ!");
-            }
-
-            socket.emit('request_deposit', {
-                user_id: userId,
-                amount: amount,
-                tx_ref: txRef,
-                method: method
-            });
-
+            socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
+        }
+
+        function submitWithdraw() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            const account = document.getElementById('withdraw-account').value.trim();
+            const method = document.getElementById('withdraw-method').value;
+
+            if (!amount || amount <= 0 || !account) {
+                playSound('error');
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!");
+            }
+            playSound('win');
+            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል! በቅርብ ቀን ይጸድቃል።`);
+            closeWithdrawModal();
         }
 
         const socket = io();
@@ -401,7 +434,8 @@
         socket.on('balance_update', (data) => {
             if(parseInt(data.user_id) === userId) {
                 const bStr = `${parseFloat(data.balance).toFixed(2)} ETB`;
-                document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+                document.getElementById('modal-balance-amount').innerText = bStr;
+                document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
                     if(el) el.innerText = bStr;
                 });
             }
@@ -411,7 +445,8 @@
             playSound('win');
             alert(data.msg);
             const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-            document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+            document.getElementById('modal-balance-amount').innerText = bStr;
+            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
                 if(el) el.innerText = bStr;
             });
             document.getElementById('deposit-amount').value = '';
@@ -466,7 +501,8 @@
             initCartelaGrid();
             renderPreviewCards();
             const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-            document.querySelectorAll('#user-balance-disp, #user-balance-disp-2, #user-balance-disp-3').forEach(el => {
+            document.getElementById('modal-balance-amount').innerText = bStr;
+            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => {
                 if(el) el.innerText = bStr;
             });
         });
@@ -563,31 +599,6 @@
             if(container) {
                 container.innerHTML = '';
                 mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
-            }
-        });
-
-        socket.on('new_number', (data) => {
-            drawnNumbersSet.add(data.ball);
-            const ballEl = document.getElementById('current-ball');
-            if(ballEl) ballEl.innerText = data.display;
-            const ballsCountEl = document.getElementById('game-balls-count');
-            if(ballsCountEl) ballsCountEl.innerText = `${drawnNumbersSet.size}/75`;
-
-            if (isAutoDaubEnabled) {
-                mySelectedCards.forEach(cid => {
-                    if (cardsDatabase[cid]) {
-                        cardsDatabase[cid].forEach(row => {
-                            row.forEach(val => {
-                                if (val === data.ball) {
-                                    if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                                    markedNumbersMap[cid].add(val);
-                                    const cellEl = document.getElementById(`card-${cid}-val-${val}`);
-                                    if (cellEl) cellEl.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 scale-105 transition-all';
-                                }
-                            });
-                        });
-                    }
-                });
             }
         });
 
