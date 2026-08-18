@@ -626,6 +626,58 @@
             updateCalledNumbersUI();
             playSound('click');
         });
+        // ቁጥር ሲጠራ የሚከናወን
+        socket.on('number_drawn', (data) => {
+            const num = data.number;
+            drawnNumbersSet.add(num);
+            
+            let prefix = 'N';
+            if(num <= 15) prefix = 'B';
+            else if(num <= 30) prefix = 'I';
+            else if(num <= 45) prefix = 'N';
+            else if(num <= 60) prefix = 'G';
+            else prefix = 'O';
+
+            const circle = document.getElementById('current-ball-circle');
+            if(circle) circle.innerText = `${prefix}-${num}`;
+            
+            // Auto Daub ሎጂክ (አውቶማቲክ ቁጥር መያዣ)
+            // በምስሉ ላይ እንደሚታየው id ው 'auto-check-game' ወይም 'auto-check' ሊሆን ስለሚችል ሁለቱንም እንፈትሻለን
+            const isAutoChecked = document.getElementById('auto-check-game')?.checked || document.getElementById('auto-check')?.checked;
+            
+            if (isAutoChecked) {
+                mySelectedCards.forEach(cid => {
+                    const matrix = cardsDatabase[cid];
+                    if (matrix) {
+                        matrix.forEach(row => {
+                            if (row.includes(num)) {
+                                if (!markedNumbersMap[cid]) {
+                                    markedNumbersMap[cid] = new Set();
+                                }
+                                markedNumbersMap[cid].add(num);
+                            }
+                        });
+                    }
+                });
+                
+                // ካርቴላዎቹን እንደገና በማደስ የተመረጡትን በራስ-ሰር በቀለም (Green/Active) ማሳየት
+                const container = document.getElementById('my-cards-container');
+                if(container && container.children.length > 0) {
+                    container.innerHTML = '';
+                    mySelectedCards.forEach(cid => {
+                        container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                    });
+                }
+            }
+
+            if (typeof updateCalledNumbersUI === 'function') {
+                updateCalledNumbersUI();
+            }
+        });
+
+
+
+        
 
         socket.on('winner_announced', (data) => {
             playSound('win');
