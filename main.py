@@ -5,16 +5,16 @@ import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
-socketio = SocketIO(app, cors_allowed_origins="*")
+# async_mode='threading' በማድረግ የሰዓት ቆጣሪውን ፍሰት የተረጋጋ እናደርገዋለን
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# የውሸት ዳታቤዝ (Memory Storage)
+# ዳታቤዝ እና የጨዋታ ሁኔታዎች (Memory Storage)
 user_balances = {}       # {user_id: balance}
 taken_cards_global = []  # በወቅቱ የተያዙ ካርቴላዎች
 game_timer = 15          # የሰዓት ቆጣሪ (ሰከንድ)
 game_active = False      # ጨዋታው እየተካሄደ መሆኑን ማረጋገጫ
 sold_cards_in_round = [] # በዚህ ዙር የተሸጡ ካርቴላዎች
 drawn_balls = []         # የወጡ ኳሶች
-current_draw_thread = None
 
 # ተጠቃሚ ሲገባ 10 ብር ቦነስ የሚሰጥበት እና ባላንስ የሚያነብበት
 @socketio.on('get_user_balance')
@@ -29,6 +29,8 @@ def handle_get_balance(data):
     
     emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
     emit('update_selected_cards', {'taken_cards': taken_cards_global})
+    # አዲስ ገቢ ሲኖር ወቅታዊውን ታይመር እና የተሸጡ ካርቴላዎች ቁጥር ወዲያውኑ እንልካለን
+    emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
 
 # ካርቴላ መምረጫ
 @socketio.on('select_card')
@@ -63,8 +65,9 @@ def handle_select_card(data):
     matrix = generate_bingo_matrix(card_id)
 
     emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
-    emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': user_balances[user_id]}, broadcast=True)
+    emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': user_balances[user_id]})
     socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
+    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
 
 def generate_bingo_matrix(seed_val):
     import random
@@ -81,29 +84,37 @@ def generate_bingo_matrix(seed_val):
         matrix.append([b[row], i[row], n[row], g[row], o[row]])
     return matrix
 
-# የሰዓት ቆጣሪ እና የጨዋታ ሉፕ (Background Thread)
+# የሰዓት ቆጣሪ እና የጨዋታ ሉፕ (Background Thread) - የተስተካከለ
 def game_timer_loop():
     global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls
     while True:
-        if not game_active:
-            if game_timer > 0:
-                time.sleep(1)
-                game_timer -= 1
-                socketio.emit('timer_update', {
-                    'time_left': game_timer,
-                    'sold_count': len(sold_cards_in_round)
-                })
-            else:
-                # ሰዓቱ ሲያልቅ ካርቴላዎች ከተሸጡ ጨዋታው ይጀምራል
-                if len(sold_cards_in_round) > 0:
-                    game_active = True
-                    derash = len(sold_cards_in_round) * 10.00 * 0.8  # 20% የቤት ድርሻ ሲቀነስ
-                    socketio.emit('game_started', {'derash': derash})
-                    run_game_draw()
+        try:
+            if not game_active:
+                if game_timer > 0:
+                    time.sleep(1)
+                    game_timer -= 1
+                    socketio.emit('timer_update', {
+                        'time_left': game_timer,
+                        'sold_count': len(sold_cards_in_round)
+                    })
                 else:
-                    # ካርቴላ ካልተገዛ ጨዋታውን ላለማቆም ሰዓቱን ራሱ ወደ 15 ሰከንድ ይመልሰዋል
-                    game_timer = 15
-        else:
+                    # ሰዓቱ ሲያልቅ ካርቴላዎች ከተሸጡ ጨዋታው ይጀምራል
+                    if len(sold_cards_in_round) > 0:
+                        game_active = True
+                        derash = len(sold_cards_in_round) * 10.00 * 0.8  # 20% የቤት ድርሻ ሲቀነስ
+                        socketio.emit('game_started', {'derash': derash})
+                        run_game_draw()
+                    else:
+                        # ካርቴላ ካልተገዛ ሰዓቱን ወደ 15 ሰከንድ በመመለስ ማቆየት
+                        game_timer = 15
+                        socketio.emit('timer_update', {
+                            'time_left': game_timer,
+                            'sold_count': len(sold_cards_in_round)
+                        })
+            else:
+                time.sleep(1)
+        except Exception as e:
+            print("Timer Error:", e)
             time.sleep(1)
 
 def run_game_draw():
@@ -133,7 +144,6 @@ def handle_claim_bingo(data):
     card_id = data.get('card_id')
     board = data.get('board') # 5x5 boolean matrix ከፍሮንትኤንድ የሚመጣ
 
-    # የቢንጎ መስመር መሟላቱን በሰርቨር ማረጋገጥ
     if check_bingo_win(board):
         game_active = False
         prize = len(sold_cards_in_round) * 10.00 * 0.8
@@ -155,13 +165,10 @@ def handle_claim_bingo(data):
         emit('bingo_response', {'status': 'fail', 'message': '❌ ቢንጎ አልተሟላም! እባክዎ በትክክል ይጫኑ።'})
 
 def check_bingo_win(board):
-    # ረድፎች (Rows)
     for r in range(5):
         if all(board[r][c] for c in range(5)): return True
-    # አምዶች (Columns)
     for c in range(5):
         if all(board[r][c] for r in range(5)): return True
-    # ሰያፍ (Diagonals)
     if all(board[i][i] for i in range(5)): return True
     if all(board[i][4-i] for i in range(5)): return True
     return False
@@ -181,6 +188,7 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    # የሰዓት ቆጣሪውን በጀርባ (Background) ማስጀመር
-    threading.Thread(target=game_timer_loop, daemon=True).start()
+    # ሰዓት ቆጣሪውን በጀርባ (Background) ማስጀመር
+    timer_thread = threading.Thread(target=game_timer_loop, daemon=True)
+    timer_thread.start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
