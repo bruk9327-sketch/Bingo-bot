@@ -162,7 +162,6 @@
 
     <!-- 3. LIVE GAME SCREEN -->
     <div id="game-screen" class="hidden space-y-2.5">
-        <!-- Top Navigation Status Bar -->
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-2.5 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-xs shadow-lg">🎯</div>
@@ -183,7 +182,6 @@
             </div>
         </div>
 
-        <!-- 3 Stats Cards -->
         <div class="grid grid-cols-3 gap-1.5 text-center">
             <div class="glass-panel p-2 rounded-xl border border-amber-500/40">
                 <div class="text-[8px] text-slate-300 font-bold mb-0.5">የተሸጡ ካርቴላዎች</div>
@@ -199,7 +197,6 @@
             </div>
         </div>
 
-        <!-- Prize & Larger Current Ball Header Bar -->
         <div class="grid grid-cols-2 gap-1.5">
             <div class="glass-panel p-2.5 rounded-xl border border-emerald-500/40 flex flex-col justify-center">
                 <div class="text-[8px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
@@ -210,27 +207,18 @@
                     <div class="text-[7px] text-slate-400">የተጠራው ቁጥር</div>
                     <div class="text-[9px] text-purple-300 font-bold">የወጣ</div>
                 </div>
-                <!-- Enlarged Ball Circle (w-14 h-14, text-sm) -->
                 <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-500 border-2 border-purple-400 flex items-center justify-center font-black text-sm shadow-xl text-white" id="current-ball-circle">
                     --
                 </div>
             </div>
         </div>
 
-        <!-- OPTIMIZED GRID: Narrower Called Numbers (col-span-4) & Wider Player Card(s) (col-span-8) -->
         <div class="grid grid-cols-12 gap-2 items-start">
-            
-            <!-- Left Side: Called Numbers Vertical List (Narrower -> col-span-4) -->
             <div class="col-span-4 glass-panel p-1.5 rounded-xl border border-purple-500/30">
                 <div class="text-[10px] font-bold text-slate-300 mb-1 text-center">የወጡ ቁጥሮች</div>
-                <div class="max-h-[350px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board">
-                    <!-- Dynamically injected via JS -->
-                </div>
+                <div class="max-h-[350px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board"></div>
             </div>
-
-            <!-- Right Side: My Cards Section (Wider -> col-span-8) -->
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
-
         </div>
     </div>
 
@@ -347,7 +335,13 @@
         function closeDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.add('hidden'); }
         function openWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.remove('hidden'); }
         function closeWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.add('hidden'); }
-        function closeWinnerModal() { playSound('click'); document.getElementById('winner-modal').classList.add('hidden'); }
+        
+        function closeWinnerModal() { 
+            playSound('click'); 
+            document.getElementById('winner-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
+        }
 
         function openGameSelection() {
             playSound('click');
@@ -679,7 +673,7 @@
             markedNumbersMap = {};
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('menu-dashboard').classList.remove('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
             const previewContainer = document.getElementById('preview-cards-container');
             if(previewContainer) previewContainer.innerHTML = '';
             initCartelaGrid();
