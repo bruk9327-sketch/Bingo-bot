@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>BKBINGO PRO</title>
-    <div class="logo-title">BKBINGO PRO</div>
+    <title>BKBINGO PRO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -161,7 +160,7 @@
         <div id="preview-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- 3. LIVE GAME SCREEN (ልክ እንደ ምስል 3) -->
+    <!-- 3. LIVE GAME SCREEN (እንደ ምስል 4 የተስተካከለ) -->
     <div id="game-screen" class="hidden space-y-3">
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -198,7 +197,7 @@
             </div>
         </div>
 
-        <!-- የሽልማት ደራሽ እና የተጠራው ቁጥር ክበብ (እንደ ምስል 3) -->
+        <!-- የሽልማት ደራሽ እና የተጠራው ቁጥር ክበብ -->
         <div class="grid grid-cols-2 gap-2">
             <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex flex-col justify-center">
                 <div class="text-[9px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
@@ -215,18 +214,21 @@
             </div>
         </div>
 
-        <!-- የተጠሩ ቁጥሮች ዝርዝር (Called Numbers List) ከካርቴላው ጎን/ላይ እንዲታይ -->
-        <div class="glass-panel p-3 rounded-2xl border border-purple-500/30">
-            <div class="text-[11px] font-bold text-purple-300 mb-2 flex justify-between items-center">
-                <span>📋 የተጠሩ ቁጥሮች ዝርዝር</span>
-                <span id="called-list-count" class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-lg text-purple-200">0 ተጠርተዋል</span>
+        <!-- የተጠሩ ቁጥሮች ዝርዝር (Called Numbers List - እንደ ምስል 4 ከግራ በጎን በቁት የሚወርድ) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div class="glass-panel p-3 rounded-2xl border border-purple-500/30 flex flex-col">
+                <div class="text-[11px] font-bold text-purple-300 mb-2 flex justify-between items-center">
+                    <span>📋 የተጠሩ ቁጥሮች ዝርዝር</span>
+                    <span id="called-list-count" class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-lg text-purple-200">0 ተጠርተዋል</span>
+                </div>
+                <div id="called-numbers-list" class="flex flex-col gap-1.5 overflow-y-auto max-h-52 pr-1 scrollbar-thin">
+                    <span class="text-[10px] text-slate-400 italic">ገና አልተጀመረም...</span>
+                </div>
             </div>
-            <div id="called-numbers-list" class="flex gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin min-h-[42px] items-center">
-                <span class="text-[10px] text-slate-400 italic">ገና አልተጀመረም...</span>
+            <div class="md:col-span-2">
+                <div id="my-cards-container" class="space-y-3"></div>
             </div>
         </div>
-
-        <div id="my-cards-container" class="space-y-3"></div>
     </div>
 
     <!-- MODALS -->
@@ -595,7 +597,7 @@
                 return;
             }
 
-            Array.from(drawnNumbersSet).forEach(num => {
+            Array.from(drawnNumbersSet).reverse().forEach(num => {
                 let prefix = 'N';
                 if(num <= 15) prefix = 'B';
                 else if(num <= 30) prefix = 'I';
@@ -604,33 +606,15 @@
                 else prefix = 'O';
 
                 const badge = document.createElement('div');
-                badge.className = 'flex-shrink-0 bg-gradient-to-tr from-purple-800 to-indigo-600 border border-purple-400/50 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow-md text-center';
+                badge.className = 'bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/50 text-slate-950 font-black text-xs py-2 px-3 rounded-xl shadow-md text-center';
                 badge.innerText = `${prefix}-${num}`;
                 listContainer.appendChild(badge);
             });
-            listContainer.scrollLeft = listContainer.scrollWidth;
         }
 
         socket.on('number_drawn', (data) => {
             const num = data.number;
             drawnNumbersSet.add(num);
-            let prefix = 'N';
-            if(num <= 15) prefix = 'B';
-            else if(num <= 30) prefix = 'I';
-            else if(num <= 45) prefix = 'N';
-            else if(num <= 60) prefix = 'G';
-            else prefix = 'O';
-
-            const circle = document.getElementById('current-ball-circle');
-            if(circle) circle.innerText = `${prefix}-${num}`;
-            
-            updateCalledNumbersUI();
-            playSound('click');
-        });
-        // ቁጥር ሲጠራ የሚከናወን
-        socket.on('number_drawn', (data) => {
-            const num = data.number;
-            drawnNumbersSet.add(num);
             
             let prefix = 'N';
             if(num <= 15) prefix = 'B';
@@ -642,8 +626,6 @@
             const circle = document.getElementById('current-ball-circle');
             if(circle) circle.innerText = `${prefix}-${num}`;
             
-            // Auto Daub ሎጂክ (አውቶማቲክ ቁጥር መያዣ)
-            // በምስሉ ላይ እንደሚታየው id ው 'auto-check-game' ወይም 'auto-check' ሊሆን ስለሚችል ሁለቱንም እንፈትሻለን
             const isAutoChecked = document.getElementById('auto-check-game')?.checked || document.getElementById('auto-check')?.checked;
             
             if (isAutoChecked) {
@@ -661,7 +643,6 @@
                     }
                 });
                 
-                // ካርቴላዎቹን እንደገና በማደስ የተመረጡትን በራስ-ሰር በቀለም (Green/Active) ማሳየት
                 const container = document.getElementById('my-cards-container');
                 if(container && container.children.length > 0) {
                     container.innerHTML = '';
@@ -674,11 +655,8 @@
             if (typeof updateCalledNumbersUI === 'function') {
                 updateCalledNumbersUI();
             }
+            playSound('click');
         });
-
-
-
-        
 
         socket.on('winner_announced', (data) => {
             playSound('win');
