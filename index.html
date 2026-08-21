@@ -2,292 +2,60 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BKBINGO Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ካርቴላ መረጫ</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-            color: #fff; 
-            min-height: 100vh; 
-        }
-        .font-orbitron { font-family: 'Orbitron', sans-serif; }
-        .glass-panel { 
-            background: rgba(30, 41, 59, 0.7); 
-            backdrop-filter: blur(16px); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        .gold-gradient-text { 
-            background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-        }
-        .ball-glow { 
-            background: radial-gradient(circle at 30% 30%, #a855f7 0%, #6b21a8 60%, #3b0764 100%);
-            box-shadow: 0 0 25px rgba(168, 85, 247, 0.6);
-        }
-        .card-btn-selected { 
-            background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important; 
-            color: #ffffff !important; 
-            border-color: #34d399 !important;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-        }
-        .card-btn-taken {
-            background: #334155 !important;
-            color: #64748b !important;
-            border-color: #475569 !important;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-        .bingo-hit { 
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; 
-            color: #ffffff !important; 
-            font-weight: 800 !important;
-            box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.6);
-        }
-        .bingo-header-b { background: #ef4444; color: #fff; }
-        .bingo-header-i { background: #3b82f6; color: #fff; }
-        .bingo-header-n { background: #eab308; color: #000; }
-        .bingo-header-g { background: #10b981; color: #fff; }
-        .bingo-header-o { background: #a855f7; color: #fff; }
-        .stat-card {
-            border-radius: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .bingo-cell-custom {
-            font-size: 14px; 
-            font-weight: 500; 
-            padding: 10px 2px;
-        }
-    </style>
 </head>
-<body class="select-none pb-10 px-3">
-    <!-- ድምፅ ማስታወቂያ ማስተካከያ -->
-    <div id="audio-banner" class="bg-amber-500 border border-amber-400 my-1 px-3 py-1.5 flex justify-between items-center shadow-lg rounded-xl animate-pulse">
-        <span class="text-slate-950 font-black text-xs">🔊 ድምፅ ለማንቃት እዚህ ይጫኑ!</span>
-        <button onclick="enableAudioSystem()" class="bg-slate-950 text-amber-400 px-2.5 py-1 rounded-lg font-black text-[10px] shadow">አንቃ</button>
-    </div>
+<body class="bg-slate-950 text-white min-h-screen p-4">
 
-    <!-- setHeader -->
-    <div class="relative overflow-hidden rounded-2xl mt-1 mb-2 border border-purple-500/35 glass-panel">
-        <div class="p-3 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-lg shadow-lg">🎯</div>
-                <div>
-                    <h1 class="font-orbitron text-base font-black gold-gradient-text tracking-wider">BKBINGO PRO</h1>
-                    <p class="text-[9px] text-purple-300/80">LIVE CASINO BINGO</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="bg-slate-800/80 border border-slate-700 px-2 py-1 rounded-xl flex items-center gap-1">
-                    <span class="text-[9px] text-slate-300 font-bold">Auto</span>
-                    <input type="checkbox" id="auto-daub-toggle" class="w-4 h-4 accent-emerald-500 cursor-pointer" onchange="toggleAutoDaub(this)">
-                </div>
-                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
-                    <div class="text-[9px] text-emerald-300 font-bold">ሒሳብ (BAL)</div>
-                    <div id="user-balance-disp" class="text-xs font-black text-emerald-400">10.00 ETB</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="grid grid-cols-3 gap-2 mb-2 text-center text-xs font-bold">
-        <div class="glass-panel stat-card border-l-4 border-amber-400">
-            <span class="text-[9px] text-slate-400 block mb-0.5">የተሸጡ ካርቴላዎች</span>
-            <span id="sold-count" class="text-amber-400 text-sm font-black">0</span>
-        </div>
-        <div class="glass-panel stat-card border-l-4 border-rose-500">
-            <span class="text-[9px] text-slate-400 block mb-0.5">የቀረ ጊዜ</span>
-            <span id="timer" class="text-rose-400 text-sm font-black">15s</span>
-        </div>
-        <div class="glass-panel stat-card border-l-4 border-purple-500">
-            <span class="text-[9px] text-slate-400 block mb-0.5">የወጡ ኳሶች</span>
-            <span id="balls-count" class="text-purple-300 text-sm font-black">0/75</span>
-        </div>
-    </div>
-
-    <!-- Selection Screen -->
-    <div id="selection-screen">
-        <div class="flex justify-between items-center mb-2 px-1">
-            <span class="text-xs font-bold text-slate-300">ካርቴላ ይምረጡ (1-104)</span>
-            <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">ዋጋ: 10 ETB</span>
-        </div>
-
-        <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 glass-panel p-3 rounded-2xl max-h-[35vh] overflow-y-auto border border-slate-800"></div>
-        <p class="text-center text-[10px] text-slate-400 my-2">🎁 ለመጀመርያ ጊዜ 10 ብር ቦነስ ተሰጥቶዎታል! በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።</p>
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6 text-center text-purple-400">ካርቴላ መረጫ</h1>
         
-        <div id="preview-cards-container" class="grid grid-cols-1 gap-2 mt-2"></div>
-    </div>
-
-    <!-- Game Screen -->
-    <div id="game-screen" class="hidden mt-2">
-        <div class="glass-panel p-3 rounded-2xl mb-2 flex justify-between items-center border border-emerald-500/30">
-            <div>
-                <span class="text-[9px] text-slate-400 block">የአሸናፊው ደራሽ (PRIZE)</span>
-                <span class="text-base font-black text-emerald-400" id="derash-amount">0 ETB</span>
-            </div>
-            <div class="text-right">
-                <span class="text-[9px] text-slate-400 block">የተጠራው ኳስ</span>
-                <span id="game-balls-count" class="text-xs font-bold text-purple-300">0/75</span>
-            </div>
-        </div>
-
-        <div class="flex gap-2">
-            <div class="w-1/3 glass-panel rounded-2xl p-1.5 border border-slate-800">
-                <div class="text-[9px] font-bold text-center text-slate-400 mb-1">የወጡ ቁጥሮች</div>
-                <div id="bingo-75-grid" class="grid grid-cols-1 gap-1 text-center text-[9px] max-h-[40vh] overflow-y-auto"></div>
-            </div>
-
-            <div class="w-2/3 flex flex-col items-center">
-                <div id="current-ball" class="w-20 h-20 rounded-full ball-glow flex items-center justify-center text-lg font-black mb-2 border-2 border-purple-300/50 transform transition-all duration-300 text-center px-1">
-                    READY
-                </div>
-                <div id="my-cards-container" class="w-full space-y-3"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Winner Modal -->
-    <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm text-center border-2 border-amber-400 shadow-2xl">
-            <div class="text-4xl mb-1">🎉</div>
-            <div class="text-lg font-black gold-gradient-text" id="winner-name">Winner</div>
-            <div id="winner-prize" class="text-3xl font-black text-emerald-400 my-2">0 ETB</div>
-            
-            <div class="text-[11px] font-bold text-slate-300 mt-3 mb-1">የአሸናፊው ካርቴላ</div>
-            <div id="winner-card-matrix" class="glass-panel p-2 rounded-2xl my-2 border border-slate-700"></div>
-            <div class="text-[10px] text-slate-400 mt-3">አዲስ ዙር በቅርቡ ይጀምራል...</div>
+        <!-- ካርቴላዎች የሚቀመጡበት ግሪድ -->
+        <div id="cartela-grid" class="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-13 gap-2">
+            <!-- አዝራሮች እዚህ በጃቫስክሪፕት ይፈጠራሉ -->
         </div>
     </div>
 
     <script>
-        const sounds = {
-            click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
-            win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
-            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3')
-        };
+        // ለሙከራ የሚሆኑ ተለዋዋጮች (ከሴርቨር የሚመጡትን እነዚህን መጠቀም ይቻላል)
+        let mySelectedCards = []; 
+        let takenCards = []; 
+        const userId = "user123";
 
-        function playSound(name) {
-            if (sounds[name]) {
-                sounds[name].currentTime = 0;
-                sounds[name].volume = 0.5;
-                sounds[name].play().catch(e => console.log(e));
-            }
-        }
-
-        let speechUnlocked = false;
-        let isAutoDaubEnabled = false;
-
-        function toggleAutoDaub(cb) { isAutoDaubEnabled = cb.checked; playSound('click'); }
-        function enableAudioSystem() {
-            if ('speechSynthesis' in window) {
-                const u = new SpeechSynthesisUtterance("ድምፅ ተጀምሯል");
-                u.lang = 'am-ET';
-                window.speechSynthesis.speak(u);
-                speechUnlocked = true;
-                document.getElementById('audio-banner').style.display = 'none';
-            }
-        }
-
-        function speakNumber(ballNum) {
-            if (!('speechSynthesis' in window)) return;
-            let letter = ballNum <= 15 ? 'ቢ' : (ballNum <= 30 ? 'አይ' : (ballNum <= 45 ? 'ኤን' : (ballNum <= 60 ? 'ጂ' : 'ኦ')));
-            try {
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(`${letter} ${ballNum}`);
-                u.lang = 'am-ET';
-                u.rate = 0.85;
-                window.speechSynthesis.speak(u);
-            } catch(e) {}
-        }
-
-        const socket = io();
-        let userId = null;
-        let takenCards = [];
-
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
-            window.Telegram.WebApp.expand();
-        } else {
-            const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || Math.floor(Math.random() * 1000000);
-        }
-
-        let mySelectedCards = [];
-        let drawnNumbersSet = new Set();
-        let markedNumbersMap = {};
-        let cardsDatabase = {};
-
-        socket.on('connect', () => {
-            socket.emit('get_user_balance', { user_id: userId });
-        });
-
-        socket.on('balance_update', (data) => {
-            if(parseInt(data.user_id) === userId) {
-                document.getElementById('user-balance-disp').innerText = `${parseFloat(data.balance).toFixed(2)} ETB`;
-            }
-        });
-
-        socket.on('error_msg', (data) => {
-            playSound('error');
-            alert("⚠️ " + data.msg);
-        });
-
-        socket.on('bingo_response', (data) => {
-            if (data.status === 'success') playSound('win');
-            else playSound('error');
-            alert(data.message);
-        });
-
-        function getFrontendLetterAndDisplay(num) {
-            return num <= 15 ? `B-${num}` : (num <= 30 ? `I-${num}` : (num <= 45 ? `N-${num}` : (num <= 60 ? `G-${num}` : `O-${num}`)));
-        }
-
-        function init75Grid() {
-            const grid = document.getElementById('bingo-75-grid');
-            grid.innerHTML = '';
-            for(let i=1; i<=75; i++) {
-                const cell = document.createElement('div');
-                cell.id = `ball-cell-${i}`;
-                cell.className = 'p-1 bg-slate-800/80 rounded text-slate-400 font-bold text-[9px]';
-                cell.innerText = getFrontendLetterAndDisplay(i);
-                grid.appendChild(cell);
-            }
-        }
-
+        // የካርቴላ ግሪድን የሚፈጥር ፈንክሽን
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
-            gridContainer.innerHTML = '';
+            
+            // መፍትሄ፡ DOM-ው ገና ካልተጫነ ትንሽ ቆይቶ እንደገና ይሞክራል
+            if (!gridContainer) {
+                setTimeout(initCartelaGrid, 100);
+                return;
+            }
+
+            gridContainer.innerHTML = ''; // ማጽጃ
+
             for (let i = 1; i <= 104; i++) {
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
                 const isTaken = takenCards.includes(i) && !isSelected;
 
                 if (isTaken) {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border card-btn-taken';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
                     btn.disabled = true;
                 } else if (isSelected) {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border card-btn-selected';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
                 } else {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95 cursor-pointer';
                     btn.onclick = () => {
                         if (mySelectedCards.length >= 2) {
-                            playSound('error');
-                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                            alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                            return;
                         }
-                        playSound('click');
-                        socket.emit('select_card', { user_id: userId, card_id: i });
+                        // እዚህ ቦታ ላይ socket.emit('select_card', ...) ማስገባት ይቻላል
+                        console.log("ካርቴላ ተመረጠ፡ " + i);
+                        mySelectedCards.push(i);
+                        initCartelaGrid(); // አፕዴት ለማድረግ
                     };
                 }
                 btn.innerText = i;
@@ -295,205 +63,8 @@
             }
         }
 
-        socket.on('update_selected_cards', (data) => {
-            takenCards = data.taken_cards || [];
-            initCartelaGrid();
-        });
-
-        socket.on('card_confirmed', (data) => {
-            playSound('click');
-            if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
-            cardsDatabase[data.card_id] = data.matrix;
-            if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
-            initCartelaGrid();
-            renderPreviewCards();
-            document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-        });
-
-        function createCardHTML(cid, matrix, isPlayMode = false) {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-3 rounded-2xl w-full border border-slate-700/80';
-            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-2 text-center">ካርቴላ #${cid}</div>`;
-
-            const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-2 rounded-xl mb-2.5';
-
-            ['B','I','N','G','O'].forEach((h, idx) => {
-                const cls = ['bingo-header-b','bingo-header-i','bingo-header-n','bingo-header-g','bingo-header-o'][idx];
-                const hCell = document.createElement('div');
-                hCell.className = `p-1 rounded-lg font-black text-[11px] ${cls}`;
-                hCell.innerText = h;
-                mGrid.appendChild(hCell);
-            });
-
-            matrix.forEach(row => {
-                row.forEach(val => {
-                    const cell = document.createElement('div');
-                    if(isPlayMode) cell.id = `card-${cid}-val-${val}`;
-                    const isFree = val === 'FREE';
-                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
-
-                    cell.className = `rounded-lg bingo-cell-custom transition-all ${isFree ? 'bg-amber-500 text-slate-950 font-black text-[12px]' : (isMarked ? 'bingo-hit' : 'bg-slate-800/90 text-slate-250 cursor-pointer')}`;
-                    cell.innerText = val;
-
-                    if (isPlayMode && !isFree) {
-                        cell.onclick = () => {
-                            if (!drawnNumbersSet.has(val)) {
-                                playSound('error');
-                                return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
-                            }
-                            playSound('click');
-                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                            markedNumbersMap[cid].add(val);
-                            cell.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
-                        };
-                    }
-                    mGrid.appendChild(cell);
-                });
-            });
-
-            cardDiv.appendChild(mGrid);
-
-            if (isPlayMode) {
-                const claimBtn = document.createElement('button');
-                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 border border-emerald-400/50 active:scale-95';
-                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
-                claimBtn.onclick = () => {
-                    playSound('click');
-                    const matrixData = cardsDatabase[cid];
-                    const markedSet = markedNumbersMap[cid] || new Set();
-                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
-                };
-                cardDiv.appendChild(claimBtn);
-            }
-            return cardDiv;
-        }
-
-        function renderPreviewCards() {
-            const container = document.getElementById('preview-cards-container');
-            container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
-        }
-
-        socket.on('timer_update', (data) => {
-            document.getElementById('timer').innerText = `${data.time_left}s`;
-            document.getElementById('sold-count').innerText = data.sold_count;
-        });
-
-        socket.on('game_started', (data) => {
-            drawnNumbersSet.clear();
-            markedNumbersMap = {};
-            mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
-            init75Grid();
-            document.getElementById('selection-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('derash-amount').innerText = `${parseFloat(data.derash).toFixed(2)} ETB`;
-            
-            const container = document.getElementById('my-cards-container');
-            container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
-        });
-
-        socket.on('new_number', (data) => {
-            drawnNumbersSet.add(data.ball);
-            speakNumber(data.ball);
-
-            const ballEl = document.getElementById('current-ball');
-            ballEl.innerText = data.display;
-            document.getElementById('game-balls-count').innerText = `${drawnNumbersSet.size}/75`;
-            
-            const cell75 = document.getElementById(`ball-cell-${data.ball}`);
-            if(cell75) cell75.className = 'p-1 bg-amber-400 text-slate-950 font-black rounded shadow-lg scale-105 transition-all text-[9px]';
-
-            if (isAutoDaubEnabled) {
-                mySelectedCards.forEach(cid => {
-                    if (cardsDatabase[cid]) {
-                        cardsDatabase[cid].forEach(row => {
-                            row.forEach(val => {
-                                if (val === data.ball) {
-                                    if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                                    markedNumbersMap[cid].add(val);
-                                    const cellEl = document.getElementById(`card-${cid}-val-${val}`);
-                                    if (cellEl) cellEl.className = 'rounded-lg bingo-cell-custom bingo-hit scale-105 transition-all';
-                                }
-                            });
-                        });
-                    }
-                });
-            }
-        });
-
-        socket.on('winner_announced', (data) => {
-            playSound('win');
-            document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
-            document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
-            const wGrid = document.getElementById('winner-card-matrix');
-            wGrid.innerHTML = '';
-            if(data.card_matrix) wGrid.appendChild(createCardHTML(data.card_id, data.card_matrix, false));
-            document.getElementById('winner-modal').classList.remove('hidden');
-        });
-
-        socket.on('reset_game', () => {
-            mySelectedCards = [];
-            takenCards = [];
-            drawnNumbersSet.clear();
-            markedNumbersMap = {};
-            document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('selection-screen').classList.remove('hidden');
-            document.getElementById('preview-cards-container').innerHTML = '';
-            initCartelaGrid();
-            socket.emit('get_user_balance', { user_id: userId });
-        });
-
-        initCartelaGrid();
-
-function openDepositModal() {
-    playSound('click');
-    document.getElementById('deposit-modal').classList.remove('hidden');
-}
-
-function closeDepositModal() {
-    playSound('click');
-    document.getElementById('deposit-modal').classList.add('hidden');
-}
-
-function submitDeposit() {
-    const amount = parseFloat(document.getElementById('deposit-amount').value);
-    const txRef = document.getElementById('deposit-txref').value.trim();
-    const method = document.getElementById('pay-method').value;
-
-    if (!amount || amount <= 0) {
-        playSound('error');
-        return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን ያስገቡ!");
-    }
-    if (!txRef) {
-        playSound('error');
-        return alert("⚠️ እባክዎ የትራንዛክሽን ማረጋገጫ ቁጥር (Transaction ID) ያስገቡ!");
-    }
-
-    // ወደ ሰርቨር መረጃውን መላክ
-    socket.emit('request_deposit', {
-        user_id: userId,
-        amount: amount,
-        tx_ref: txRef,
-        method: method
-    });
-
-    closeDepositModal();
-}
-
-socket.on('deposit_success', (data) => {
-    playSound('win');
-    alert(data.msg);
-    document.getElementById('user-balance-disp').innerText = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-    document.getElementById('deposit-amount').value = '';
-    document.getElementById('deposit-txref').value = '';
-});
-
-
-        
+        // ገጹ እንደተጫነ ፈንክሽኑን ይጠራል
+        document.addEventListener('DOMContentLoaded', initCartelaGrid);
     </script>
 </body>
 </html>
