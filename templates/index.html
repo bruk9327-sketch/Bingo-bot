@@ -38,6 +38,11 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
+        <!-- Admin Panel Access Button -->
+        <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 hidden items-center justify-center gap-2 cursor-pointer">
+            <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
+        </button>
+
         <div class="grid grid-cols-2 gap-2.5">
             <button onclick="openRegisterModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-purple-500/50 transition-all cursor-pointer active:scale-95">
                 <span class="text-base bg-purple-500/20 p-2 rounded-xl">📝</span>
@@ -101,6 +106,93 @@
         </div>
     </div>
 
+    <!-- ADMIN DASHBOARD SCREEN -->
+    <div id="admin-dashboard-screen" class="hidden space-y-3 my-2">
+        <div class="flex justify-between items-center glass-panel p-3 rounded-2xl border border-amber-500/40">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🔐</span>
+                <h1 class="text-xs font-black text-amber-400">ADMIN CONTROL PANEL</h1>
+            </div>
+            <button onclick="closeAdminDashboard()" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-[10px] font-bold">← ወደ ዋናው ሜኑ</button>
+        </div>
+
+        <!-- Admin Tabs -->
+        <div class="grid grid-cols-3 gap-1.5">
+            <button onclick="switchAdminTab('deposits')" id="tab-btn-deposits" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-purple-600 text-white">ዲፖዚት/ዊዝድሮ</button>
+            <button onclick="switchAdminTab('broadcast')" id="tab-btn-broadcast" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300">ብሮድካስት</button>
+            <button onclick="switchAdminTab('players')" id="tab-btn-players" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300">የተጫዋቾች ታሪክ</button>
+        </div>
+
+        <!-- Tab 1: Deposits & Withdrawals -->
+        <div id="admin-tab-deposits" class="space-y-3">
+            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
+                <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
+                <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
+                        <div>
+                            <div class="font-bold text-white">ተጫዋች: 669671 (አቤል)</div>
+                            <div class="text-emerald-400">መጠን: 100 ETB (Telebirr)</div>
+                            <div class="text-slate-400 text-[10px]">TxRef: TXN987654321</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="approveDeposit(1)" class="bg-emerald-500 text-slate-950 font-bold px-2.5 py-1 rounded-lg text-[10px]">አጽድቅ</button>
+                            <button onclick="rejectDeposit(1)" class="bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg text-[10px]">ሰርዝ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
+                <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
+                <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
+                        <div>
+                            <div class="font-bold text-white">ተጫዋች: 669671</div>
+                            <div class="text-amber-400">መጠን: 200 ETB (CBE)</div>
+                            <div class="text-slate-400 text-[10px]">አካውንት: 100022334455</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="approveWithdraw(1)" class="bg-emerald-500 text-slate-950 font-bold px-2.5 py-1 rounded-lg text-[10px]">አጽድቅ</button>
+                            <button onclick="rejectWithdraw(1)" class="bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg text-[10px]">ሰርዝ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Broadcast System -->
+        <div id="admin-tab-broadcast" class="hidden space-y-3">
+            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-3">
+                <h2 class="text-xs font-black text-purple-400">📢 ለተጫዋቾች ማስታወቂያ/መልዕክት መላኪያ (Broadcast)</h2>
+                <div class="space-y-2">
+                    <label class="text-[10px] text-slate-300 font-bold">የመልዕክት ጽሁፍ (Message Text):</label>
+                    <textarea id="broadcast-text" rows="3" placeholder="ማስታወቂያውን እዚህ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+                    
+                    <label class="text-[10px] text-slate-300 font-bold">የምስል ወይም ቪዲዮ ሊንክ (Image/Video URL - አማራጭ):</label>
+                    <input type="text" id="broadcast-media" placeholder="https://example.com/image.jpg" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                    
+                    <button onclick="sendBroadcast()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer">መልዕክት ለሁሉም ላክ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Player History & Tracking -->
+        <div id="admin-tab-players" class="hidden space-y-3">
+            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
+                <h2 class="text-xs font-black text-amber-400">👥 የተጫዋቾች እንቅስቃሴ እና ታሪክ (Player Monitoring)</h2>
+                <div class="space-y-2">
+                    <input type="text" id="search-player-input" placeholder="በተጫዋች መታወቂያ (ID) ይፈልጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                    <button onclick="searchPlayerHistory()" class="w-full py-2 bg-slate-800 text-purple-300 text-xs font-bold rounded-xl">ተጫዋች ፈልግ</button>
+                </div>
+                <div id="player-history-results" class="space-y-2 mt-2 max-h-60 overflow-y-auto">
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
+                        የተጫዋች መረጃ ለማየት ID አስገብተው ይፈልጉ።
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 2. CARTELA SELECTION SCREEN -->
     <div id="selection-screen" class="hidden space-y-3">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
@@ -154,7 +246,7 @@
         </div>
 
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
-            🎁 ለመጀመሪያ ጊዜ 10 ብር ሪን ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
+            🎁 ለመጀመሪያ ጊዜ 50 ብር ቦነስ ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
         </div>
 
         <div id="preview-cards-container" class="space-y-3"></div>
@@ -233,7 +325,6 @@
                 <input type="text" id="reg-fullname" placeholder="ሙሉ ስምዎን ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <input type="text" id="reg-username" placeholder="Username ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <input type="text" id="reg-phone" placeholder="ስልክ ቁጥር (09xxxxxxxx)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <input type="email" id="reg-email" placeholder="ኢሜይል (አማራጭ)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <button onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer">ምዝገባውን አጠናቅ</button>
             </div>
         </div>
@@ -355,6 +446,63 @@
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
+        // Admin Dashboard Functions
+        function openAdminDashboard() {
+            playSound('click');
+            document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('admin-dashboard-screen').classList.remove('hidden');
+        }
+
+        function closeAdminDashboard() {
+            playSound('click');
+            document.getElementById('admin-dashboard-screen').classList.add('hidden');
+            document.getElementById('menu-dashboard').classList.remove('hidden');
+        }
+
+        function switchAdminTab(tabName) {
+            playSound('click');
+            document.getElementById('admin-tab-deposits').classList.add('hidden');
+            document.getElementById('admin-tab-broadcast').classList.add('hidden');
+            document.getElementById('admin-tab-players').classList.add('hidden');
+
+            document.getElementById('tab-btn-deposits').className = "py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300";
+            document.getElementById('tab-btn-broadcast').className = "py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300";
+            document.getElementById('tab-btn-players').className = "py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300";
+
+            document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabName}`).className = "py-2 px-1 text-center text-[10px] font-black rounded-xl bg-purple-600 text-white";
+        }
+
+        function approveDeposit(id) { playSound('win'); alert("✅ ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"); }
+        function rejectDeposit(id) { playSound('error'); alert("❌ የዲፖዚት ጥያቄው ተሰርዟል (Rejected)!"); }
+        function approveWithdraw(id) { playSound('win'); alert("✅ የዊዝድሮ ጥያቄ ጸድቆ ገንዘቡ ተልኳል!"); }
+        function rejectWithdraw(id) { playSound('error'); alert("❌ የዊዝድሮ ጥያቄው ውድቅ ተደርጓል!"); }
+        
+        function sendBroadcast() {
+            const text = document.getElementById('broadcast-text').value.trim();
+            const media = document.getElementById('broadcast-media').value.trim();
+            if(!text) { playSound('error'); return alert("⚠️ እባክዎ የሚተላለፈውን ጽሁፍ ይጻፉ!"); }
+            playSound('win');
+            alert("📢 ማስታወቂያው/ብሮድካስቱ ለሁሉም ተጫዋቾች በተሳካ ሁኔታ ተልኳል!");
+            document.getElementById('broadcast-text').value = '';
+            document.getElementById('broadcast-media').value = '';
+        }
+
+        function searchPlayerHistory() {
+            const query = document.getElementById('search-player-input').value.trim();
+            if(!query) return alert("⚠️ እባክዎ የተጫዋች ID ያስገቡ!");
+            const resContainer = document.getElementById('player-history-results');
+            resContainer.innerHTML = `
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-purple-500/40 text-[11px] space-y-1">
+                    <div class="font-black text-purple-400">ተጫዋች ID: ${query}</div>
+                    <div class="text-slate-300">• ቀሪ ሂሳብ: 150.00 ETB</div>
+                    <div class="text-slate-300">• የገዙዋቸው ካርቴላዎች ብዛት: 12</div>
+                    <div class="text-emerald-400">• ያሸነፏቸው ጨዋታዎች: 2 ጊዜ</div>
+                    <div class="text-slate-400 text-[10px]">• የመጨረሻ ግብይት: 100 ETB (Deposit)</div>
+                </div>
+            `;
+        }
+
         function openHistory() { playSound('click'); alert("📜 እስካሁን ያደረጓቸው የግብይት እና የጨዋታ ታሪኮች እዚህ ይታያሉ።"); }
         function openInstruction() { playSound('click'); alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።"); }
         function openSupport() { playSound('click'); alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot"); }
@@ -376,6 +524,7 @@
             if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የክፍያ ማረጋገጫ ቁጥር ያስገቡ!"); }
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
+            alert("📥 የዲፖዚት ጥያቄዎ ለአድሚን ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
         }
 
         function submitWithdraw() {
@@ -398,6 +547,12 @@
         } else {
             const urlParams = new URLSearchParams(window.location.search);
             userId = parseInt(urlParams.get('user_id')) || Math.floor(Math.random() * 1000000);
+        }
+
+        // ለሙከራ አድሚን መለያ (ለምሳሌ የራስዎ ID አድሚን ከሆነ እንዲታይ ማድረግ ይቻላል)
+        if (userId === 669671 || window.location.search.includes('admin=1')) {
+            document.getElementById('admin-access-btn').classList.remove('hidden');
+            document.getElementById('admin-access-btn').classList.add('flex');
         }
 
         let mySelectedCards = [];
