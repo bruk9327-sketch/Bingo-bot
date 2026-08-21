@@ -160,7 +160,7 @@
         <div id="preview-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- 3. LIVE GAME SCREEN (እንደ ምስል 4 የተስተካከለ) -->
+    <!-- 3. LIVE GAME SCREEN -->
     <div id="game-screen" class="hidden space-y-3">
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -214,7 +214,7 @@
             </div>
         </div>
 
-        <!-- የተጠሩ ቁጥሮች ዝርዝር (Called Numbers List - እንደ ምስል 4 ከግራ በጎን በቁት የሚወርድ) -->
+        <!-- የተጠሩ ቁጥሮች ዝርዝር (Called Numbers List) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div class="glass-panel p-3 rounded-2xl border border-purple-500/30 flex flex-col">
                 <div class="text-[11px] font-bold text-purple-300 mb-2 flex justify-between items-center">
@@ -598,12 +598,12 @@
             }
 
             Array.from(drawnNumbersSet).reverse().forEach(num => {
-                let prefix = 'N';
-                if(num <= 15) prefix = 'B';
-                else if(num <= 30) prefix = 'I';
-                else if(num <= 45) prefix = 'N';
-                else if(num <= 60) prefix = 'G';
-                else prefix = 'O';
+                let prefix = 'B';
+                if (num >= 1 && num <= 15) prefix = 'B';
+                else if (num >= 16 && num <= 30) prefix = 'I';
+                else if (num >= 31 && num <= 45) prefix = 'N';
+                else if (num >= 46 && num <= 60) prefix = 'G';
+                else if (num >= 61 && num <= 75) prefix = 'O';
 
                 const badge = document.createElement('div');
                 badge.className = 'bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/50 text-slate-950 font-black text-xs py-2 px-3 rounded-xl shadow-md text-center';
@@ -616,12 +616,12 @@
             const num = data.number;
             drawnNumbersSet.add(num);
             
-            let prefix = 'N';
-            if(num <= 15) prefix = 'B';
-            else if(num <= 30) prefix = 'I';
-            else if(num <= 45) prefix = 'N';
-            else if(num <= 60) prefix = 'G';
-            else prefix = 'O';
+            let prefix = 'B';
+            if (num >= 1 && num <= 15) prefix = 'B';
+            else if (num >= 16 && num <= 30) prefix = 'I';
+            else if (num >= 31 && num <= 45) prefix = 'N';
+            else if (num >= 46 && num <= 60) prefix = 'G';
+            else if (num >= 61 && num <= 75) prefix = 'O';
 
             const circle = document.getElementById('current-ball-circle');
             if(circle) circle.innerText = `${prefix}-${num}`;
