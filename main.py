@@ -48,6 +48,16 @@ drawn_balls = []  # የወጡ ኳሶች/ቁጥሮች
 available_numbers = list(range(1, 76))
 
 
+# ክላይንት ከሶኬት ጋር ሲገናኝ ወዲያውኑ የካርቴላዎችን ሁኔታ መላክ (ለግሪድ መታየት ወሳኝ ነው)
+@socketio.on('connect')
+def handle_connect():
+  emit('update_selected_cards', {'taken_cards': taken_cards_global})
+  emit(
+      'timer_update',
+      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+  )
+
+
 # የዲፖዚት ጥያቄ መቀበያ
 @socketio.on('request_deposit')
 def handle_request_deposit(data):
