@@ -216,10 +216,10 @@
             </div>
         </div>
 
-        <!-- SIDE-BY-SIDE CONTAINER: Called Numbers Board (Left) & Player Card(s) (Right) -->
+        <!-- SIDE-BY-SIDE LAYOUT: Called Numbers Board (Left) & Player Card(s) (Right) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
             
-            <!-- Called Numbers Board (Vertical List like Image) -->
+            <!-- Left Side: Called Numbers Vertical List -->
             <div class="glass-panel p-3 rounded-2xl border border-purple-500/30">
                 <div class="text-xs font-bold text-slate-300 mb-2 text-center">የወጡ ቁጥሮች</div>
                 <div class="max-h-[380px] overflow-y-auto space-y-1.5 pr-1" id="called-numbers-board">
@@ -227,7 +227,7 @@
                 </div>
             </div>
 
-            <!-- My Cards Section -->
+            <!-- Right Side: My Cards Section -->
             <div id="my-cards-container" class="space-y-2.5"></div>
 
         </div>
@@ -406,7 +406,7 @@
         }
 
         let mySelectedCards = [];
-        let drawnNumbersList = []; // Keeps track of order of drawn numbers
+        let drawnNumbersList = []; 
         let drawnNumbersSet = new Set();
         let markedNumbersMap = {};
         let cardsDatabase = {};
@@ -602,13 +602,11 @@
             if(!boardContainer) return;
             boardContainer.innerHTML = '';
 
-            // Render vertical list matching the target design image exactly
             drawnNumbersList.slice().reverse().forEach((num, index) => {
                 const itemDiv = document.createElement('div');
                 const letter = getLetterForNum(num);
                 const displayStr = `${letter}-${num}`;
                 
-                // Latest drawn item is golden and highlighted, older ones are dark neutral rows
                 if (index === 0) {
                     itemDiv.className = 'py-2 px-3 bg-amber-400 text-slate-950 font-black text-xs rounded-xl text-center shadow-lg border border-amber-300 transition-all';
                 } else {
