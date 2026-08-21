@@ -162,6 +162,7 @@
 
     <!-- 3. LIVE GAME SCREEN -->
     <div id="game-screen" class="hidden space-y-3">
+        <!-- Top Navigation Status Bar -->
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-sm shadow-lg">🎯</div>
@@ -182,6 +183,7 @@
             </div>
         </div>
 
+        <!-- 3 Stats Cards -->
         <div class="grid grid-cols-3 gap-2 text-center">
             <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/40">
                 <div class="text-[9px] text-slate-300 font-bold mb-1">የተሸጡ ካርቴላዎች</div>
@@ -197,7 +199,7 @@
             </div>
         </div>
 
-        <!-- የሽልማት ደራሽ እና የተጠራው ቁጥር ክበብ -->
+        <!-- Prize & Current Ball Header Bar -->
         <div class="grid grid-cols-2 gap-2">
             <div class="glass-panel p-3 rounded-2xl border border-emerald-500/40 flex flex-col justify-center">
                 <div class="text-[9px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
@@ -214,23 +216,18 @@
             </div>
         </div>
 
-        <!-- SIDE-BY-SIDE CONTAINER: Called Numbers Board & Player Card(s) -->
+        <!-- SIDE-BY-SIDE CONTAINER: Called Numbers Board (Left) & Player Card(s) (Right) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
             
-            <!-- Called Numbers Board (ከፍተኛ ጥበት ያለው፣ ልክ እንደ ካርቴላው መጠን የተስተካከለ) -->
-            <div class="glass-panel p-2.5 rounded-2xl border border-purple-500/30">
-                <div class="text-[10px] font-bold text-purple-300 mb-1.5 flex justify-between items-center">
-                    <span>📋 Called Board</span>
-                    <span id="called-list-count" class="text-[9px] bg-purple-500/20 px-1.5 py-0.5 rounded-md text-purple-200">0 ተጠርተዋል</span>
-                </div>
-                <div class="max-h-[340px] overflow-y-auto p-0.5">
-                    <div id="called-numbers-board" class="grid grid-cols-5 gap-1 text-center">
-                        <!-- Dynamically injected via JS -->
-                    </div>
+            <!-- Called Numbers Board (Vertical List like Image) -->
+            <div class="glass-panel p-3 rounded-2xl border border-purple-500/30">
+                <div class="text-xs font-bold text-slate-300 mb-2 text-center">የወጡ ቁጥሮች</div>
+                <div class="max-h-[380px] overflow-y-auto space-y-1.5 pr-1" id="called-numbers-board">
+                    <!-- Dynamically injected via JS -->
                 </div>
             </div>
 
-            <!-- My Cards Section (ጎን ለጎን እንዲቀመጡ የተደረገ) -->
+            <!-- My Cards Section -->
             <div id="my-cards-container" class="space-y-2.5"></div>
 
         </div>
@@ -409,6 +406,7 @@
         }
 
         let mySelectedCards = [];
+        let drawnNumbersList = []; // Keeps track of order of drawn numbers
         let drawnNumbersSet = new Set();
         let markedNumbersMap = {};
         let cardsDatabase = {};
@@ -565,6 +563,7 @@
 
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
+            drawnNumbersList = [];
             markedNumbersMap = {};
             mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
             document.getElementById('menu-dashboard').classList.add('hidden');
@@ -581,70 +580,55 @@
             }
         });
 
+        function getLetterForNum(num) {
+            if (num >= 1 && num <= 15) return 'B';
+            if (num >= 16 && num <= 30) return 'I';
+            if (num >= 31 && num <= 45) return 'N';
+            if (num >= 46 && num <= 60) return 'G';
+            return 'O';
+        }
+
         function updateCalledNumbersUI() {
             const boardContainer = document.getElementById('called-numbers-board');
-            const countBadge = document.getElementById('called-list-count');
             const gameBallsCount = document.getElementById('game-balls-count');
             const selectionDrawnCount = document.getElementById('selection-drawn-count');
             
-            const count = drawnNumbersSet.size;
+            const count = drawnNumbersList.length;
             const countText = `${count}/75`;
             
             if(gameBallsCount) gameBallsCount.innerText = countText;
             if(selectionDrawnCount) selectionDrawnCount.innerText = countText;
-            if(countBadge) countBadge.innerText = `${count} ተጠርተዋል`;
 
             if(!boardContainer) return;
             boardContainer.innerHTML = '';
 
-            const cols = {
-                'B': Array.from({length: 15}, (_, i) => i + 1),
-                'I': Array.from({length: 15}, (_, i) => i + 16),
-                'N': Array.from({length: 15}, (_, i) => i + 31),
-                'G': Array.from({length: 15}, (_, i) => i + 46),
-                'O': Array.from({length: 15}, (_, i) => i + 61)
-            };
-
-            ['B', 'I', 'N', 'G', 'O'].forEach(letter => {
-                const colDiv = document.createElement('div');
-                colDiv.className = 'flex flex-col gap-1';
-
-                const headerCell = document.createElement('div');
-                headerCell.className = 'bg-slate-900 text-purple-400 font-black text-[10px] py-1 rounded-md border border-purple-500/30';
-                headerCell.innerText = letter;
-                colDiv.appendChild(headerCell);
-
-                cols[letter].forEach(num => {
-                    const numCell = document.createElement('div');
-                    const isCalled = drawnNumbersSet.has(num);
-                    
-                    // የወጡ ቁጥሮች በሚያምር ቅርጽ ጎላ ብሎ (በወርቃማ ከለር እና የተሻሻለ ግልጽነት) እንዲወጡ ተደረገ
-                    if (isCalled) {
-                        numCell.className = 'bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 font-black text-[10px] py-1 rounded-md shadow-md shadow-amber-500/40 transition-all scale-105 border border-amber-300';
-                    } else {
-                        numCell.className = 'bg-slate-900/60 text-slate-500 font-bold text-[9px] py-1 rounded-md border border-slate-800/50';
-                    }
-                    numCell.innerText = num;
-                    colDiv.appendChild(numCell);
-                });
-
-                boardContainer.appendChild(colDiv);
+            // Render vertical list matching the target design image exactly
+            drawnNumbersList.slice().reverse().forEach((num, index) => {
+                const itemDiv = document.createElement('div');
+                const letter = getLetterForNum(num);
+                const displayStr = `${letter}-${num}`;
+                
+                // Latest drawn item is golden and highlighted, older ones are dark neutral rows
+                if (index === 0) {
+                    itemDiv.className = 'py-2 px-3 bg-amber-400 text-slate-950 font-black text-xs rounded-xl text-center shadow-lg border border-amber-300 transition-all';
+                } else {
+                    itemDiv.className = 'py-2 px-3 bg-slate-900/80 text-slate-300 font-bold text-xs rounded-xl text-center border border-slate-800';
+                }
+                itemDiv.innerText = displayStr;
+                boardContainer.appendChild(itemDiv);
             });
         }
 
         socket.on('number_drawn', (data) => {
             const num = data.number;
-            drawnNumbersSet.add(num);
+            if(!drawnNumbersSet.has(num)) {
+                drawnNumbersSet.add(num);
+                drawnNumbersList.push(num);
+            }
             
-            let prefix = 'B';
-            if (num >= 1 && num <= 15) prefix = 'B';
-            else if (num >= 16 && num <= 30) prefix = 'I';
-            else if (num >= 31 && num <= 45) prefix = 'N';
-            else if (num >= 46 && num <= 60) prefix = 'G';
-            else if (num >= 61 && num <= 75) prefix = 'O';
-
+            const letter = getLetterForNum(num);
             const circle = document.getElementById('current-ball-circle');
-            if(circle) circle.innerText = `${prefix}-${num}`;
+            if(circle) circle.innerText = `${letter}-${num}`;
             
             const isAutoChecked = document.getElementById('auto-check-game')?.checked || document.getElementById('auto-check')?.checked;
             
@@ -672,9 +656,7 @@
                 }
             }
 
-            if (typeof updateCalledNumbersUI === 'function') {
-                updateCalledNumbersUI();
-            }
+            updateCalledNumbersUI();
             playSound('click');
         });
 
@@ -694,6 +676,7 @@
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
+            drawnNumbersList = [];
             markedNumbersMap = {};
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
