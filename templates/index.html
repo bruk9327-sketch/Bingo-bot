@@ -436,10 +436,12 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
 
+        // እዚህ ጋር openGameSelection ፋንክሽን ውስጥ initCartelaGrid() ተጨምሯል
         function openGameSelection() {
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
+            initCartelaGrid(); // ግሪዱ እንዲታይ እና እንዲነቃ እዚህ ተጠርቷል
         }
 
         function backToMenu() {
