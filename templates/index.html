@@ -24,6 +24,9 @@
             <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
 
+        <!-- Broadcast Public Banner Container -->
+        <div id="public-broadcast-container" class="hidden space-y-2"></div>
+
         <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
             <div class="flex items-start gap-2.5">
                 <span class="text-xl">🌟</span>
@@ -38,7 +41,7 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button (በኮድ ውስጥ ለተገለጸው የእርስዎ User ID ብቻ የሚታይ) -->
+        <!-- Admin Panel Access Button (ለእርስዎ ብቻ የሚታይ እና በብሮውዘር የሚደበቅ) -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -116,7 +119,6 @@
             <button onclick="closeAdminDashboard()" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer">← ወደ ዋናው ሜኑ</button>
         </div>
 
-        <!-- Admin Tabs -->
         <div class="grid grid-cols-3 gap-1.5">
             <button onclick="switchAdminTab('deposits')" id="tab-btn-deposits" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-purple-600 text-white cursor-pointer">ዲፖዚት/ዊዝድሮ</button>
             <button onclick="switchAdminTab('broadcast')" id="tab-btn-broadcast" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer">ብሮድካስት</button>
@@ -128,34 +130,14 @@
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
                 <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                        <div>
-                            <div class="font-bold text-white">ተጫዋች: 8912812512</div>
-                            <div class="text-emerald-400">መጠን: 100 ETB (Telebirr)</div>
-                            <div class="text-slate-400 text-[10px]">TxRef: TXN987654321</div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="approveDeposit(1)" class="bg-emerald-500 text-slate-950 font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer">አጽድቅ</button>
-                            <button onclick="rejectDeposit(1)" class="bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer">ሰርዝ</button>
-                        </div>
-                    </div>
+                    <!-- Dynamic deposits will be loaded here -->
                 </div>
             </div>
 
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
                 <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                        <div>
-                            <div class="font-bold text-white">ተጫዋች: 8912812512</div>
-                            <div class="text-amber-400">መጠን: 200 ETB (CBE)</div>
-                            <div class="text-slate-400 text-[10px]">አካውንት: 100022334455</div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="approveWithdraw(1)" class="bg-emerald-500 text-slate-950 font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer">አጽድቅ</button>
-                            <button onclick="rejectWithdraw(1)" class="bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg text-[10px] cursor-pointer">ሰርዝ</button>
-                        </div>
-                    </div>
+                    <!-- Dynamic withdrawals will be loaded here -->
                 </div>
             </div>
         </div>
@@ -163,15 +145,15 @@
         <!-- Tab 2: Broadcast System -->
         <div id="admin-tab-broadcast" class="hidden space-y-3">
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-3">
-                <h2 class="text-xs font-black text-purple-400">📢 ለተጫዋቾች ማስታወቂያ/መልዕክት መላኪያ (Broadcast)</h2>
+                <h2 class="text-xs font-black text-purple-400">📢 ማስታወቂያ እና የሚዲያ መልዕክት መላኪያ (Broadcast)</h2>
                 <div class="space-y-2">
                     <label class="text-[10px] text-slate-300 font-bold">የመልዕክት ጽሁፍ (Message Text):</label>
                     <textarea id="broadcast-text" rows="3" placeholder="ማስታወቂያውን እዚህ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
                     
-                    <label class="text-[10px] text-slate-300 font-bold">የምስል ወይም ቪዲዮ ሊንክ (Image/Video URL - አማራጭ):</label>
-                    <input type="text" id="broadcast-media" placeholder="https://example.com/image.jpg" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                    <label class="text-[10px] text-slate-300 font-bold">የምስል ወይም ቪዲዮ ፋይል ይምረጡ (Image/Video Upload):</label>
+                    <input type="file" id="broadcast-file" accept="image/*,video/*" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-slate-300 cursor-pointer">
                     
-                    <button onclick="sendBroadcast()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer">መልዕክት ለሁሉም ላክ</button>
+                    <button onclick="sendBroadcast()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer">መልዕክት ለሁሉም ላክ (Broadcast)</button>
                 </div>
             </div>
         </div>
@@ -339,6 +321,7 @@
         </div>
     </div>
 
+    <!-- DEPOSIT MODAL WITH CBE MERCHANT 1287375 & SMS COPY-PASTE -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -347,17 +330,17 @@
             </div>
             <div class="space-y-3 text-left">
                 <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
+                    <option value="CBE_Merchant">CBE Merchant (ንግድ ባንክ: 1287375)</option>
                     <option value="Telebirr">Telebirr (ቴሌብር)</option>
-                    <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
                 </select>
-                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
-                    <p class="font-bold text-amber-400 mb-1">📌 የገቢ ማድረጊያ ቁጥሮች:</p>
-                    <p>• ቴሌብር: <span class="font-black text-white">0912345678 (BKBINGO PRO)</span></p>
-                    <p>• ንግድ ባንክ (CBE): <span class="font-black text-white">1000888888888</span></p>
+                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-1">
+                    <p class="font-bold text-amber-400">📌 የንግድ ባንክ መርቻንት (CBE Merchant):</p>
+                    <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
+                    <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
                 </div>
                 <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <input type="text" id="deposit-txref" placeholder="የክፍያ ማረጋገጫ ቁጥር (Transaction ID)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <button onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ክፍያ አረጋግጥ</button>
+                <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+                <button onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
     </div>
@@ -478,15 +461,54 @@
         function approveWithdraw(id) { playSound('win'); alert("✅ የዊዝድሮ ጥያቄ ጸድቆ ገንዘቡ ተልኳል!"); }
         function rejectWithdraw(id) { playSound('error'); alert("❌ የዊዝድሮ ጥያቄው ውድቅ ተደርጓል!"); }
         
+        // Broadcast with Image/Video support and Public Display
         function sendBroadcast() {
             const text = document.getElementById('broadcast-text').value.trim();
-            const media = document.getElementById('broadcast-media').value.trim();
-            if(!text) { playSound('error'); return alert("⚠️ እባክዎ የሚተላለፈውን ጽሁፍ ይጻፉ!"); }
+            const fileInput = document.getElementById('broadcast-file');
+            if(!text && fileInput.files.length === 0) { 
+                playSound('error'); 
+                return alert("⚠️ እባክዎ የሚተላለፈውን ጽሁፍ ወይም ፋይል (ምስል/ቪዲዮ) ይምረጡ!"); 
+            }
+            
+            let mediaUrl = "";
+            if (fileInput.files.length > 0) {
+                mediaUrl = URL.createObjectURL(fileInput.files[0]);
+            }
+
+            // Broadcast object to send to all users via socket or store locally for public display
+            const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
+            socket.emit('send_broadcast', broadcastData);
+
             playSound('win');
-            alert("📢 ማስታወቂያው/ብሮድካስቱ ለሁሉም ተጫዋቾች በተሳካ ሁኔታ ተልኳል!");
+            alert("📢 ማስታወቂያው/ብሮድካስቱ ለሁሉም ተጫዋቾች በተሳካ ሁኔታ ተልቋል!");
             document.getElementById('broadcast-text').value = '';
-            document.getElementById('broadcast-media').value = '';
+            fileInput.value = '';
         }
+
+        socket.on('receive_broadcast', (data) => {
+            const container = document.getElementById('public-broadcast-container');
+            if(container) {
+                container.classList.remove('hidden');
+                let mediaHtml = '';
+                if(data.media) {
+                    if(data.type && data.type.startsWith('video')) {
+                        mediaHtml = `<video src="${data.media}" controls class="w-full rounded-xl mt-2 max-h-48 object-cover"></video>`;
+                    } else {
+                        mediaHtml = `<img src="${data.media}" class="w-full rounded-xl mt-2 max-h-48 object-cover">`;
+                    }
+                }
+                container.innerHTML = `
+                    <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-purple-500/50 shadow-xl space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-purple-400">📢 አስተዳዳሪ (Admin Announcement)</span>
+                            <button onclick="this.parentElement.parentElement.remove()" class="text-slate-400 text-xs font-bold">✕</button>
+                        </div>
+                        <p class="text-xs text-white leading-relaxed">${data.text || ''}</p>
+                        ${mediaHtml}
+                    </div>
+                `;
+            }
+        });
 
         function searchPlayerHistory() {
             const query = document.getElementById('search-player-input').value.trim();
@@ -521,10 +543,10 @@
             const amount = parseFloat(document.getElementById('deposit-amount').value);
             const txRef = document.getElementById('deposit-txref').value.trim();
             const method = document.getElementById('deposit-method').value;
-            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የክፍያ ማረጋገጫ ቁጥር ያስገቡ!"); }
+            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); }
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
-            alert("📥 የዲፖዚት ጥያቄዎ ለአድሚን ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
+            alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
         }
 
         function submitWithdraw() {
@@ -541,16 +563,16 @@
         let userId = null;
         let takenCards = [];
 
+        // Strict Admin Check: Only if opened inside Telegram WebApp with exact admin ID
+        const ADMIN_USER_ID = 8912812512;
+
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 8912812512; // ነባሪ (Default) የእርስዎ መታወቂያ እንዲሆን ተደርጓል
+            userId = parseInt(urlParams.get('user_id')) || 0; // በብሮውዘር ሲከፈት ሪል አድሚን አይሆንም (0)
         }
-
-        // የአድሚን መታወቂያ (Admin Telegram User ID)
-        const ADMIN_USER_ID = 8912812512;
 
         let mySelectedCards = [];
         let drawnNumbersList = []; 
@@ -559,9 +581,11 @@
         let cardsDatabase = {};
 
         socket.on('connect', () => {
-            socket.emit('get_user_balance', { user_id: userId });
+            if (userId) {
+                socket.emit('get_user_balance', { user_id: userId });
+            }
             
-            // እርስዎ ከገቡ ብቻ የአድሚን ቁልፉ እንዲታይ ማድረግ
+            // ጥብቅ ማጣሪያ: በብሮውዘር ሲከፈት ወይም ሌላ ሰው ሲገባ አድሚን ቁልፍ በፍጹም አይታይም!
             if (userId === ADMIN_USER_ID) {
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
@@ -835,7 +859,7 @@
             const previewContainer = document.getElementById('preview-cards-container');
             if(previewContainer) previewContainer.innerHTML = '';
             initCartelaGrid();
-            socket.emit('get_user_balance', { user_id: userId });
+            if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
         initCartelaGrid();
