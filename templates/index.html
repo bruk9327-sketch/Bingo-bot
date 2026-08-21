@@ -214,21 +214,19 @@
             </div>
         </div>
 
-        <!-- የተጠሩ ቁጥሮች ዝርዝር (Called Numbers List) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div class="glass-panel p-3 rounded-2xl border border-purple-500/30 flex flex-col">
-                <div class="text-[11px] font-bold text-purple-300 mb-2 flex justify-between items-center">
-                    <span>📋 የተጠሩ ቁጥሮች ዝርዝር</span>
-                    <span id="called-list-count" class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-lg text-purple-200">0 ተጠርተዋል</span>
-                </div>
-                <div id="called-numbers-list" class="flex flex-col gap-1.5 overflow-y-auto max-h-52 pr-1 scrollbar-thin">
-                    <span class="text-[10px] text-slate-400 italic">ገና አልተጀመረም...</span>
-                </div>
+        <!-- B I N G O 5-Column Called Numbers Board -->
+        <div class="glass-panel p-3 rounded-2xl border border-purple-500/30">
+            <div class="text-[11px] font-bold text-purple-300 mb-2 flex justify-between items-center">
+                <span>📋 B I N G O Called Numbers Board</span>
+                <span id="called-list-count" class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-lg text-purple-200">0 ተጠርተዋል</span>
             </div>
-            <div class="md:col-span-2">
-                <div id="my-cards-container" class="space-y-3"></div>
+            <div id="called-numbers-board" class="grid grid-cols-5 gap-1.5 text-center">
+                <!-- Dynamically injected via JS -->
             </div>
         </div>
+
+        <!-- My Cards Section -->
+        <div id="my-cards-container" class="space-y-3"></div>
     </div>
 
     <!-- MODALS -->
@@ -577,7 +575,7 @@
         });
 
         function updateCalledNumbersUI() {
-            const listContainer = document.getElementById('called-numbers-list');
+            const boardContainer = document.getElementById('called-numbers-board');
             const countBadge = document.getElementById('called-list-count');
             const gameBallsCount = document.getElementById('game-balls-count');
             const selectionDrawnCount = document.getElementById('selection-drawn-count');
@@ -589,26 +587,40 @@
             if(selectionDrawnCount) selectionDrawnCount.innerText = countText;
             if(countBadge) countBadge.innerText = `${count} ተጠርተዋል`;
 
-            if(!listContainer) return;
-            listContainer.innerHTML = '';
+            if(!boardContainer) return;
+            boardContainer.innerHTML = '';
 
-            if (count === 0) {
-                listContainer.innerHTML = '<span class="text-[10px] text-slate-400 italic">ገና አልተጀመረም...</span>';
-                return;
-            }
+            const cols = {
+                'B': Array.from({length: 15}, (_, i) => i + 1),
+                'I': Array.from({length: 15}, (_, i) => i + 16),
+                'N': Array.from({length: 15}, (_, i) => i + 31),
+                'G': Array.from({length: 15}, (_, i) => i + 46),
+                'O': Array.from({length: 15}, (_, i) => i + 61)
+            };
 
-            Array.from(drawnNumbersSet).reverse().forEach(num => {
-                let prefix = 'B';
-                if (num >= 1 && num <= 15) prefix = 'B';
-                else if (num >= 16 && num <= 30) prefix = 'I';
-                else if (num >= 31 && num <= 45) prefix = 'N';
-                else if (num >= 46 && num <= 60) prefix = 'G';
-                else if (num >= 61 && num <= 75) prefix = 'O';
+            ['B', 'I', 'N', 'G', 'O'].forEach(letter => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'flex flex-col gap-1';
 
-                const badge = document.createElement('div');
-                badge.className = 'bg-gradient-to-r from-amber-500 to-amber-600 border border-amber-400/50 text-slate-950 font-black text-xs py-2 px-3 rounded-xl shadow-md text-center';
-                badge.innerText = `${prefix}-${num}`;
-                listContainer.appendChild(badge);
+                const headerCell = document.createElement('div');
+                headerCell.className = 'bg-slate-900 text-purple-400 font-black text-xs py-1.5 rounded-lg border border-purple-500/30';
+                headerCell.innerText = letter;
+                colDiv.appendChild(headerCell);
+
+                cols[letter].forEach(num => {
+                    const numCell = document.createElement('div');
+                    const isCalled = drawnNumbersSet.has(num);
+                    
+                    if (isCalled) {
+                        numCell.className = 'bg-amber-500 text-slate-950 font-black text-[10px] py-1 rounded-md shadow-md transition-all scale-105';
+                    } else {
+                        numCell.className = 'bg-slate-900/60 text-slate-500 font-bold text-[10px] py-1 rounded-md border border-slate-800/50';
+                    }
+                    numCell.innerText = num;
+                    colDiv.appendChild(numCell);
+                });
+
+                boardContainer.appendChild(colDiv);
             });
         }
 
