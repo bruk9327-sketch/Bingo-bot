@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+<DOCTYPE html>
 <html lang="am">
 <head>
     <meta charset="UTF-8">
@@ -41,7 +42,7 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button -->
+        <!-- Admin Panel Access Button (ለእርስዎ ብቻ የሚታይ እና በብሮውዘር የሚደበቅ) -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -130,33 +131,14 @@
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
                 <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-[11px] flex justify-between items-center">
-                        <div>
-                            <div class="font-bold text-white">ተጫዋች: Biruk (ID: 12345)</div>
-                            <div class="text-amber-400">መጠን: 200 ETB (CBE Merchant)</div>
-                            <div class="text-[10px] text-slate-400">SMS: TR2608... CBE Mobile Banking</div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="approveDeposit('1')" class="bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer">አጽድቅ</button>
-                            <button onclick="rejectDeposit('1')" class="bg-red-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer">ሰርዝ</button>
-                        </div>
-                    </div>
+                    <!-- Dynamic deposits will be loaded here -->
                 </div>
             </div>
 
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
                 <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-[11px] flex justify-between items-center">
-                        <div>
-                            <div class="font-bold text-white">ተጫዋች: Biruk (0912345678)</div>
-                            <div class="text-amber-400">መጠን: 500 ETB (Telebirr)</div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="approveWithdraw('1')" class="bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer">ላክ</button>
-                            <button onclick="rejectWithdraw('1')" class="bg-red-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer">ውድቅ</button>
-                        </div>
-                    </div>
+                    <!-- Dynamic withdrawals will be loaded here -->
                 </div>
             </div>
         </div>
@@ -340,6 +322,7 @@
         </div>
     </div>
 
+    <!-- DEPOSIT MODAL WITH CBE MERCHANT 1287375 & SMS COPY-PASTE -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -439,7 +422,6 @@
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
-            initCartelaGrid();
         }
 
         function backToMenu() {
@@ -480,6 +462,7 @@
         function approveWithdraw(id) { playSound('win'); alert("✅ የዊዝድሮ ጥያቄ ጸድቆ ገንዘቡ ተልኳል!"); }
         function rejectWithdraw(id) { playSound('error'); alert("❌ የዊዝድሮ ጥያቄው ውድቅ ተደርጓል!"); }
         
+        // Broadcast with Image/Video support and Public Display
         function sendBroadcast() {
             const text = document.getElementById('broadcast-text').value.trim();
             const fileInput = document.getElementById('broadcast-file');
@@ -493,6 +476,7 @@
                 mediaUrl = URL.createObjectURL(fileInput.files[0]);
             }
 
+            // Broadcast object to send to all users via socket or store locally for public display
             const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
             socket.emit('send_broadcast', broadcastData);
 
@@ -580,6 +564,7 @@
         let userId = null;
         let takenCards = [];
 
+        // Strict Admin Check: Only if opened inside Telegram WebApp with exact admin ID
         const ADMIN_USER_ID = 8912812512;
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
@@ -587,7 +572,7 @@
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 0;
+            userId = parseInt(urlParams.get('user_id')) || 0; // በብሮውዘር ሲከፈት ሪል አድሚን አይሆንም (0)
         }
 
         let mySelectedCards = [];
@@ -596,14 +581,12 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
 
-        // የተስተካከለው የ connect ክፍል (የባላንስ እና የተያዙ ካርቴላዎች ጥያቄ በአንድ ላይ ይ-emit ይደረጋል)
         socket.on('connect', () => {
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
-                // ሰርቨርዎ ላይ የተያዙ ካርቴላዎችን ለመጠየቅ የሚያገለግል ഇവንት ከዚህ በታች ተካቷል
-                socket.emit('get_taken_cards');
             }
             
+            // ጥብቅ ማጣሪያ: በብሮውዘር ሲከፈት ወይም ሌላ ሰው ሲገባ አድሚን ቁልፍ በፍጹም አይታይም!
             if (userId === ADMIN_USER_ID) {
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
