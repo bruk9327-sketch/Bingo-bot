@@ -41,8 +41,8 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button (ለእርስዎ ብቻ የሚታይ እና በብሮውዘር የሚደበቅ) -->
-        <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
+        <!-- Admin Panel Access Button (በብሮውዘርም በቴሌግራምም በቀላሉ እንዲታይ የተደረገ) -->
+        <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
 
@@ -130,14 +130,21 @@
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
                 <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <!-- Dynamic deposits will be loaded here -->
+                    <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-[11px] space-y-1">
+                        <div class="flex justify-between text-white font-bold"><span>ተጫዋች: 8912812512</span><span class="text-emerald-400">100 ETB (CBE)</span></div>
+                        <div class="text-[10px] text-slate-400">TxRef: TID=DHK31LV76IB&PH=251991983522</div>
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="approveDeposit('1')" class="flex-1 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs cursor-pointer">አጽድቅ (Approve)</button>
+                            <button onclick="rejectDeposit('1')" class="flex-1 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs cursor-pointer">ሰርዝ (Reject)</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
                 <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <!-- Dynamic withdrawals will be loaded here -->
+                    <!-- Dynamic withdrawals -->
                 </div>
             </div>
         </div>
@@ -321,7 +328,7 @@
         </div>
     </div>
 
-    <!-- DEPOSIT MODAL WITH CBE MERCHANT 1287375 & SMS COPY-PASTE -->
+    <!-- DEPOSIT MODAL WITH FIXED BUTTON & CBE 1287375 -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -338,9 +345,9 @@
                     <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
                     <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
                 </div>
-                <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
-                <button onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
+                <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" value="100">
+                <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">TID=DHK31LV76IB&PH=251991983522</textarea>
+                <button type="button" onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
     </div>
@@ -461,7 +468,6 @@
         function approveWithdraw(id) { playSound('win'); alert("✅ የዊዝድሮ ጥያቄ ጸድቆ ገንዘቡ ተልኳል!"); }
         function rejectWithdraw(id) { playSound('error'); alert("❌ የዊዝድሮ ጥያቄው ውድቅ ተደርጓል!"); }
         
-        // Broadcast with Image/Video support and Public Display
         function sendBroadcast() {
             const text = document.getElementById('broadcast-text').value.trim();
             const fileInput = document.getElementById('broadcast-file');
@@ -475,7 +481,6 @@
                 mediaUrl = URL.createObjectURL(fileInput.files[0]);
             }
 
-            // Broadcast object to send to all users via socket or store locally for public display
             const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
             socket.emit('send_broadcast', broadcastData);
 
@@ -540,12 +545,19 @@
         }
 
         function submitDeposit() {
-            const amount = parseFloat(document.getElementById('deposit-amount').value);
+            const amountInput = document.getElementById('deposit-amount').value;
             const txRef = document.getElementById('deposit-txref').value.trim();
             const method = document.getElementById('deposit-method').value;
-            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); }
+            const amount = parseFloat(amountInput);
+            
+            if (!amount || amount <= 0 || !txRef) { 
+                playSound('error'); 
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); 
+            }
+            
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
+            playSound('win');
             alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
         }
 
@@ -560,18 +572,15 @@
         }
 
         const socket = io();
-        let userId = null;
+        let userId = 8912812512; // ነባሪ አድሚን ዩዘር አይዲ
         let takenCards = [];
-
-        // Strict Admin Check: Only if opened inside Telegram WebApp with exact admin ID
-        const ADMIN_USER_ID = 8912812512;
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 0; // በብሮውዘር ሲከፈት ሪል አድሚን አይሆንም (0)
+            userId = parseInt(urlParams.get('user_id')) || 8912812512;
         }
 
         let mySelectedCards = [];
@@ -583,12 +592,6 @@
         socket.on('connect', () => {
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
-            }
-            
-            // ጥብቅ ማጣሪያ: በብሮውዘር ሲከፈት ወይም ሌላ ሰው ሲገባ አድሚን ቁልፍ በፍጹም አይታይም!
-            if (userId === ADMIN_USER_ID) {
-                const adminBtn = document.getElementById('admin-access-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
             }
         });
 
