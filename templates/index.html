@@ -222,9 +222,10 @@
             <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
-<div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
-    <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 min-h-[200px] max-h-56 overflow-y-auto p-1"></div>
-</div>
+
+      <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
+            <div id="cartela-grid" class="grid grid-cols-6 gap-2 min-h-[220px] max-h-60 overflow-y-auto p-1"></div>
+        </div>        
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
             🎁 ለመጀመሪያ ጊዜ 50 ብር ቦነስ ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
         </div>
@@ -415,15 +416,44 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
         
-         function openGameSelection() {
-            playSound('click');
-            document.getElementById('menu-dashboard').classList.add('hidden');
-            document.getElementById('selection-screen').classList.remove('hidden');
-            initCartelaGrid(); // <--- ካርቴላዎቹ ወዲያውኑ እንዲወጡ እዚህ ጋር ጨምረንለታል
+         
+
+
+        function        function initCartelaGrid() {
+            const gridContainer = document.getElementById('cartela-grid');
+            if(!gridContainer) return;
+            gridContainer.innerHTML = '';
+            
+            // ከ 1 እስከ 104 ያሉትን ቁጥሮች በ loop ማመንጨት
+            for (let i = 1; i <= 104; i++) {
+                const btn = document.createElement('button');
+                const isSelected = mySelectedCards.includes(i);
+                const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
+
+                // ለቁጥሮቹ የተስተካከለ የስታይል ገጽታ
+                btn.type = 'button';
+                btn.innerText = i;
+
+                if (isTaken) {
+                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
+                    btn.disabled = true;
+                } else if (isSelected) {
+                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
+                } else {
+                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer hover:bg-slate-700';
+                    btn.onclick = () => {
+                        if (mySelectedCards.length >= 2) {
+                            playSound('error');
+                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                        }
+                        playSound('click');
+                        socket.emit('select_card', { user_id: userId, card_id: i });
+                    };
+                }
+                gridContainer.appendChild(btn);
+            }
         }
-
-
-        function backToMenu() {
+ backToMenu() {
             playSound('click');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
