@@ -38,6 +38,18 @@ def send_telegram_notification(message):
     print('Telegram Notification Error:', e)
 
 
+def send_telegram_custom_message(chat_id, text):
+  """ለተወሰነ ቻት ID የቴሌግራም መልዕክት ለመላክ"""
+  if TELEGRAM_BOT_TOKEN == '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
+    return
+  url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
+  payload = {'chat_id': chat_id, 'text': text}
+  try:
+    requests.post(url, json=payload, timeout=5)
+  except Exception as e:
+    print('Telegram Custom Message Error:', e)
+
+
 # ዳታቤዝ እና የጨዋታ ሁኔታዎች (Memory Storage)
 user_balances = {}  # {user_id: balance}
 taken_cards_global = []  # በወቅቱ የተያዙ ካርቴላዎች
@@ -360,10 +372,39 @@ def reset_game_state_completely():
 def index():
   return render_template('index.html')
 
+
 # የአድሚን ዳሽቦርድ ገጽ (Admin Panel Route)
 @app.route('/admin')
 def admin_panel():
-  return render_template('admin.html') # ወይም በቀጥታ አድሚን ቴምፕሌት ካለህ
+  return render_template('admin.html')
+
+
+# የቴሌግራም ትዕዛዞችን ለመቀበል የሚረዳ ሩት (Webhook Endpoint)
+@app.route('/telegram-webhook', methods=['POST'])
+def telegram_webhook():
+  data = request.get_json()
+  if 'message' in data:
+    message = data['message']
+    chat_id = message['chat']['id']
+    text = message.get('text', '')
+    user_id = str(message['from']['id'])
+
+    # የእርስዎን ትክክለኛ የአድሚን ቴሌግራም ID እዚህ ያስገቡ (በኮዱ ላይ የነበረው 8912812512 ነው)
+    ADMIN_TELEGRAM_ID = str(TELEGRAM_ADMIN_CHAT_ID)
+
+    if text.strip() in ['/admin', '/Admin']:
+      if user_id == ADMIN_TELEGRAM_ID:
+        admin_url = 'https://bingo-bot-c90r.onrender.com/admin'
+        send_telegram_custom_message(
+            chat_id,
+            f'👋 እንኳን ደህና መጡ! የአድሚን ዳሽቦርዱን ለመክፈት ይህንን ሊንክ ይጠቀሙ:\n{admin_url}',
+        )
+      else:
+        send_telegram_custom_message(
+            chat_id, '❌ ይቅርታ፣ እርስዎ አድሚን አይደሉም!'
+        )
+
+  return jsonify({'status': 'ok'})
 
 
 if __name__ == '__main__':
