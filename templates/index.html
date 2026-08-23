@@ -417,11 +417,13 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
 
-        function openGameSelection() {
+                function openGameSelection() {
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
+            initCartelaGrid(); // <--- ሲገባ ካርቴላዎቹ ወዲያውኑ እንዲጫኑ እዚህ ጋር ጨምርበት
         }
+
 
         function backToMenu() {
             playSound('click');
