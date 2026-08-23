@@ -222,11 +222,9 @@
             <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
-        
-        <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
-            <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 max-h-56 overflow-y-auto p-1"></div>
-        </div>
-
+<div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
+    <div id="cartela-grid" class="grid grid-cols-8 gap-1.5 min-h-[200px] max-h-56 overflow-y-auto p-1"></div>
+</div>
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
             🎁 ለመጀመሪያ ጊዜ 50 ብር ቦነስ ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
         </div>
@@ -416,14 +414,14 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
         }
-        function openGameSelection() {
+        
+         function openGameSelection() {
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
-            initCartelaGrid(); // <--- ሲገባ ካርቴላዎቹ ወዲያውኑ እንዲጫኑ እዚህ ጋር ጨምርበት
+            initCartelaGrid(); // <--- ካርቴላዎቹ ወዲያውኑ እንዲወጡ እዚህ ጋር ጨምረንለታል
         }
 
-                
 
         function backToMenu() {
             playSound('click');
