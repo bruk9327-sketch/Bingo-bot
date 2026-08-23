@@ -613,14 +613,16 @@
             alert("⚠️ " + data.msg);
         });
 
-        function initCartelaGrid() {
+                function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
             gridContainer.innerHTML = '';
+            
+            // የካርቴላ ቁጥሮች ከ 1 እስከ 104 እንዲታዩ ማድረግ
             for (let i = 1; i <= 104; i++) {
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
-                const isTaken = takenCards.includes(i) && !isSelected;
+                const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
 
                 if (isTaken) {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
@@ -642,6 +644,7 @@
                 gridContainer.appendChild(btn);
             }
         }
+
 
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
