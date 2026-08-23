@@ -417,41 +417,28 @@
         }
         
          
-
-function initCartelaGrid() {
-            const gridContainer = document.getElementById('cartela-grid');
-            if(!gridContainer) return;
-            gridContainer.innerHTML = '';
+        function openGameSelection() {
+            try {
+                playSound('click');
+            } catch(e) {
+                console.log(e);
+            }
+            const dashboard = document.getElementById('menu-dashboard');
+            const selectionScreen = document.getElementById('selection-screen');
             
-            // ከ 1 እስከ 104 ያሉትን ቁጥሮች በ loop ማመንጨት
-            for (let i = 1; i <= 104; i++) {
-                const btn = document.createElement('button');
-                const isSelected = mySelectedCards.includes(i);
-                const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
-
-                // ለቁጥሮቹ የተስተካከለ የስታይል ገጽታ
-                btn.type = 'button';
-                btn.innerText = i;
-
-                if (isTaken) {
-                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
-                    btn.disabled = true;
-                } else if (isSelected) {
-                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
-                } else {
-                    btn.className = 'py-2.5 text-xs font-black rounded-xl border bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer hover:bg-slate-700';
-                    btn.onclick = () => {
-                        if (mySelectedCards.length >= 2) {
-                            playSound('error');
-                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                        }
-                        playSound('click');
-                        socket.emit('select_card', { user_id: userId, card_id: i });
-                    };
-                }
-                gridContainer.appendChild(btn);
+            if (dashboard) dashboard.classList.add('hidden');
+            if (selectionScreen) selectionScreen.classList.remove('hidden');
+            
+            // ካርቴላዎቹ ወዲያውኑ እንዲወጡ
+            if (typeof initCartelaGrid === 'function') {
+                initCartelaGrid();
             }
         }
+<button onclick="openGameSelection()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
+    <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
+</button>
+
+
  backToMenu() {
             playSound('click');
             document.getElementById('selection-screen').classList.add('hidden');
