@@ -47,6 +47,9 @@ sold_cards_in_round = []  # በዚህ ዙር የተሸጡ ካርቴላዎች
 drawn_balls = []  # የወጡ ኳሶች/ቁጥሮች
 available_numbers = list(range(1, 76))
 
+# አዳዲስ የተጠቃሚ ምዝገባ መረጃዎችን መያዣ
+registered_users_db = []
+
 
 # ክላይንት ከሶኬት ጋር ሲገናኝ ወዲያውኑ የካርቴላዎችን ሁኔታ መላክ (ለግሪድ መታየት ወሳኝ ነው)
 @socketio.on('connect')
@@ -56,6 +59,26 @@ def handle_connect():
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
+
+
+# ተጠቃሚዎችን የመመዝገቢያ ሁነት (Registration Event)
+@socketio.on('register_user')
+def handle_register_user(data):
+    user_id = data.get('user_id')
+    existing_user = next((u for u in registered_users_db if u['user_id'] == user_id), None)
+    
+    if existing_user:
+        existing_user.update(data)
+    else:
+        registered_users_db.append(data)
+        
+    emit('registration_success', {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!'}, room=request.sid)
+
+
+# የተመዝጋቢዎችን ዝርዝር የማምጫ ሁነት
+@socketio.on('get_registered_users')
+def handle_get_registered_users(data):
+    emit('registered_users_list', {'users': registered_users_db}, room=request.sid)
 
 
 # የዲፖዚት ጥያቄ መቀበያ
