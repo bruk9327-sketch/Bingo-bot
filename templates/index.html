@@ -40,7 +40,7 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button -->
+        <!-- Admin Panel Access Button (በኮድ ውስጥ የነበረው እና አሁን በይበልጥ የተስተካከለው) -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -108,7 +108,7 @@
         </div>
     </div>
 
-    <!-- ADMIN DASHBOARD SCREEN -->
+    <!-- ADMIN DASHBOARD SCREEN (በሚኒ አፕ ውስጥ በቀጥታ የሚከፈት) -->
     <div id="admin-dashboard-screen" class="hidden space-y-3 my-2">
         <div class="flex justify-between items-center glass-panel p-3 rounded-2xl border border-amber-500/40">
             <div class="flex items-center gap-2">
@@ -306,7 +306,6 @@
     </div>
 
     <!-- MODALS -->
-    <!-- REGISTRATION MODAL -->
     <div id="register-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl relative">
             <div class="flex justify-between items-center mb-4">
@@ -330,7 +329,6 @@
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
                     <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
-                <!-- ቁልፉ በቀጥታ በ onclick እንዲሰራ ተደርጓል -->
                 <button type="button" onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ</button>
             </div>
         </div>
@@ -523,7 +521,6 @@
         function openInstruction() { playSound('click'); alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።"); }
         function openSupport() { playSound('click'); alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot"); }
 
-        // SUBMIT REGISTRATION FUNCTION
         function submitRegister() {
             const fname = document.getElementById('reg-fullname').value.trim();
             const uname = document.getElementById('reg-username').value.trim();
@@ -570,6 +567,7 @@
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
+            // እዚህ ላይ በአድሚን መለያዎ (Admin ID) ሲገቡ አድሚን ዳሽቦርዱን የሚከፍተው ቁልፍ በራስሰር እንዲታይ ይደረጋል
             if (userId === ADMIN_USER_ID) {
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
