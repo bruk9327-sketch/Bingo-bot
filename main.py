@@ -47,11 +47,11 @@ sold_cards_in_round = []  # በዚህ ዙር የተሸጡ ካርቴላዎች
 drawn_balls = []  # የወጡ ኳሶች/ቁጥሮች
 available_numbers = list(range(1, 76))
 
-# አዳዲስ የተጠቃሚ ምዝገባ መረጃዎችን መያዣ
+# የተጠቃሚዎች ምዝገባ እና አድሚን ዳታ መያዣ
 registered_users_db = []
 
 
-# ክላይንት ከሶኬት ጋር ሲገናኝ ወዲያውኑ የካርቴላዎችን ሁኔታ መላክ (ለግሪድ መታየት ወሳኝ ነው)
+# ክላይንት ከሶኬት ጋር ሲገናኝ ወዲያውኑ የካርቴላዎችን ሁኔታ መላክ
 @socketio.on('connect')
 def handle_connect():
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
@@ -61,21 +61,33 @@ def handle_connect():
   )
 
 
-# ተጠቃሚዎችን የመመዝገቢያ ሁነት (Registration Event)
+# ተጠቃሚዎችን የመመዝገቢያ ሁነት (Register User)
 @socketio.on('register_user')
 def handle_register_user(data):
-    user_id = data.get('user_id')
-    existing_user = next((u for u in registered_users_db if u['user_id'] == user_id), None)
+    user_id = data.get('user_id') or data.get('phone') or data.get('username')
+    if not user_id:
+        # መለያ ከሌለው ስልክ ቁጥር ወይም ዩዘርኔም እንደ መታወቂያ እንወስዳለን
+        user_id = data.get('phone', 'unknown_user')
+    
+    data['user_id'] = user_id
+    existing_user = next((u for u in registered_users_db if u.get('user_id') == user_id), None)
     
     if existing_user:
         existing_user.update(data)
     else:
         registered_users_db.append(data)
         
-    emit('registration_success', {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!'}, room=request.sid)
+    # የመጀመሪያ አካውንት ሲከፈት 50 ብር ቦነስ መስጠት
+    if user_id not in user_balances:
+        user_balances[user_id] = 50.00
+
+    emit('registration_success', {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!', 'user_id': user_id}, room=request.sid)
+    
+    # ለአድሚን ዳሽቦርድ የተመዝጋቢዎች ዝርዝር እንዲዘምን ማድረግ
+    socketio.emit('registered_users_list', {'users': registered_users_db})
 
 
-# የተመዝጋቢዎችን ዝርዝር የማምጫ ሁነት
+# የተመዝጋቢዎችን ዝርዝር ለአድሚን ማሳያ
 @socketio.on('get_registered_users')
 def handle_get_registered_users(data):
     emit('registered_users_list', {'users': registered_users_db}, room=request.sid)
@@ -347,6 +359,11 @@ def reset_game_state_completely():
 @app.route('/')
 def index():
   return render_template('index.html')
+
+# የአድሚን ዳሽቦርድ ገጽ (Admin Panel Route)
+@app.route('/admin')
+def admin_panel():
+  return render_template('admin.html') # ወይም በቀጥታ አድሚን ቴምፕሌት ካለህ
 
 
 if __name__ == '__main__':
