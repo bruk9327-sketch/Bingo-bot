@@ -1,4 +1,4 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="am">
 <head>
     <meta charset="UTF-8">
@@ -41,7 +41,7 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button (ለእርስዎ ብቻ የሚታይ እና በብሮውዘር የሚደበቅ) -->
+        <!-- Admin Panel Access Button -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -125,24 +125,17 @@
             <button onclick="switchAdminTab('players')" id="tab-btn-players" class="py-2 px-1 text-center text-[10px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer">የተጫዋቾች ታሪክ</button>
         </div>
 
-        <!-- Tab 1: Deposits & Withdrawals -->
         <div id="admin-tab-deposits" class="space-y-3">
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
-                <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <!-- Dynamic deposits will be loaded here -->
-                </div>
+                <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
             </div>
-
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
-                <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <!-- Dynamic withdrawals will be loaded here -->
-                </div>
+                <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
             </div>
         </div>
 
-        <!-- Tab 2: Broadcast System -->
         <div id="admin-tab-broadcast" class="hidden space-y-3">
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-3">
                 <h2 class="text-xs font-black text-purple-400">📢 ማስታወቂያ እና የሚዲያ መልዕክት መላኪያ (Broadcast)</h2>
@@ -158,7 +151,6 @@
             </div>
         </div>
 
-        <!-- Tab 3: Player History & Tracking -->
         <div id="admin-tab-players" class="hidden space-y-3">
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <h2 class="text-xs font-black text-amber-400">👥 የተጫዋቾች እንቅስቃሴ እና ታሪክ (Player Monitoring)</h2>
@@ -222,11 +214,10 @@
             <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
-                <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
+
+        <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
             <div id="cartela-grid" class="grid grid-cols-6 gap-2 min-h-[220px] max-h-60 overflow-y-auto p-1"></div>
         </div>
-
-
 
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
             🎁 ለመጀመሪያ ጊዜ 50 ብር ቦነስ ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
@@ -322,7 +313,6 @@
         </div>
     </div>
 
-    <!-- DEPOSIT MODAL WITH CBE MERCHANT 1287375 & SMS COPY-PASTE -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -417,6 +407,7 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
         }
+
         function openGameSelection() {
             try {
                 playSound('click');
@@ -429,23 +420,17 @@
             if (dashboard) dashboard.classList.add('hidden');
             if (selectionScreen) selectionScreen.classList.remove('hidden');
             
-            // ካርቴላዎቹ ወዲያውኑ እንዲወጡ
             if (typeof initCartelaGrid === 'function') {
                 initCartelaGrid();
             }
         }
-<button onclick="openGameSelection()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
-    <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
-</button>
 
-                        
         function backToMenu() {
             playSound('click');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        // Admin Dashboard Functions
         function openAdminDashboard() {
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
@@ -472,12 +457,6 @@
             document.getElementById(`tab-btn-${tabName}`).className = "py-2 px-1 text-center text-[10px] font-black rounded-xl bg-purple-600 text-white cursor-pointer";
         }
 
-        function approveDeposit(id) { playSound('win'); alert("✅ ዲፖዚቱ በተሳካ ሁኔታ ጸድቋል!"); }
-        function rejectDeposit(id) { playSound('error'); alert("❌ የዲፖዚት ጥያቄው ተሰርዟል (Rejected)!"); }
-        function approveWithdraw(id) { playSound('win'); alert("✅ የዊዝድሮ ጥያቄ ጸድቆ ገንዘቡ ተልኳል!"); }
-        function rejectWithdraw(id) { playSound('error'); alert("❌ የዊዝድሮ ጥያቄው ውድቅ ተደርጓል!"); }
-        
-        // Broadcast with Image/Video support and Public Display
         function sendBroadcast() {
             const text = document.getElementById('broadcast-text').value.trim();
             const fileInput = document.getElementById('broadcast-file');
@@ -491,7 +470,6 @@
                 mediaUrl = URL.createObjectURL(fileInput.files[0]);
             }
 
-            // Broadcast object to send to all users via socket or store locally for public display
             const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
             socket.emit('send_broadcast', broadcastData);
 
@@ -578,8 +556,6 @@
         const socket = io();
         let userId = null;
         let takenCards = [];
-
-        // Strict Admin Check: Only if opened inside Telegram WebApp with exact admin ID
         const ADMIN_USER_ID = 8912812512;
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
@@ -587,7 +563,7 @@
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 0; // በብሮውዘር ሲከፈት ሪል አድሚን አይሆንም (0)
+            userId = parseInt(urlParams.get('user_id')) || 0;
         }
 
         let mySelectedCards = [];
@@ -600,8 +576,6 @@
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
-            
-            // ጥብቅ ማጣሪያ: በብሮውዘር ሲከፈት ወይም ሌላ ሰው ሲገባ አድሚን ቁልፍ በፍጹም አይታይም!
             if (userId === ADMIN_USER_ID) {
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
@@ -629,12 +603,11 @@
             alert("⚠️ " + data.msg);
         });
 
-                function initCartelaGrid() {
+        function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
             gridContainer.innerHTML = '';
             
-            // የካርቴላ ቁጥሮች ከ 1 እስከ 104 እንዲታዩ ማድረግ
             for (let i = 1; i <= 104; i++) {
                 const btn = document.createElement('button');
                 const isSelected = mySelectedCards.includes(i);
@@ -660,7 +633,6 @@
                 gridContainer.appendChild(btn);
             }
         }
-
 
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
@@ -885,5 +857,3 @@
     </script>
 </body>
 </html>
-
-
