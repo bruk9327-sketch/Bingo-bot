@@ -308,7 +308,7 @@
     </div>
 
     <!-- MODALS -->
-    <!-- UPDATED REGISTRATION MODAL WITH EMAIL INPUT AND MATCHING UI DESIGN -->
+    <!-- REGISTRATION MODAL -->
     <div id="register-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl relative">
             <div class="flex justify-between items-center mb-4">
@@ -332,7 +332,7 @@
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
                     <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
-                <button onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ</button>
+                <button id="register-form-btn" onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ</button>
             </div>
         </div>
     </div>
@@ -617,7 +617,7 @@
         const socket = io();
         let userId = null;
         let takenCards = [];
-        const ADMIN_USER_ID = 8912812512; // የእርስዎን የአድሚን ቴሌግራም ID እዚህ ያስገቡ
+        const ADMIN_USER_ID = 8912812512; // የእርስዎን የአድሚን ቴሌግራም ID
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
