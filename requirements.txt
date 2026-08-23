@@ -5,3 +5,7 @@ eventlet==0.35.2
 greenlet==3.0.3
 pyTelegramBotAPI==4.16.1
 requests==2.31.0
+requests==2.31.0
+python-engineio==4.8.0
+python-socketio==5.11.1
+werkzeug==3.0.3
