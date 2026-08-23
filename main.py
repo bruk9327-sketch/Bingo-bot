@@ -78,7 +78,6 @@ def handle_connect():
 def handle_register_user(data):
     user_id = data.get('user_id') or data.get('phone') or data.get('username')
     if not user_id:
-        # መለያ ከሌለው ስልክ ቁጥር ወይም ዩዘርኔም እንደ መታወቂያ እንወስዳለን
         user_id = data.get('phone', 'unknown_user')
     
     data['user_id'] = user_id
@@ -89,13 +88,10 @@ def handle_register_user(data):
     else:
         registered_users_db.append(data)
         
-    # የመጀመሪያ አካውንት ሲከፈት 50 ብር ቦነስ መስጠት
     if user_id not in user_balances:
         user_balances[user_id] = 50.00
 
     emit('registration_success', {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!', 'user_id': user_id}, room=request.sid)
-    
-    # ለአድሚን ዳሽቦርድ የተመዝጋቢዎች ዝርዝር እንዲዘምን ማድረግ
     socketio.emit('registered_users_list', {'users': registered_users_db})
 
 
@@ -110,19 +106,18 @@ def handle_get_registered_users(data):
 def handle_request_deposit(data):
   user_id = data.get('user_id')
   amount = float(data.get('amount', 0))
-  tx_ref = data.get('tx_ref')  # የባንክ ወይም የቴሌብር Transaction ID
-  payment_method = data.get('method')  # Telebirr ወይም CBE
+  tx_ref = data.get('tx_ref')
+  payment_method = data.get('method')
 
   if amount < 10:
     emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'})
     return
 
   if user_id not in user_balances:
-    user_balances[user_id] = 50.00  # የመጀመሪያ ቦነስ
+    user_balances[user_id] = 50.00
 
   user_balances[user_id] += amount
 
-  # ለአድሚን በቴሌግራም የዲፖዚት ማሳወቂያ መላክ
   send_telegram_notification(
       f'💰 *አዲስ የዲፖዚት ጥያቄ!*\n- ተጠቃሚ ID: `{user_id}`\n- መጠን: {amount}'
       f' ብር\n- ዘዴ: {payment_method}\n- Ref: {tx_ref}'
@@ -160,7 +155,7 @@ def handle_get_balance(data):
     return
 
   if user_id not in user_balances:
-    user_balances[user_id] = 50.00  # ለመጀመሪያ ጊዜ 50 ብር ቦነስ
+    user_balances[user_id] = 50.00
 
   emit(
       'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
@@ -195,7 +190,6 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'ይህ ካርቴላ ተይዟል!'})
     return
 
-  # ብር መቀነስ እና ካርቴላውን መያዝ
   user_balances[user_id] -= card_price
   taken_cards_global.append(card_id)
   sold_cards_in_round.append({'user_id': user_id, 'card_id': card_id})
@@ -309,7 +303,6 @@ def handle_claim_bingo(data):
     prize = max(len(sold_cards_in_round) * 10.00 * 0.8, 8)
     user_balances[user_id] = user_balances.get(user_id, 50.00) + prize
 
-    # አሸናፊውን ለቴሌግራም አድሚን ማሳወቅ
     send_telegram_notification(
         f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ያሸነፈው ሽልማት: {prize}'
         f' ብር\n- ካርቴላ ቁጥር: {card_id}'
@@ -379,7 +372,7 @@ def admin_panel():
   return render_template('admin.html')
 
 
-# የቴሌግራም ትዕዛዞችን ለመቀበል የሚረዳ ሩት (Webhook Endpoint)
+# የቴሌግራም ትዕዛዞችን ለመቀበል የሚረዳ ሩት (Webhook Endpoint) - የተስተካከለ
 @app.route('/telegram-webhook', methods=['POST'])
 def telegram_webhook():
   data = request.get_json()
@@ -389,20 +382,14 @@ def telegram_webhook():
     text = message.get('text', '')
     user_id = str(message['from']['id'])
 
-    # የእርስዎን ትክክለኛ የአድሚን ቴሌግራም ID እዚህ ያስገቡ (በኮዱ ላይ የነበረው 8912812512 ነው)
-    ADMIN_TELEGRAM_ID = str(TELEGRAM_ADMIN_CHAT_ID)
-
     if text.strip() in ['/admin', '/Admin']:
-      if user_id == ADMIN_TELEGRAM_ID:
-        admin_url = 'https://bingo-bot-c90r.onrender.com/admin'
-        send_telegram_custom_message(
-            chat_id,
-            f'👋 እንኳን ደህና መጡ! የአድሚን ዳሽቦርዱን ለመክፈት ይህንን ሊንክ ይጠቀሙ:\n{admin_url}',
-        )
-      else:
-        send_telegram_custom_message(
-            chat_id, '❌ ይቅርታ፣ እርስዎ አድሚን አይደሉም!'
-        )
+      admin_url = 'https://bingo-bot-c90r.onrender.com/admin'
+      # የእርስዎ Telegram ID ምን እንደሆነ ለማወቅ ከታች ባለው መልዕክት ውስጥ ID ይገለጻል
+      send_telegram_custom_message(
+          chat_id,
+          f'👋 እንኳን ደህና መጡ! (የእርስዎ Telegram ID: {user_id})\nየአድሚን ዳሽቦርዱን ለመክፈት'
+          f' ይህንን ሊንክ ይጠቀሙ:\n{admin_url}',
+      )
 
   return jsonify({'status': 'ok'})
 
