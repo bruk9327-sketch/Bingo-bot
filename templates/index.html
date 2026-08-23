@@ -24,7 +24,6 @@
             <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
 
-        <!-- Broadcast Public Banner Container -->
         <div id="public-broadcast-container" class="hidden space-y-2"></div>
 
         <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
@@ -167,7 +166,6 @@
             </div>
         </div>
 
-        <!-- NEW ADMIN TAB: FULL REGISTERED USERS LIST -->
         <div id="admin-tab-userlist" class="hidden space-y-3">
             <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
                 <div class="flex justify-between items-center">
@@ -332,7 +330,8 @@
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
                     <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
-                <button id="register-form-btn" onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ</button>
+                <!-- ቁልፉ በቀጥታ በ onclick እንዲሰራ ተደርጓል -->
+                <button type="button" onclick="submitRegister()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg mt-2 cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ</button>
             </div>
         </div>
     </div>
@@ -442,17 +441,9 @@
         }
 
         function openGameSelection() {
-            try {
-                playSound('click');
-            } catch(e) {
-                console.log(e);
-            }
-            const dashboard = document.getElementById('menu-dashboard');
-            const selectionScreen = document.getElementById('selection-screen');
-            
-            if (dashboard) dashboard.classList.add('hidden');
-            if (selectionScreen) selectionScreen.classList.remove('hidden');
-            
+            try { playSound('click'); } catch(e) { console.log(e); }
+            document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
             initCartelaGrid();
         }
 
@@ -466,7 +457,6 @@
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('admin-dashboard-screen').classList.remove('hidden');
-            // አድሚን ሲከፈት የተመዝጋቢዎችን ዝርዝር ከሰርቨር መጠየቅ
             socket.emit('get_registered_users', { admin_id: userId });
         }
 
@@ -533,7 +523,7 @@
         function openInstruction() { playSound('click'); alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።"); }
         function openSupport() { playSound('click'); alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot"); }
 
-        // SUBMIT REGISTRATION WITH EMAIL AND USER ID
+        // SUBMIT REGISTRATION FUNCTION
         function submitRegister() {
             const fname = document.getElementById('reg-fullname').value.trim();
             const uname = document.getElementById('reg-username').value.trim();
@@ -557,13 +547,41 @@
             socket.emit('register_user', userData);
         }
 
+        const socket = io();
+        let userId = null;
+        let takenCards = [];
+        const ADMIN_USER_ID = 8912812512; 
+
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
+            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
+            window.Telegram.WebApp.expand();
+        } else {
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = parseInt(urlParams.get('user_id')) || Math.floor(100000 + Math.random() * 900000);
+        }
+
+        let mySelectedCards = [];
+        let drawnNumbersList = []; 
+        let drawnNumbersSet = new Set();
+        let markedNumbersMap = {};
+        let cardsDatabase = {};
+
+        socket.on('connect', () => {
+            if (userId) {
+                socket.emit('get_user_balance', { user_id: userId });
+            }
+            if (userId === ADMIN_USER_ID) {
+                const adminBtn = document.getElementById('admin-access-btn');
+                if (adminBtn) adminBtn.classList.remove('hidden');
+            }
+        });
+
         socket.on('registration_success', (data) => {
             playSound('win');
             alert("✅ " + data.msg);
             closeRegisterModal();
         });
 
-        // HANDLE REGISTERED USERS LIST IN ADMIN PANEL
         socket.on('registered_users_list', (data) => {
             const listContainer = document.getElementById('admin-registered-users-list');
             const countBadge = document.getElementById('total-users-count');
@@ -594,55 +612,6 @@
             });
         });
 
-        function submitDeposit() {
-            const amount = parseFloat(document.getElementById('deposit-amount').value);
-            const txRef = document.getElementById('deposit-txref').value.trim();
-            const method = document.getElementById('deposit-method').value;
-            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); }
-            socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
-            closeDepositModal();
-            alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
-        }
-
-        function submitWithdraw() {
-            const amount = parseFloat(document.getElementById('withdraw-amount').value);
-            const account = document.getElementById('withdraw-account').value.trim();
-            const method = document.getElementById('withdraw-method').value;
-            if (!amount || amount <= 0 || !account) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!"); }
-            playSound('win');
-            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
-            closeWithdrawModal();
-        }
-
-        const socket = io();
-        let userId = null;
-        let takenCards = [];
-        const ADMIN_USER_ID = 8912812512; // የእርስዎን የአድሚን ቴሌግራም ID
-
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
-            window.Telegram.WebApp.expand();
-        } else {
-            const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || Math.floor(100000 + Math.random() * 900000);
-        }
-
-        let mySelectedCards = [];
-        let drawnNumbersList = []; 
-        let drawnNumbersSet = new Set();
-        let markedNumbersMap = {};
-        let cardsDatabase = {};
-
-        socket.on('connect', () => {
-            if (userId) {
-                socket.emit('get_user_balance', { user_id: userId });
-            }
-            if (userId === ADMIN_USER_ID) {
-                const adminBtn = document.getElementById('admin-access-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-            }
-        });
-
         socket.on('balance_update', (data) => {
             if(parseInt(data.user_id) === userId) {
                 const bStr = `${parseFloat(data.balance).toFixed(2)} ETB`;
@@ -663,6 +632,26 @@
             playSound('error');
             alert("⚠️ " + data.msg);
         });
+
+        function submitDeposit() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value);
+            const txRef = document.getElementById('deposit-txref').value.trim();
+            const method = document.getElementById('deposit-method').value;
+            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); }
+            socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
+            closeDepositModal();
+            alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
+        }
+
+        function submitWithdraw() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            const account = document.getElementById('withdraw-account').value.trim();
+            const method = document.getElementById('withdraw-method').value;
+            if (!amount || amount <= 0 || !account) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!"); }
+            playSound('win');
+            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
+            closeWithdrawModal();
+        }
 
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
