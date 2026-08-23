@@ -420,9 +420,7 @@
             if (dashboard) dashboard.classList.add('hidden');
             if (selectionScreen) selectionScreen.classList.remove('hidden');
             
-            if (typeof initCartelaGrid === 'function') {
-                initCartelaGrid();
-            }
+            initCartelaGrid();
         }
 
         function backToMenu() {
@@ -478,31 +476,6 @@
             document.getElementById('broadcast-text').value = '';
             fileInput.value = '';
         }
-
-        socket.on('receive_broadcast', (data) => {
-            const container = document.getElementById('public-broadcast-container');
-            if(container) {
-                container.classList.remove('hidden');
-                let mediaHtml = '';
-                if(data.media) {
-                    if(data.type && data.type.startsWith('video')) {
-                        mediaHtml = `<video src="${data.media}" controls class="w-full rounded-xl mt-2 max-h-48 object-cover"></video>`;
-                    } else {
-                        mediaHtml = `<img src="${data.media}" class="w-full rounded-xl mt-2 max-h-48 object-cover">`;
-                    }
-                }
-                container.innerHTML = `
-                    <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-purple-500/50 shadow-xl space-y-1">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-black text-purple-400">📢 አስተዳዳሪ (Admin Announcement)</span>
-                            <button onclick="this.parentElement.parentElement.remove()" class="text-slate-400 text-xs font-bold">✕</button>
-                        </div>
-                        <p class="text-xs text-white leading-relaxed">${data.text || ''}</p>
-                        ${mediaHtml}
-                    </div>
-                `;
-            }
-        });
 
         function searchPlayerHistory() {
             const query = document.getElementById('search-player-input').value.trim();
@@ -853,6 +826,7 @@
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
+        // ገጹ ሲከፈት እና ዌብሶኬቱ ሲገናኝ ካርቴላዎቹን ወዲያውኑ እንዲያመጣ ማድረግ
         initCartelaGrid();
     </script>
 </body>
