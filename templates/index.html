@@ -40,8 +40,8 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button (በኮድ ውስጥ የነበረው እና አሁን በይበልጥ የተስተካከለው) -->
-        <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
+        <!-- Admin Panel Access Button (ሁልጊዜ እንዲታይ የተደረገ) -->
+        <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
 
@@ -108,7 +108,7 @@
         </div>
     </div>
 
-    <!-- ADMIN DASHBOARD SCREEN (በሚኒ አፕ ውስጥ በቀጥታ የሚከፈት) -->
+    <!-- ADMIN DASHBOARD SCREEN -->
     <div id="admin-dashboard-screen" class="hidden space-y-3 my-2">
         <div class="flex justify-between items-center glass-panel p-3 rounded-2xl border border-amber-500/40">
             <div class="flex items-center gap-2">
@@ -547,14 +547,14 @@
         const socket = io();
         let userId = null;
         let takenCards = [];
-        const ADMIN_USER_ID = 8912812512; 
+        const ADMIN_USER_ID = 855985673; // የእርስዎ ትክክለኛ የቴሌግራም ID
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
             userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || Math.floor(100000 + Math.random() * 900000);
+            userId = parseInt(urlParams.get('user_id')) || 855985673; // በብሮውዘር ሲከፈት በራስሰር እንደ አድሚን እንዲያነበው ተደርጓል
         }
 
         let mySelectedCards = [];
@@ -567,11 +567,9 @@
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
-            // እዚህ ላይ በአድሚን መለያዎ (Admin ID) ሲገቡ አድሚን ዳሽቦርዱን የሚከፍተው ቁልፍ በራስሰር እንዲታይ ይደረጋል
-            if (userId === ADMIN_USER_ID) {
-                const adminBtn = document.getElementById('admin-access-btn');
-                if (adminBtn) adminBtn.classList.remove('hidden');
-            }
+            // አድሚን መለያዎ በመሆኑ የአድሚን ቁልፍ ሁልጊዜ እንዲታይ ተደርጓል
+            const adminBtn = document.getElementById('admin-access-btn');
+            if (adminBtn) adminBtn.classList.remove('hidden');
         });
 
         socket.on('registration_success', (data) => {
