@@ -365,7 +365,9 @@
                 </div>
                 <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
-                <button onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
+                
+                <!-- የተስተካከለ አዝራር ከ ID ጋር -->
+                <button id="confirm-payment-btn" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
     </div>
@@ -459,7 +461,6 @@
             playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('admin-dashboard-screen').classList.remove('hidden');
-            // ወደ አድሚን ሲገባ የተመዝጋቢዎችን እና የዲፖዚት ጥያቄዎችን እንዲጠይቅ ይደረጋል
             socket.emit('get_registered_users', { admin_id: userId });
             socket.emit('get_pending_deposits', { admin_id: userId });
         }
@@ -490,13 +491,11 @@
             }
         }
 
-        // አድሚን የዲፖዚት ጥያቄን ሲያጸድቅ (Approve)
         function approveDeposit(depositId) {
             playSound('click');
             socket.emit('approve_deposit', { admin_id: userId, deposit_id: depositId });
         }
 
-        // አድሚን የዲፖዚት ጥያቄን ሲሰርዝ (Reject)
         function rejectDeposit(depositId) {
             playSound('click');
             socket.emit('reject_deposit', { admin_id: userId, deposit_id: depositId });
@@ -681,15 +680,22 @@
             alert("⚠️ " + data.msg);
         });
 
-        function submitDeposit() {
-            const amount = parseFloat(document.getElementById('deposit-amount').value);
+        // የዲፖዚት ክፍያ መላኪያ JavaScript ፈንክሽን ከ Event Listener ጋር ተያይዟል
+        document.getElementById('confirm-payment-btn').addEventListener('click', function() {
+            const amountInput = document.getElementById('deposit-amount').value;
+            const amount = parseFloat(amountInput);
             const txRef = document.getElementById('deposit-txref').value.trim();
             const method = document.getElementById('deposit-method').value;
-            if (!amount || amount <= 0 || !txRef) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); }
+
+            if (!amount || amount <= 0 || !txRef) { 
+                playSound('error'); 
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); 
+            }
+
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
             alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
-        }
+        });
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
