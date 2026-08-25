@@ -118,15 +118,76 @@ def handle_get_registered_users(data):
 
 
 # ---------------------------------------------------------
-# የCBE Merchant / የዲፖዚት ጥያቄ ማቀናበሪያ (Manual Verification & Admin Panel)
+# የCBE Merchant / የዲፖዚት ጥያቄ ማቀናበሪያ (Socket.io & API Routes)
 # ---------------------------------------------------------
+
+@socketio.on('request_deposit')
+def handle_request_deposit(data):
+  """ክላይንቱ በሶኬት በኩል የዲፖዚት ጥያቄ ሲልክ የሚቀበል እና ስህተት እንዳይፈጥር (Crash-Free) የሚያደርግ ፋንክሽን"""
+  global deposit_id_counter
+  try:
+    user_id = data.get('user_id')
+    amount = float(data.get('amount', 0))
+    tx_ref = data.get('tx_ref') or data.get('transaction_ref')
+    method = data.get('method', 'CBE Merchant')
+
+    if not user_id or not amount or not tx_ref:
+      emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
+      return
+
+    if amount < 10:
+      emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
+      return
+
+    # ዲፖዚቱን Pending አድርጎ መመዝገብ
+    dep_id = deposit_id_counter
+    deposit_id_counter += 1
+
+    pending_deposits[dep_id] = {
+        'id': dep_id,
+        'user_id': user_id,
+        'amount': amount,
+        'transaction_ref': tx_ref,
+        'method': method,
+        'status': 'Pending',
+    }
+
+    # ለአድሚን በቴሌግራም ማሳወቂያ ከነ አፕሩቭ/ሪጀክት ቁልፎች ጋር መላክ
+    admin_msg = (
+        f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ (Socket)*\n\n'
+        f'- ጥያቄ ID: `{dep_id}`\n'
+        f'- ተጠቃሚ ID: `{user_id}`\n'
+        f'- መጠን: *{amount} ብር*\n'
+        f'- ዘዴ: {method}\n'
+        f'- Ref: `{tx_ref}`'
+    )
+
+    inline_keyboard = {
+        'inline_keyboard': [[
+            {'text': '✅ አረጋግጥ (Approve)', 'callback_data': f'approve_{dep_id}'},
+            {'text': '❌ ሰርዝ (Reject)', 'callback_data': f'reject_{dep_id}'},
+        ]]
+    }
+
+    send_telegram_notification(admin_msg, reply_markup=inline_keyboard)
+
+    # ለክላይንት ስኬታማ መሆኑን መላክ
+    emit('deposit_submitted_success', {
+        'msg': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! ለአድሚን ማረጋገጫ እስኪደርስ ትንሽ ይጠብቁ።'
+    }, room=request.sid)
+
+  except Exception as e:
+    print(f"Deposit Socket Error: {e}")
+    emit('error_msg', {'msg': 'የሰርቨር ስህተት አጋጥሟል፡፡ እባክዎ እንደገና ይሞክሩ።'}, room=request.sid)
+
+
 @app.route('/api/deposit/submit', methods=['POST'])
 def submit_deposit():
   global deposit_id_counter
   data = request.json or request.form
   user_id = data.get('user_id')
   amount = float(data.get('amount', 0))
-  transaction_ref = data.get('transaction_ref')
+  transaction_ref = data.get('transaction_ref') or data.get('tx_ref')
   payment_method = data.get('method', 'CBE Merchant')
 
   if not user_id or not amount or not transaction_ref:
@@ -144,7 +205,6 @@ def submit_deposit():
         400,
     )
 
-  # ዲፖዚቱን Pending አድርጎ መመዝገብ
   dep_id = deposit_id_counter
   deposit_id_counter += 1
 
@@ -157,14 +217,12 @@ def submit_deposit():
       'status': 'Pending',
   }
 
-  # ለአድሚን በቴሌግራም ማሳወቂያ ከነ አፕሩቭ/ሪጀክት ቁልፎች ጋር መላክ
   admin_msg = (
-      f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ!*\n\n- ጥያቄ ID: `{dep_id}`\n- ተጠቃሚ'
+      f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ (API)*\n\n- ጥያቄ ID: `{dep_id}`\n- ተጠቃሚ'
       f' ID: `{user_id}`\n- መጠን: *{amount} ብር*\n- ዘዴ: {payment_method}\n- Ref:'
       f' `{transaction_ref}`'
   )
 
-  # የቴሌግራም ኢንላይን ቁልፎች (Inline Keyboard)
   inline_keyboard = {
       'inline_keyboard': [[
           {'text': '✅ አረጋግጥ (Approve)', 'callback_data': f'approve_{dep_id}'},
@@ -489,7 +547,7 @@ def admin_panel():
   return render_template('admin.html')
 
 
-# የቴሌግራም ትዕዛዞችን ለመቀበል የሚረዳ ሩት (Webhook Endpoint) - የተስተካከለ
+# የቴሌግራም ትዕዛዞችን ለመቀበል የሚረዳ ሩት (Webhook Endpoint)
 @app.route('/telegram-webhook', methods=['POST'])
 def telegram_webhook():
   data = request.get_json()
