@@ -366,7 +366,8 @@
                 <input type="text" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
                 
-                <button id="confirm-payment-btn" class="w-full py-3 bg-slate-700 text-slate-400 font-black text-xs rounded-xl cursor-not-allowed shadow-none" disabled>ክፍያ አረጋግጥ እና ላክ</button>
+                <!-- እዚህ ላይ በአስተማማኝ ሁኔታ በቀጥታ ከ onclick ጋር ተያይዟል -->
+                <button type="button" onclick="submitDeposit()" id="confirm-payment-btn" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
     </div>
@@ -679,36 +680,11 @@
             alert("⚠️ " + data.msg);
         });
 
-        // 1. ሳጥኖቹ ሲሞሉ አዝራሩን በራስ-ሰር አክቲቭ (Active) የሚያደርግ ሎጂክ
-        const depositAmountInput = document.getElementById('deposit-amount');
-        const depositTxRefInput = document.getElementById('deposit-txref');
-        const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
-
-        function checkDepositForm() {
-            const amt = depositAmountInput.value.trim();
-            const tx = depositTxRefInput.value.trim();
-            
-            if (amt !== "" && tx !== "") {
-                confirmPaymentBtn.disabled = false;
-                confirmPaymentBtn.className = "w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg hover:bg-emerald-400 transition-all active:scale-95";
-            } else {
-                confirmPaymentBtn.disabled = true;
-                confirmPaymentBtn.className = "w-full py-3 bg-slate-700 text-slate-400 font-black text-xs rounded-xl cursor-not-allowed shadow-none";
-            }
-        }
-
-        depositAmountInput.addEventListener('input', checkDepositForm);
-        depositTxRefInput.addEventListener('input', checkDepositForm);
-
-        // የመጀመሪያ ሁኔታን ማስተካከል
-        confirmPaymentBtn.disabled = true;
-        confirmPaymentBtn.className = "w-full py-3 bg-slate-700 text-slate-400 font-black text-xs rounded-xl cursor-not-allowed shadow-none";
-
-        // 2. ክፍያ ማረጋገጫ አዝራር ክስተት
-        confirmPaymentBtn.addEventListener('click', function() {
-            const amountInput = depositAmountInput.value;
+        // የተስተካከለው የዲፖዚት ማረጋገጫ ተግባር (Function for submitting deposit)
+        function submitDeposit() {
+            const amountInput = document.getElementById('deposit-amount').value;
             const amount = parseFloat(amountInput);
-            const txRef = depositTxRefInput.value.trim();
+            const txRef = document.getElementById('deposit-txref').value.trim();
             const method = document.getElementById('deposit-method').value;
 
             if (!amount || amount <= 0 || !txRef) { 
@@ -718,14 +694,8 @@
 
             socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
             closeDepositModal();
-            
-            // ሳጥኖቹን ባዶ ማድረግ
-            depositAmountInput.value = '';
-            depositTxRefInput.value = '';
-            checkDepositForm();
-            
             alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
-        });
+        }
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
