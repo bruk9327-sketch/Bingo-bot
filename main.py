@@ -38,6 +38,7 @@ def send_telegram_notification(message, reply_markup=None):
     }
     if reply_markup:
       payload['reply_markup'] = reply_markup
+
     requests.post(url, json=payload, timeout=5)
   except Exception as e:
     print('Telegram Notification Error:', e)
