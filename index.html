@@ -363,10 +363,10 @@
                     <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
                     <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
                 </div>
-                <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <!-- እዚህ ላይ type="text" ተደርጎ ተስተካክሏል -->
+                <input type="text" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
                 
-                <!-- የተስተካከለ አዝራር ከ ID ጋር -->
                 <button id="confirm-payment-btn" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
@@ -680,7 +680,7 @@
             alert("⚠️ " + data.msg);
         });
 
-        // የዲፖዚት ክፍያ መላኪያ JavaScript ፈንክሽን ከ Event Listener ጋር ተያይዟል
+        // ክፍያ ማረጋገጫ አዝራር ክስተት
         document.getElementById('confirm-payment-btn').addEventListener('click', function() {
             const amountInput = document.getElementById('deposit-amount').value;
             const amount = parseFloat(amountInput);
