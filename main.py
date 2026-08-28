@@ -82,6 +82,8 @@ def handle_register_user(data):
     user_id = data.get('phone', 'unknown_user')
 
   data['user_id'] = user_id
+  
+  # ተጠቃሚው ቀድሞ መመዝገቡን ማረጋገጥ እና መረጃውን ማዘመን
   existing_user = next(
       (u for u in registered_users_db if u.get('user_id') == user_id), None
   )
@@ -94,11 +96,21 @@ def handle_register_user(data):
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
 
+  # ለተጠቃሚው ምዝገባው እንደተሳካ ማሳወቅ
   emit(
       'registration_success',
       {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!', 'user_id': user_id},
       room=request.sid,
   )
+  
+  # ቀሪ ሂሳብ ማዘመን (50 ብር ቦነስ ጨምሮ)
+  emit(
+      'balance_update', 
+      {'user_id': user_id, 'balance': user_balances[user_id]}, 
+      room=request.sid
+  )
+
+  # አድሚን ዳሽቦርድ ላይ ተመዝጋቢዎች ወዲያውኑ እንዲመጡ ማሳወቅ
   socketio.emit('registered_users_list', {'users': registered_users_db})
 
 
