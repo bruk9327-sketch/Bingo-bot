@@ -628,7 +628,6 @@
             playSound('win');
             alert("✅ " + data.msg);
             closeRegisterModal();
-            // አድሚን ፓናል ክፍት ከሆነ የተመዝጋቢዎችን ዝርዝር ማደስ
             socket.emit('get_registered_users', { admin_id: userId });
         });
 
