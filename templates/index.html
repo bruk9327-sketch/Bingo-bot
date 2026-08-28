@@ -363,10 +363,10 @@
                     <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
                     <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
                 </div>
-                <input type="number" id="deposit-amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="deposit-txref" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+                <!-- የተስተካከለው ID (deposit_amount እና sms_text_input) ከቀረበው ማስተካከያ ጋር የተጣጣመ -->
+                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
                 
-                <!-- የተስተካከለው የዲፖዚት ማረጋገጫ ቁልፍ (Loading state እና try-catch የተካተተበት) -->
                 <button type="button" onclick="submitDeposit()" id="confirm-payment-btn" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
             </div>
         </div>
@@ -680,40 +680,55 @@
             alert("⚠️ " + data.msg);
         });
 
-        // የተስተካከለው እና Loading State የያዘው የዲፖዚት ማረጋገጫ ተግባር (Function for submitting deposit)
+        // የተዋሃደው እና የትክክለኛውን የተጠቃሚ ግብዓት (deposit_amount እና sms_text_input) የሚጠቀም የዲፖዚት ተግባር
         function submitDeposit() {
             const btn = document.getElementById('confirm-payment-btn');
-            const amountInput = document.getElementById('deposit-amount').value;
+            const amountInput = document.getElementById('deposit_amount').value;
             const amount = parseFloat(amountInput);
-            const txRef = document.getElementById('deposit-txref').value.trim();
+            const smsInput = document.getElementById('sms_text_input').value.trim();
             const method = document.getElementById('deposit-method').value;
 
-            if (!amount || amount <= 0 || !txRef) { 
+            if (!amount || amount <= 0 || !smsInput) { 
                 playSound('error'); 
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); 
             }
 
-            // ሎዲንግ ስቴት ማስጀመር
             btn.disabled = true;
             btn.innerText = "እየተላከ ነው...";
 
             try {
-                socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, method: method });
+                socket.emit('request_deposit', { 
+                    user_id: userId, 
+                    amount: amount, 
+                    tx_ref: smsInput, 
+                    sms_text: smsInput,
+                    method: method 
+                });
                 closeDepositModal();
                 alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
                 
-                // ፎርሙን ማጽዳት
-                document.getElementById('deposit-amount').value = '';
-                document.getElementById('deposit-txref').value = '';
+                document.getElementById('deposit_amount').value = '';
+                document.getElementById('sms_text_input').value = '';
             } catch (error) {
                 console.error("Deposit Error:", error);
                 alert("የኔትወርክ ወይም የሰርቨር ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።");
             } finally {
-                // በማንኛውም ሁኔታ ቁልፉን ወደ ነበረበት መመለስ
                 btn.disabled = false;
                 btn.innerText = "ክፍያ አረጋግጥ እና ላክ";
             }
         }
+
+        // ከሰርቨር የሚመጣውን የዲፖዚት ምላሽ መቀበል (Deposit Response Handler)
+        socket.on('deposit_response', function(response) {
+            if (response.status === 'success') {
+                playSound('win');
+                alert(response.message);
+                location.reload();
+            } else {
+                playSound('error');
+                alert(response.message);
+            }
+        });
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
