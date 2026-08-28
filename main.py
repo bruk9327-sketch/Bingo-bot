@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import random
+import re
 import threading
 import time
 import requests
@@ -107,6 +108,27 @@ def handle_get_registered_users(data):
 
 
 # ---------------------------------------------------------
+# የባንክ ኤስኤምኤስ ጽሑፍን ወይም ሊንክ አጥንቶ TID የሚወስድ ተግባር
+# ---------------------------------------------------------
+def extract_transaction_info(sms_text):
+  try:
+    # ከ CBE Pay ዩአርኤል ውስጥ TID ለመውጣት (ለምሳሌ: TID=DH51IKGLT45)
+    tid_match = re.search(r'TID=([A-Za-z0-9]+)', sms_text)
+    if tid_match:
+      return tid_match.group(1)
+
+    # ሌላ መደበኛ የትራንዛክሽን ቁጥር ቅርጸት ካለ ለመፈለግ
+    general_match = re.search(r'\b([A-Z0-9]{10,})\b', sms_text)
+    if general_match:
+      return general_match.group(1)
+
+    return None
+  except Exception as e:
+    print(f'Parsing Error: {e}')
+    return None
+
+
+# ---------------------------------------------------------
 # የዲፖዚት ማስተናገጃ ሩቶች (Socket.io & HTTP APIs)
 # ---------------------------------------------------------
 
@@ -116,15 +138,28 @@ def handle_request_deposit(data):
   try:
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
+    sms_text = data.get('sms_text', '')
+    
+    # ጽሑፉን ወይም የትራንዛክሽን ሪፈረንስ (tx_ref/tid) ከ sms_text ማውጣት
     tx_ref = data.get('tx_ref') or data.get('transaction_ref')
+    if not tx_ref and sms_text:
+      tx_ref = extract_transaction_info(sms_text)
+
     method = data.get('method', 'CBE Merchant')
 
-    if not user_id or not amount or not tx_ref:
+    if not user_id or not amount or (not tx_ref and not sms_text):
+      emit('deposit_response', {'status': 'error', 'message': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
       emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
       return
 
     if amount < 10:
+      emit('deposit_response', {'status': 'error', 'message': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
       emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
+      return
+
+    if not tx_ref:
+      emit('deposit_response', {'status': 'error', 'message': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!'}, room=request.sid)
+      emit('error_msg', {'msg': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!'}, room=request.sid)
       return
 
     dep_id = deposit_id_counter
@@ -135,6 +170,7 @@ def handle_request_deposit(data):
         'user_id': user_id,
         'amount': amount,
         'transaction_ref': tx_ref,
+        'sms_text': sms_text,
         'method': method,
         'status': 'Pending',
     }
@@ -145,7 +181,8 @@ def handle_request_deposit(data):
         f'- ተጠቃሚ ID: `{user_id}`\n'
         f'- መጠን: *{amount} ብር*\n'
         f'- ዘዴ: {method}\n'
-        f'- Ref: `{tx_ref}`'
+        f'- Ref/TID: `{tx_ref}`\n'
+        f'- ጽሑፍ: {sms_text[:100]}'
     )
 
     inline_keyboard = {
@@ -158,18 +195,25 @@ def handle_request_deposit(data):
     send_telegram_notification(admin_msg, reply_markup=inline_keyboard)
 
     emit(
+        'deposit_response',
+        {
+            'status': 'success',
+            'message': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው ባላንስዎ ላይ ይጨመራል።',
+            'dep_id': dep_id,
+        },
+        room=request.sid,
+    )
+    emit(
         'deposit_pending',
         {
-            'msg': (
-                'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው ባላንስዎ ላይ'
-                ' ይጨመራል።'
-            ),
+            'msg': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው ባላንስዎ ላይ ይጨመራል።',
             'dep_id': dep_id,
         },
         room=request.sid,
     )
   except Exception as e:
     print('Deposit Socket Error:', e)
+    emit('deposit_response', {'status': 'error', 'message': 'የሰርቨር ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።'}, room=request.sid)
     emit('error_msg', {'msg': 'የዲፖዚት ጥያቄውን ማስተናገድ አልተቻለም።'}, room=request.sid)
 
 
@@ -182,10 +226,15 @@ def api_deposit():
     data = request.json or request.form or {}
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
+    sms_text = data.get('sms_text', '')
+    
     tx_ref = data.get('tx_ref') or data.get('transaction_ref')
+    if not tx_ref and sms_text:
+      tx_ref = extract_transaction_info(sms_text)
+
     method = data.get('method', 'CBE Merchant')
 
-    if not user_id or not amount or not tx_ref:
+    if not user_id or not amount or (not tx_ref and not sms_text):
       return (
           jsonify({
               'status': 'error',
@@ -205,6 +254,16 @@ def api_deposit():
           400,
       )
 
+    if not tx_ref:
+      return (
+          jsonify({
+              'status': 'error',
+              'msg': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!',
+              'message': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!',
+          }),
+          400,
+      )
+
     dep_id = deposit_id_counter
     deposit_id_counter += 1
 
@@ -213,6 +272,7 @@ def api_deposit():
         'user_id': user_id,
         'amount': amount,
         'transaction_ref': tx_ref,
+        'sms_text': sms_text,
         'method': method,
         'status': 'Pending',
     }
@@ -223,7 +283,7 @@ def api_deposit():
         f'- ተጠቃሚ ID: `{user_id}`\n'
         f'- መጠን: *{amount} ብር*\n'
         f'- ዘዴ: {method}\n'
-        f'- Ref: `{tx_ref}`'
+        f'- Ref/TID: `{tx_ref}`'
     )
 
     inline_keyboard = {
