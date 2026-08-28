@@ -83,6 +83,12 @@ def handle_register_user(data):
 
   data['user_id'] = user_id
   
+  fullname = data.get('fullname')
+  username = data.get('username')
+  email = data.get('email')
+  phone = data.get('phone')
+  balance = data.get('balance', 50.00)
+
   # ተጠቃሚው ቀድሞ መመዝገቡን ማረጋገጥ እና መረጃውን ማዘመን
   existing_user = next(
       (u for u in registered_users_db if u.get('user_id') == user_id), None
@@ -94,16 +100,19 @@ def handle_register_user(data):
     registered_users_db.append(data)
 
   if user_id not in user_balances:
-    user_balances[user_id] = 50.00
+    user_balances[user_id] = balance
 
   # ለተጠቃሚው ምዝገባው እንደተሳካ ማሳወቅ
   emit(
       'registration_success',
-      {'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል!', 'user_id': user_id},
+      {
+          'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።', 
+          'user_id': user_id
+      },
       room=request.sid,
   )
   
-  # ቀሪ ሂሳብ ማዘመን (50 ብር ቦነስ ጨምሮ)
+  # ቀሪ ሂሳብ ማዘመን
   emit(
       'balance_update', 
       {'user_id': user_id, 'balance': user_balances[user_id]}, 
@@ -112,6 +121,42 @@ def handle_register_user(data):
 
   # አድሚን ዳሽቦርድ ላይ ተመዝጋቢዎች ወዲያውኑ እንዲመጡ ማሳወቅ
   socketio.emit('registered_users_list', {'users': registered_users_db})
+
+
+# HTTP Route አማራጭ ለ ምዝገባ (Endpoint connection) ከፈለጉ
+@app.route('/api/register', methods=['POST'])
+def api_register_user():
+  try:
+    data = request.json or request.form or {}
+    user_id = data.get('user_id') or data.get('phone') or data.get('username')
+    if not user_id:
+      user_id = data.get('phone', 'unknown_user')
+
+    data['user_id'] = user_id
+    
+    existing_user = next(
+        (u for u in registered_users_db if u.get('user_id') == user_id), None
+    )
+
+    if existing_user:
+      existing_user.update(data)
+    else:
+      registered_users_db.append(data)
+
+    if user_id not in user_balances:
+      user_balances[user_id] = 50.00
+
+    socketio.emit('registered_users_list', {'users': registered_users_db})
+
+    return jsonify({
+        'status': 'success',
+        'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
+        'user_id': user_id,
+        'balance': user_balances[user_id]
+    }), 200
+  except Exception as e:
+    print('API Register Error:', e)
+    return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
 @socketio.on('get_registered_users')
@@ -152,7 +197,6 @@ def handle_request_deposit(data):
     amount = float(data.get('amount', 0))
     sms_text = data.get('sms_text', '')
     
-    # ጽሑፉን ወይም የትራንዛክሽን ሪፈረንስ (tx_ref/tid) ከ sms_text ማውጣት
     tx_ref = data.get('tx_ref') or data.get('transaction_ref')
     if not tx_ref and sms_text:
       tx_ref = extract_transaction_info(sms_text)
@@ -229,7 +273,6 @@ def handle_request_deposit(data):
     emit('error_msg', {'msg': 'የዲፖዚት ጥያቄውን ማስተናገድ አልተቻለም።'}, room=request.sid)
 
 
-# ፍሮንትኤንድ ሊጠቀምባቸው የሚችሉ ሁሉንም የኤፒአይ አድራሻዎች በአንድ ላይ ማስተናገጃ (Endpoints Aliases)
 @app.route('/api/deposit', methods=['POST'])
 @app.route('/api/deposit/submit', methods=['POST'])
 def api_deposit():
