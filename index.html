@@ -347,6 +347,7 @@
         </div>
     </div>
 
+    <!-- DEPOSIT MODAL WITH CORRECT IDs -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -363,7 +364,8 @@
                     <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
                     <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
                 </div>
-                <!-- የተስተካከለው ID (deposit_amount እና sms_text_input) ከቀረበው ማስተካከያ ጋር የተጣጣመ -->
+                
+                <!-- የተስተካከሉ Input IDs -->
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
                 
@@ -680,7 +682,7 @@
             alert("⚠️ " + data.msg);
         });
 
-        // የተዋሃደው እና የትክክለኛውን የተጠቃሚ ግብዓት (deposit_amount እና sms_text_input) የሚጠቀም የዲፖዚት ተግባር
+        // የተስተካከለው የዲፖዚት ማቅረቢያ ተግባር (ከተገቢው የ Input IDs ጋር የተገናኘ)
         function submitDeposit() {
             const btn = document.getElementById('confirm-payment-btn');
             const amountInput = document.getElementById('deposit_amount').value;
@@ -718,7 +720,6 @@
             }
         }
 
-        // ከሰርቨር የሚመጣውን የዲፖዚት ምላሽ መቀበል (Deposit Response Handler)
         socket.on('deposit_response', function(response) {
             if (response.status === 'success') {
                 playSound('win');
