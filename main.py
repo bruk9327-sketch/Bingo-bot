@@ -436,7 +436,6 @@ def admin_panel():
   return render_template('admin.html')
 
 
-# አፕሊኬሽኑ ሲነሳ የጨዋታውን ሉፕ በ Eventlet በኩል ማስጀመር
 socketio.start_background_task(background_game_loop)
 
 if __name__ == '__main__':
