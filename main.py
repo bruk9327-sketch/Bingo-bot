@@ -89,7 +89,8 @@ def handle_register_user(data):
     registered_users_db.append(data)
 
   if user_id not in user_balances:
-    user_balances[user_id] = data.get('balance', 50.00)
+    # ለእያንዳንዱ ተጫዋች የተለየ መነሻ 50 ብር ቋሚ እንዲሆን ተደርጓል
+    user_balances[user_id] = float(data.get('balance', 50.00))
 
   emit(
       'registration_success',
@@ -224,7 +225,7 @@ def handle_approve_deposit(data):
 
     if user_id not in user_balances:
       user_balances[user_id] = 50.00
-    user_balances[user_id] += amount
+    user_balances[user_id] = float(user_balances[user_id]) + float(amount)
 
     socketio.emit(
         'balance_update',
@@ -281,11 +282,16 @@ def handle_get_balance(data):
     return
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
-  emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
-  emit('update_selected_cards', {'taken_cards': taken_cards_global})
+  emit(
+      'balance_update',
+      {'user_id': user_id, 'balance': float(user_balances[user_id])},
+      room=request.sid,
+  )
+  emit('update_selected_cards', {'taken_cards': taken_cards_global}, room=request.sid)
   emit(
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+      room=request.sid,
   )
 
 
@@ -296,6 +302,7 @@ def handle_select_card(data):
     emit(
         'error_msg',
         {'msg': 'ጨዋታው ተጀምሯል! እባክዎ የሚቀጥለውን ዙር ይጠብቁ።'},
+        room=request.sid,
     )
     return
 
@@ -307,21 +314,27 @@ def handle_select_card(data):
     pass
 
   card_price = 10.00
+  if not user_id:
+    emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይመዝገቡ።'}, room=request.sid)
+    return
+
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
 
-  if user_balances[user_id] < card_price:
-    emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'})
+  # የራሱን ትክክለኛ ባላንስ ማረጋገጥ እና መቀነስ
+  if float(user_balances[user_id]) < card_price:
+    emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'}, room=request.sid)
     return
 
   if card_id in taken_cards_global:
     emit(
         'error_msg',
         {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'},
+        room=request.sid,
     )
     return
 
-  user_balances[user_id] -= card_price
+  user_balances[user_id] = float(user_balances[user_id]) - card_price
   taken_cards_global.append(card_id)
   sold_cards_in_round.append({'user_id': user_id, 'card_id': card_id})
 
@@ -329,7 +342,7 @@ def handle_select_card(data):
 
   emit(
       'balance_update',
-      {'user_id': user_id, 'balance': user_balances[user_id]},
+      {'user_id': user_id, 'balance': float(user_balances[user_id])},
       room=request.sid,
   )
   emit(
@@ -337,7 +350,7 @@ def handle_select_card(data):
       {
           'card_id': card_id,
           'matrix': matrix,
-          'new_balance': user_balances[user_id],
+          'new_balance': float(user_balances[user_id]),
       },
       room=request.sid,
   )
@@ -440,7 +453,10 @@ def handle_claim_bingo(data):
     game_active = False
     total_pool = len(sold_cards_in_round) * 10.00
     prize = max(total_pool * 0.90, 8)
-    user_balances[user_id] = user_balances.get(user_id, 50.00) + prize
+    
+    if user_id not in user_balances:
+      user_balances[user_id] = 50.00
+    user_balances[user_id] = float(user_balances[user_id]) + float(prize)
 
     send_telegram_notification(
         f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize} ብር'
@@ -458,30 +474,26 @@ def handle_claim_bingo(data):
         },
     )
     socketio.emit(
-        'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
+        'balance_update', {'user_id': user_id, 'balance': float(user_balances[user_id])}
     )
     socketio.sleep(6)
     reset_game_state_completely()
   else:
-    emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'})
+    emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'}, room=request.sid)
 
 
 def check_bingo_win(board):
   if not board or not isinstance(board, list):
     return False
   try:
-    # 5 rows
     for r in range(5):
       if all(board[r][c] for c in range(5)):
         return True
-    # 5 columns
     for c in range(5):
       if all(board[r][c] for r in range(5)):
         return True
-    # Diagonal top-left to bottom-right
     if all(board[i][i] for i in range(5)):
       return True
-    # Diagonal top-right to bottom-left
     if all(board[i][4 - i] for i in range(5)):
       return True
   except Exception as e:
