@@ -24,7 +24,6 @@
             <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
 
-        <!-- Broadcast Public Banner Container -->
         <div id="public-broadcast-container" class="hidden space-y-2"></div>
 
         <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
@@ -41,7 +40,6 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer hidden">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -409,19 +407,12 @@
         }
 
         function openGameSelection() {
-            try {
-                playSound('click');
-            } catch(e) {
-                console.log(e);
-            }
+            try { playSound('click'); } catch(e) {}
             const dashboard = document.getElementById('menu-dashboard');
             const selectionScreen = document.getElementById('selection-screen');
-            
             if (dashboard) dashboard.classList.add('hidden');
             if (selectionScreen) selectionScreen.classList.remove('hidden');
-            
             initCartelaGrid();
-            // ሰርቨሩ የአሁን የተያዙ ካርቴላዎችን እንዲልክ መጠየቅ
             socket.emit('get_taken_cards');
         }
 
@@ -464,15 +455,11 @@
                 playSound('error'); 
                 return alert("⚠️ እባክዎ የሚተላለፈውን ጽሁፍ ወይም ፋይል (ምስል/ቪዲዮ) ይምረጡ!"); 
             }
-            
             let mediaUrl = "";
             if (fileInput.files.length > 0) {
                 mediaUrl = URL.createObjectURL(fileInput.files[0]);
             }
-
-            const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
-            socket.emit('send_broadcast', broadcastData);
-
+            socket.emit('send_broadcast', { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' });
             playSound('win');
             alert("📢 ማስታወቂያው/ብሮድካስቱ ለሁሉም ተጫዋቾች በተሳካ ሁኔታ ተልቋል!");
             document.getElementById('broadcast-text').value = '';
@@ -538,7 +525,7 @@
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 0;
+            userId = parseInt(urlParams.get('user_id')) || 123456789; // ለቴስት የሚሆን ዴፋልት ID
         }
 
         let mySelectedCards = [];
@@ -555,7 +542,6 @@
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
             }
-            // ዌብሶኬቱ ሲገናኝ የካርቴላዎችን ሁኔታ ሰርቨሩ እንዲልክ መጠየቅ
             socket.emit('get_taken_cards');
         });
 
@@ -619,14 +605,14 @@
             takenCards = data.taken_cards || [];
             if (data.my_cards) {
                 mySelectedCards = data.my_cards;
-                if (data.cards_data) {
-                    for (let cid in data.cards_data) {
-                        cardsDatabase[cid] = data.cards_data[cid];
-                        if(!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                    }
-                }
-                renderPreviewCards();
             }
+            if (data.cards_data) {
+                for (let cid in data.cards_data) {
+                    cardsDatabase[cid] = data.cards_data[cid];
+                    if(!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                }
+            }
+            renderPreviewCards();
             initCartelaGrid();
         });
 
@@ -661,20 +647,23 @@
                 row.forEach(val => {
                     const cell = document.createElement('div');
                     const isFree = val === 'FREE';
-                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
+                    // ቁጥሮቹ ከሰርቨር ሲመጡ ቁጥር ወይም ሰትሪንግ ሊሆኑ ስለሚችሉ በሁለቱም መልኩ እናረጋግጣለን
+                    const isMarked = isFree || (markedNumbersMap[cid] && (markedNumbersMap[cid].has(val) || markedNumbersMap[cid].has(String(val)) || markedNumbersMap[cid].has(Number(val))));
 
                     cell.className = `p-2 rounded-lg text-xs font-black transition-all ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : (isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800/90 text-slate-200 cursor-pointer')}`;
                     cell.innerText = val;
 
                     if (isPlayMode && !isFree) {
                         cell.onclick = () => {
-                            if (!drawnNumbersSet.has(val)) {
+                            const numVal = Number(val);
+                            if (!drawnNumbersSet.has(val) && !drawnNumbersSet.has(numVal) && !drawnNumbersSet.has(String(val))) {
                                 playSound('error');
                                 return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
                             }
                             playSound('click');
                             if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                             markedNumbersMap[cid].add(val);
+                            markedNumbersMap[cid].add(numVal);
                             cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 transition-all shadow-lg';
                         };
                     }
@@ -692,7 +681,7 @@
                     playSound('click');
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
-                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
+                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val) || markedSet.has(String(val)) || markedSet.has(Number(val))));
                     socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
                 };
                 cardDiv.appendChild(claimBtn);
@@ -748,10 +737,11 @@
         });
 
         function getLetterForNum(num) {
-            if (num >= 1 && num <= 15) return 'B';
-            if (num >= 16 && num <= 30) return 'I';
-            if (num >= 31 && num <= 45) return 'N';
-            if (num >= 46 && num <= 60) return 'G';
+            const n = Number(num);
+            if (n >= 1 && n <= 15) return 'B';
+            if (n >= 16 && n <= 30) return 'I';
+            if (n >= 31 && n <= 45) return 'N';
+            if (n >= 46 && n <= 60) return 'G';
             return 'O';
         }
 
@@ -784,10 +774,12 @@
             });
         }
 
-        socket.on('number_drawn', (data) => {
-            const num = data.number;
+        // ሁለቱንም የኢቨንት ስሞች (number_drawn እና new_number) በማስተናገድ ላይ እንድንሆን አድርገነዋል
+        function handleNumberDrawn(num) {
             if(!drawnNumbersSet.has(num)) {
                 drawnNumbersSet.add(num);
+                drawnNumbersSet.add(Number(num));
+                drawnNumbersSet.add(String(num));
                 drawnNumbersList.push(num);
             }
             
@@ -802,12 +794,15 @@
                     const matrix = cardsDatabase[cid];
                     if (matrix) {
                         matrix.forEach(row => {
-                            if (row.includes(num)) {
-                                if (!markedNumbersMap[cid]) {
-                                    markedNumbersMap[cid] = new Set();
+                            row.forEach(cellVal => {
+                                if (cellVal == num) {
+                                    if (!markedNumbersMap[cid]) {
+                                        markedNumbersMap[cid] = new Set();
+                                    }
+                                    markedNumbersMap[cid].add(cellVal);
+                                    markedNumbersMap[cid].add(num);
                                 }
-                                markedNumbersMap[cid].add(num);
-                            }
+                            });
                         });
                     }
                 });
@@ -825,6 +820,14 @@
 
             updateCalledNumbersUI();
             playSound('click');
+        }
+
+        socket.on('number_drawn', (data) => {
+            handleNumberDrawn(data.number);
+        });
+
+        socket.on('new_number', (data) => {
+            handleNumberDrawn(data.ball);
         });
 
         socket.on('winner_announced', (data) => {
