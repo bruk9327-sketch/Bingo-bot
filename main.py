@@ -419,9 +419,11 @@ def background_game_loop():
 
         socketio.emit('number_dispatch', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
-        socketio.sleep(3)
+        
+        # ቁጥሮቹ በየ 10 ሰከንድ እንዲወጡ ተደርጓል
+        socketio.sleep(10)
 
-      socketio.sleep(3)
+      socketio.sleep(10)
     except Exception as e:
       print('Background Game Loop Error:', e)
       socketio.sleep(1)
@@ -468,14 +470,18 @@ def check_bingo_win(board):
   if not board or not isinstance(board, list):
     return False
   try:
+    # 5 rows
     for r in range(5):
       if all(board[r][c] for c in range(5)):
         return True
+    # 5 columns
     for c in range(5):
       if all(board[r][c] for r in range(5)):
         return True
+    # Diagonal top-left to bottom-right
     if all(board[i][i] for i in range(5)):
       return True
+    # Diagonal top-right to bottom-left
     if all(board[i][4 - i] for i in range(5)):
       return True
   except Exception as e:
