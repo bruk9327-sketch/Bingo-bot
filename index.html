@@ -12,6 +12,29 @@
         body { font-family: 'Poppins', sans-serif; background: #0f172a; color: #fff; min-height: 100vh; }
         .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .gold-gradient-text { background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* የተስተካከለ የቁጥሮች ማከማቻ ግሪድ እና ሴል ስታይል */
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            padding: 10px;
+            width: 100%;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+        .number-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #1a1c2e;
+            border: 1px solid #2d3148;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            padding: 12px 0;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="p-2 max-w-xl mx-auto">
@@ -237,7 +260,7 @@
 
         <!-- FIXED CARTELA GRID CONTAINER -->
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
-            <div id="cartela-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[280px] overflow-y-auto p-1"></div>
+            <div id="cartela-grid" class="number-grid"></div>
         </div>
 
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
@@ -746,17 +769,21 @@
             gridContainer.innerHTML = '';
             
             for (let i = 1; i <= 104; i++) {
-                const btn = document.createElement('button');
+                const btn = document.createElement('div');
                 const isSelected = mySelectedCards.includes(i);
                 const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
 
                 if (isTaken) {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
-                    btn.disabled = true;
+                    btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
+                    btn.style.pointerEvents = 'none';
                 } else if (isSelected) {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
+                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
+                    btn.onclick = () => {
+                        playSound('click');
+                        socket.emit('select_card', { user_id: userId, card_id: i });
+                    };
                 } else {
-                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95 cursor-pointer';
+                    btn.className = 'number-cell bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
                     btn.onclick = () => {
                         if (mySelectedCards.length >= 2) {
                             playSound('error');
