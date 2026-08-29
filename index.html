@@ -40,7 +40,6 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Access Button -->
         <button id="admin-access-btn" onclick="openAdminDashboard()" class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer">
             <span>🔐</span> አድሚን ዳሽቦርድ (Admin Panel)
         </button>
@@ -238,7 +237,7 @@
 
         <!-- FIXED CARTELA GRID CONTAINER -->
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
-            <div id="cartela-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[320px] overflow-y-auto p-1"></div>
+            <div id="cartela-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[280px] overflow-y-auto p-1"></div>
         </div>
 
         <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
@@ -348,7 +347,6 @@
         </div>
     </div>
 
-    <!-- DEPOSIT MODAL -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -753,12 +751,12 @@
                 const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
 
                 if (isTaken) {
-                    btn.className = 'p-2.5 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
                     btn.disabled = true;
                 } else if (isSelected) {
-                    btn.className = 'p-2.5 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
                 } else {
-                    btn.className = 'p-2.5 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95 cursor-pointer';
+                    btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95 cursor-pointer';
                     btn.onclick = () => {
                         if (mySelectedCards.length >= 2) {
                             playSound('error');
