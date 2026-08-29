@@ -1,6 +1,5 @@
-import eventlet
-
-eventlet.monkey_patch(all=True)
+from gevent import monkey
+monkey.patch_all(True)
 from datetime import datetime
 import os
 import random
