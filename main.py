@@ -77,6 +77,8 @@ def handle_connect():
   if user_id:
     try:
       user_id = int(user_id)
+      if user_id not in user_balances:
+        user_balances[user_id] = 50.00
     except:
       pass
     my_cards = user_cards_mapping.get(user_id, [])
@@ -94,7 +96,6 @@ def handle_connect():
 
 @socketio.on('get_taken_cards')
 def handle_get_taken_cards():
-  user_id = request.args.get('user_id')
   emit('update_selected_cards', {
       'taken_cards': taken_cards_global,
       'cards_data': cards_data_mapping
@@ -111,6 +112,7 @@ def handle_select_card(data):
   user_id = data.get('user_id')
   card_id = data.get('card_id')
   try:
+    user_id = int(user_id)
     card_id = int(card_id)
   except:
     pass
@@ -173,6 +175,7 @@ def handle_deselect_card(data):
   user_id = data.get('user_id')
   card_id = data.get('card_id')
   try:
+    user_id = int(user_id)
     card_id = int(card_id)
   except:
     pass
@@ -229,7 +232,6 @@ def background_game_loop():
 
       socketio.emit('reset_game', {})
 
-      # ታይመሩ በየሰኮንዱ እንዲቀንስ እና ለፍሮንትኤንድ እንዲላክ socketio.sleep እንጠቀማለን
       while game_timer > 0:
         socketio.emit(
             'timer_update',
@@ -238,7 +240,6 @@ def background_game_loop():
         socketio.sleep(1)
         game_timer -= 1
 
-      # የመጨረሻዋን 0 ሰኮንድ ማሳየት
       socketio.emit(
           'timer_update',
           {'time_left': 0, 'sold_count': len(sold_cards_in_round)},
@@ -288,6 +289,11 @@ def handle_claim_bingo(data):
   user_id = data.get('user_id')
   card_id = data.get('card_id')
   board = data.get('board')
+  try:
+    user_id = int(user_id)
+    card_id = int(card_id)
+  except:
+    pass
 
   if check_bingo_win(board):
     game_active = False
@@ -363,6 +369,11 @@ def handle_get_balance(data):
   user_id = data.get('user_id')
   if not user_id:
     return
+  try:
+    user_id = int(user_id)
+  except:
+    pass
+
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
   emit(
@@ -378,6 +389,11 @@ def handle_request_deposit(data):
     amount = float(data.get('amount', 0))
     tx_ref = data.get('tx_ref')
     method = data.get('method', 'CBE Merchant')
+
+    try:
+      user_id = int(user_id)
+    except:
+      pass
 
     if not user_id or not amount or not tx_ref:
       emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
