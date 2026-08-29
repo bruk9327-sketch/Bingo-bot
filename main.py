@@ -44,17 +44,6 @@ def send_telegram_notification(message, reply_markup=None):
     print('Telegram Notification Error:', e)
 
 
-def send_telegram_custom_message(chat_id, text):
-  if TELEGRAM_BOT_TOKEN == '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
-    return
-  url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
-  payload = {'chat_id': chat_id, 'text': text}
-  try:
-    requests.post(url, json=payload, timeout=5)
-  except Exception as e:
-    print('Telegram Custom Message Error:', e)
-
-
 # ዳታቤዝ እና የጨዋታ ሁኔታዎች (Memory Storage)
 user_balances = {}
 taken_cards_global = []
@@ -65,7 +54,6 @@ user_cards_mapping = {}  # {user_id: [card_ids]}
 cards_data_mapping = {}  # {card_id: matrix}
 drawn_balls = []
 available_numbers = list(range(1, 76))
-registered_users_db = []
 pending_deposits = {}
 deposit_id_counter = 1
 
@@ -92,14 +80,6 @@ def handle_connect():
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
-
-
-@socketio.on('get_taken_cards')
-def handle_get_taken_cards():
-  emit('update_selected_cards', {
-      'taken_cards': taken_cards_global,
-      'cards_data': cards_data_mapping
-  })
 
 
 @socketio.on('select_card')
@@ -232,6 +212,7 @@ def background_game_loop():
 
       socketio.emit('reset_game', {})
 
+      # ታይመሩ ከ 15 ሰከንድ ወደ 0 እንዲቀንስ ማድረግ
       while game_timer > 0:
         socketio.emit(
             'timer_update',
@@ -240,14 +221,18 @@ def background_game_loop():
         socketio.sleep(1)
         game_timer -= 1
 
+      # 0 ሲደርስ
       socketio.emit(
           'timer_update',
           {'time_left': 0, 'sold_count': len(sold_cards_in_round)},
       )
 
+      # ካርቴላ ካልተገዛ ታይመሩ በድጋሚ 15 ሰከንድ ሆኖ እንዳይቆም (ወይም እንዲጠብቅ) ማስተካከል
       if len(sold_cards_in_round) == 0:
+        socketio.sleep(2)
         continue
 
+      # 15 ሰከንዱ ሲያልቅ ጨዋታውን በይፋ ማስጀመር
       game_active = True
       total_pool = len(sold_cards_in_round) * 10.00
       derash = total_pool * 0.90
@@ -255,6 +240,7 @@ def background_game_loop():
       socketio.emit('game_started', {'derash': derash})
       random.shuffle(available_numbers)
 
+      # ቁጥሮችን ማውጣት መጀመር
       for ball in available_numbers:
         if not game_active:
           break
@@ -410,23 +396,6 @@ def handle_request_deposit(data):
         'method': method,
         'status': 'Pending',
     }
-
-    admin_msg = (
-        f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ*\n\n'
-        f'- ጥያቄ ID: `{dep_id}`\n'
-        f'- ተጠቃሚ ID: `{user_id}`\n'
-        f'- መጠን: *{amount} ብር*\n'
-        f'- Ref/TID: `{tx_ref}`'
-    )
-
-    inline_keyboard = {
-        'inline_keyboard': [[
-            {'text': '✅ አረጋግጥ (Approve)', 'callback_data': f'approve_dep_{dep_id}'},
-            {'text': '❌ ሰርዝ (Reject)', 'callback_data': f'reject_dep_{dep_id}'},
-        ]]
-    }
-
-    send_telegram_notification(admin_msg, reply_markup=inline_keyboard)
     emit('deposit_success', {'msg': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!', 'new_balance': user_balances.get(user_id, 50)}, room=request.sid)
   except Exception as e:
     print('Deposit Error:', e)
