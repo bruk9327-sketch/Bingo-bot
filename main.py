@@ -13,7 +13,7 @@ from flask_socketio import SocketIO, emit
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 
-socketio = SocketIO(app, cors_allowed_origins='*', async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent')
 
 TELEGRAM_BOT_TOKEN = os.environ.get(
     'TELEGRAM_BOT_TOKEN', '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM'
@@ -458,7 +458,8 @@ def handle_claim_bingo(data):
     socketio.emit(
         'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
     )
-    eventlet.spawn_after(6, reset_game_state_completely)
+    socketio.sleep(6)
+    reset_game_state_completely()
   else:
     emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'})
 
