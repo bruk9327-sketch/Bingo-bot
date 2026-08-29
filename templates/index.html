@@ -135,8 +135,8 @@
             </div>
             <div class="flex items-center gap-2">
                 <div class="bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1">
-                    <span class="text-[9px] text-slate-400">Auto</span>
-                    <input type="checkbox" id="auto-check" class="accent-purple-500 w-3.5 h-3.5 cursor-pointer">
+                    <span class="text-[9px] text-slate-400">Auto Daub</span>
+                    <input type="checkbox" id="auto-check" class="accent-purple-500 w-3.5 h-3.5 cursor-pointer" checked>
                 </div>
                 <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
                 <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
@@ -510,6 +510,7 @@
             }
         });
 
+        // የተስተካከለው የ 'number_drawn' ክፍል (Auto Daub ሎጂክን የያዘ)
         socket.on('number_drawn', (data) => {
             const num = data.number;
             if(!drawnNumbersSet.has(num)) {
@@ -522,6 +523,33 @@
             if(circle) circle.innerText = `${letter}-${num}`;
 
             updateCalledNumbersUI();
+
+            // Auto Daub ቼክቦክስ መብራቱን ማረጋገጥ
+            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
+
+            if (autoDaubEnabled) {
+                // በግልጽ በጨዋታ ስክሪን ላይ የሚገኙትን የተጫዋቹን ካርቴላዎች ሳጥኖች መፈተሽ
+                mySelectedCards.forEach(cid => {
+                    if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                    const matrix = cardsDatabase[cid];
+                    
+                    // ማትሪክሱን በመፈተሽ ቁጥሩ ካለ በራስ ሰር ማርክ ማድረግ
+                    matrix.forEach((row, rIdx) => {
+                        row.forEach((val, cIdx) => {
+                            if (val == num) {
+                                markedNumbersMap[cid].add(val);
+                            }
+                        });
+                    });
+                });
+
+                // የካርቴላዎቹን ዩአይ (UI) በድጋሚ በማደስ ምልክት የተደረገባቸውን ማሳየት
+                const container = document.getElementById('my-cards-container');
+                if (container && container.children.length > 0) {
+                    container.innerHTML = '';
+                    mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
+                }
+            }
         });
 
         function getLetterForNum(num) {
