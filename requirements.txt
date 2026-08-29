@@ -6,4 +6,5 @@ requests==2.31.0
 python-engineio==4.8.0
 python-socketio==5.11.1
 werkzeug==3.0.3
-eventlet==0.33.3
+gevent==23.9.1
+gevent-websocket==0.10.1
