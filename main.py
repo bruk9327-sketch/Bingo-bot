@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from datetime import datetime
 import os
 import random
@@ -91,9 +94,7 @@ def handle_connect():
 
 @socketio.on('get_taken_cards')
 def handle_get_taken_cards():
-  # ተጠቃሚው ሲጠይቅ የያዛቸውን ካርቴላዎች እና የተያዙትን ሁሉ መላክ
   user_id = request.args.get('user_id')
-  my_cards = []
   emit('update_selected_cards', {
       'taken_cards': taken_cards_global,
       'cards_data': cards_data_mapping
@@ -181,10 +182,7 @@ def handle_deselect_card(data):
     if card_id in taken_cards_global:
       taken_cards_global.remove(card_id)
     
-    # 10 ብር ተመላሽ ማድረግ
     user_balances[user_id] = user_balances.get(user_id, 50.00) + 10.00
-    
-    # ከsold_cards_in_round ማስወገድ
     sold_cards_in_round[:] = [s for s in sold_cards_in_round if not (s['user_id'] == user_id and s['card_id'] == card_id)]
 
     emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
@@ -231,13 +229,20 @@ def background_game_loop():
 
       socketio.emit('reset_game', {})
 
+      # ታይመሩ በየሰኮንዱ እንዲቀንስ እና ለፍሮንትኤንድ እንዲላክ socketio.sleep እንጠቀማለን
       while game_timer > 0:
         socketio.emit(
             'timer_update',
             {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
         )
-        time.sleep(1)
+        socketio.sleep(1)
         game_timer -= 1
+
+      # የመጨረሻዋን 0 ሰኮንድ ማሳየት
+      socketio.emit(
+          'timer_update',
+          {'time_left': 0, 'sold_count': len(sold_cards_in_round)},
+      )
 
       if len(sold_cards_in_round) == 0:
         continue
@@ -267,15 +272,14 @@ def background_game_loop():
           letter = 'O'
 
         display_str = f'{letter}-{ball}'
-        # ሁለቱንም የኢቨንት ስሞች ለፍሮንትኤንድ እንልካለን
         socketio.emit('new_number', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
-        time.sleep(4)
+        socketio.sleep(4)
 
-      time.sleep(5)
+      socketio.sleep(5)
     except Exception as e:
       print('Background Game Loop Error:', e)
-      time.sleep(1)
+      socketio.sleep(1)
 
 
 @socketio.on('claim_bingo')
@@ -308,7 +312,7 @@ def handle_claim_bingo(data):
         },
     )
 
-    threading.Thread(target=reset_game_state_delayed, daemon=True).start()
+    socketio.start_background_task(reset_game_state_delayed)
     emit(
         'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
     )
@@ -339,7 +343,7 @@ def check_bingo_win(board):
 
 
 def reset_game_state_delayed():
-  time.sleep(6)
+  socketio.sleep(6)
   reset_game_state_completely()
 
 
@@ -423,8 +427,7 @@ def admin_panel():
 
 
 if __name__ == '__main__':
-  t = threading.Thread(target=background_game_loop, daemon=True)
-  t.start()
+  socketio.start_background_task(background_game_loop)
 
   port = int(os.environ.get('PORT', 10000))
-  socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+  socketio.run(app, host='0.0.0.0', port=port)
