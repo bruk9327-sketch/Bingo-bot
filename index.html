@@ -421,6 +421,8 @@
             if (selectionScreen) selectionScreen.classList.remove('hidden');
             
             initCartelaGrid();
+            // ሰርቨሩ የአሁን የተያዙ ካርቴላዎችን እንዲልክ መጠየቅ
+            socket.emit('get_taken_cards');
         }
 
         function backToMenu() {
@@ -553,6 +555,8 @@
                 const adminBtn = document.getElementById('admin-access-btn');
                 if (adminBtn) adminBtn.classList.remove('hidden');
             }
+            // ዌብሶኬቱ ሲገናኝ የካርቴላዎችን ሁኔታ ሰርቨሩ እንዲልክ መጠየቅ
+            socket.emit('get_taken_cards');
         });
 
         socket.on('balance_update', (data) => {
@@ -591,6 +595,10 @@
                     btn.disabled = true;
                 } else if (isSelected) {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-purple-600 text-white border-purple-400 shadow-lg cursor-pointer';
+                    btn.onclick = () => {
+                        playSound('click');
+                        socket.emit('deselect_card', { user_id: userId, card_id: i });
+                    };
                 } else {
                     btn.className = 'p-2 text-xs font-black rounded-xl border bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95 cursor-pointer';
                     btn.onclick = () => {
@@ -609,6 +617,16 @@
 
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
+            if (data.my_cards) {
+                mySelectedCards = data.my_cards;
+                if (data.cards_data) {
+                    for (let cid in data.cards_data) {
+                        cardsDatabase[cid] = data.cards_data[cid];
+                        if(!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                    }
+                }
+                renderPreviewCards();
+            }
             initCartelaGrid();
         });
 
@@ -686,7 +704,11 @@
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => {
+                if(cardsDatabase[cid]) {
+                    container.appendChild(createCardHTML(cid, cardsDatabase[cid], false));
+                }
+            });
         }
 
         socket.on('timer_update', (data) => {
@@ -717,7 +739,11 @@
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
-                mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
+                mySelectedCards.forEach(cid => {
+                    if(cardsDatabase[cid]) {
+                        container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                    }
+                });
             }
         });
 
@@ -790,7 +816,9 @@
                 if(container && container.children.length > 0) {
                     container.innerHTML = '';
                     mySelectedCards.forEach(cid => {
-                        container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                        if(cardsDatabase[cid]) {
+                            container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                        }
                     });
                 }
             }
@@ -826,7 +854,6 @@
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
-        // ገጹ ሲከፈት እና ዌብሶኬቱ ሲገናኝ ካርቴላዎቹን ወዲያውኑ እንዲያመጣ ማድረግ
         initCartelaGrid();
     </script>
 </body>
