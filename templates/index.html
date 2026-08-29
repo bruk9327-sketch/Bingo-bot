@@ -525,7 +525,7 @@
             window.Telegram.WebApp.expand();
         } else {
             const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 123456789; // ለቴስት የሚሆን ዴፋልት ID
+            userId = parseInt(urlParams.get('user_id')) || 123456789;
         }
 
         let mySelectedCards = [];
@@ -647,7 +647,6 @@
                 row.forEach(val => {
                     const cell = document.createElement('div');
                     const isFree = val === 'FREE';
-                    // ቁጥሮቹ ከሰርቨር ሲመጡ ቁጥር ወይም ሰትሪንግ ሊሆኑ ስለሚችሉ በሁለቱም መልኩ እናረጋግጣለን
                     const isMarked = isFree || (markedNumbersMap[cid] && (markedNumbersMap[cid].has(val) || markedNumbersMap[cid].has(String(val)) || markedNumbersMap[cid].has(Number(val))));
 
                     cell.className = `p-2 rounded-lg text-xs font-black transition-all ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : (isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800/90 text-slate-200 cursor-pointer')}`;
@@ -713,11 +712,13 @@
             });
         });
 
+        // 💡 **እዚህ ጋር ታይመሩ 0 ሲሆን ወደ ጨዋታው ስክሪን እንዲቀየር የሚያደርገው ትክክለኛ ኮድ ተካቷል**
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
             drawnNumbersList = [];
             markedNumbersMap = {};
             mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
+            
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -728,11 +729,15 @@
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
-                mySelectedCards.forEach(cid => {
-                    if(cardsDatabase[cid]) {
-                        container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
-                    }
-                });
+                if(mySelectedCards.length === 0) {
+                    container.innerHTML = `<div class="glass-panel p-4 rounded-xl text-center text-xs text-amber-400">በዚህ ዙር ምንም ካርቴላ አልመረጡም። እባክዎ ለሚቀጥለው ዙር ይጠብቁ።</div>`;
+                } else {
+                    mySelectedCards.forEach(cid => {
+                        if(cardsDatabase[cid]) {
+                            container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                        }
+                    });
+                }
             }
         });
 
@@ -774,7 +779,6 @@
             });
         }
 
-        // ሁለቱንም የኢቨንት ስሞች (number_drawn እና new_number) በማስተናገድ ላይ እንድንሆን አድርገነዋል
         function handleNumberDrawn(num) {
             if(!drawnNumbersSet.has(num)) {
                 drawnNumbersSet.add(num);
