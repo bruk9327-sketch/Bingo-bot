@@ -438,7 +438,7 @@
                 return;
             }
             data.players.forEach(p => {
-                const item = document.div = document.createElement('div');
+                const item = document.createElement('div');
                 item.className = "bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-xs flex justify-between items-center";
                 item.innerHTML = `<div>
                     <div class="font-black text-white">${p.fullname} (@${p.username})</div>
