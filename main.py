@@ -1,5 +1,5 @@
 from gevent import monkey
-monkey.patch_all(True)
+monkey.patch_all(all=True)
 from datetime import datetime
 import os
 import random
