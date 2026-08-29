@@ -13,14 +13,13 @@
         .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .gold-gradient-text { background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        /* የተስተካከለ የቁጥሮች ማከማቻ ግሪድ እና ሴል ስታይል */
         .number-grid {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
-            padding: 10px;
+            gap: 6px;
+            padding: 8px;
             width: 100%;
-            min-height: 200px;
+            max-height: 280px;
             overflow-y: auto;
         }
         .number-cell {
@@ -31,23 +30,22 @@
             border: 1px solid #2d3148;
             border-radius: 8px;
             color: #ffffff;
-            font-size: 16px;
-            padding: 12px 0;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 10px 0;
             cursor: pointer;
         }
     </style>
 </head>
 <body class="p-2 max-w-xl mx-auto">
 
-    <!-- 1. MAIN DASHBOARD -->
+    <!-- MAIN DASHBOARD -->
     <div id="menu-dashboard" class="space-y-3 my-2">
         <div class="relative overflow-hidden rounded-3xl border border-purple-500/40 glass-panel p-5 text-center shadow-xl">
             <div class="w-14 h-14 mx-auto mb-2 rounded-2xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-black text-2xl shadow-lg">🎯</div>
             <h1 class="font-orbitron text-2xl font-black gold-gradient-text tracking-wider mb-1">BKBINGO PRO</h1>
             <p class="text-[11px] text-purple-300/90 font-semibold tracking-wide">MAIN DASHBOARD • LIVE CASINO BINGO</p>
         </div>
-
-        <div id="public-broadcast-container" class="hidden space-y-2"></div>
 
         <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-slate-900/90 to-emerald-950/80 border border-amber-500/40 shadow-xl">
             <div class="flex items-start gap-2.5">
@@ -68,7 +66,7 @@
         </button>
 
         <div class="grid grid-cols-2 gap-2.5">
-            <button onclick="openRegisterModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-purple-500/50 transition-all cursor-pointer active:scale-95">
+            <button onclick="openRegisterModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
                 <span class="text-base bg-purple-500/20 p-2 rounded-xl">📝</span>
                 <div>
                     <div class="text-xs font-black text-white">Register</div>
@@ -76,7 +74,7 @@
                 </div>
             </button>
 
-            <button onclick="openBalanceModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-emerald-500/50 transition-all cursor-pointer active:scale-95">
+            <button onclick="openBalanceModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
                 <span class="text-base bg-emerald-500/20 p-2 rounded-xl">💰</span>
                 <div>
                     <div class="text-xs font-black text-emerald-400">Balance</div>
@@ -84,7 +82,7 @@
                 </div>
             </button>
 
-            <button onclick="openDepositModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-emerald-500/50 transition-all cursor-pointer active:scale-95">
+            <button onclick="openDepositModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
                 <span class="text-base bg-emerald-500/20 p-2 rounded-xl">📥</span>
                 <div>
                     <div class="text-xs font-black text-emerald-400">Deposit</div>
@@ -92,39 +90,11 @@
                 </div>
             </button>
 
-            <button onclick="openWithdrawModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left hover:border-amber-500/50 transition-all cursor-pointer active:scale-95">
+            <button onclick="openWithdrawModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
                 <span class="text-base bg-amber-500/20 p-2 rounded-xl">📤</span>
                 <div>
                     <div class="text-xs font-black text-amber-400">Withdraw</div>
                     <div class="text-[9px] text-slate-300">ገንዘብ ያውጡ (Tele/CBE)</div>
-                </div>
-            </button>
-        </div>
-
-        <button onclick="openHistory()" class="w-full py-3 px-4 glass-panel rounded-2xl border border-slate-700/80 flex items-center justify-between text-left hover:border-purple-500/40 transition-all cursor-pointer">
-            <div class="flex items-center gap-3">
-                <span class="text-base bg-amber-600/20 p-2 rounded-xl">📜</span>
-                <div>
-                    <div class="text-xs font-black text-white">History</div>
-                    <div class="text-[9px] text-slate-300">የግብይት እና ጨዋታ ታሪክ</div>
-                </div>
-            </div>
-            <span class="text-slate-400 text-sm font-bold">›</span>
-        </button>
-
-        <div class="grid grid-cols-2 gap-2.5">
-            <button onclick="openInstruction()" class="py-3 px-3.5 glass-panel rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer hover:border-slate-600 transition-all">
-                <span class="text-sm bg-slate-800 p-2 rounded-xl">ℹ️</span>
-                <div>
-                    <div class="text-xs font-bold text-white">Instruction</div>
-                    <div class="text-[9px] text-slate-400">ህጎች እና መመሪያ</div>
-                </div>
-            </button>
-            <button onclick="openSupport()" class="py-3 px-3.5 glass-panel rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer hover:border-slate-600 transition-all">
-                <span class="text-sm bg-slate-800 p-2 rounded-xl">🎧</span>
-                <div>
-                    <div class="text-xs font-bold text-white">Support</div>
-                    <div class="text-[9px] text-slate-400">የደንበኞች አገልግሎት</div>
                 </div>
             </button>
         </div>
@@ -140,77 +110,15 @@
             <button onclick="closeAdminDashboard()" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer">← ወደ ዋናው ሜኑ</button>
         </div>
 
-        <div class="grid grid-cols-4 gap-1">
-            <button onclick="switchAdminTab('deposits')" id="tab-btn-deposits" class="py-2 px-1 text-center text-[9px] font-black rounded-xl bg-purple-600 text-white cursor-pointer">ዲፖዚት</button>
-            <button onclick="switchAdminTab('broadcast')" id="tab-btn-broadcast" class="py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer">ብሮድካስት</button>
-            <button onclick="switchAdminTab('players')" id="tab-btn-players" class="py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer">ታሪክ</button>
-            <button onclick="switchAdminTab('userlist')" id="tab-btn-userlist" class="py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer">👥 ተመዝጋቢዎች</button>
-        </div>
-
-        <div id="admin-tab-deposits" class="space-y-3">
-            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
-                <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
-                <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">ምንም የዲፖዚት ጥያቄ የለም።</div>
-                </div>
-            </div>
-            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
-                <h2 class="text-xs font-black text-amber-400">📤 የገንዘብ ማውጣት ጥያቄዎች (Pending Withdrawals)</h2>
-                <div id="admin-withdrawals-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">ምንም የዊዝድሮ ጥያቄ የለም።</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="admin-tab-broadcast" class="hidden space-y-3">
-            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-3">
-                <h2 class="text-xs font-black text-purple-400">📢 ማስታወቂያ እና የሚዲያ መልዕክት መላኪያ (Broadcast)</h2>
-                <div class="space-y-2">
-                    <label class="text-[10px] text-slate-300 font-bold">የመልዕክት ጽሁፍ (Message Text):</label>
-                    <textarea id="broadcast-text" rows="3" placeholder="ማስታወቂያውን እዚህ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
-                    
-                    <label class="text-[10px] text-slate-300 font-bold">የምስል ወይም ቪዲዮ ፋይል ይምረጡ (Image/Video Upload):</label>
-                    <input type="file" id="broadcast-file" accept="image/*,video/*" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-slate-300 cursor-pointer">
-                    
-                    <button onclick="sendBroadcast()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer">መልዕክት ለሁሉም ላክ (Broadcast)</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="admin-tab-players" class="hidden space-y-3">
-            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
-                <h2 class="text-xs font-black text-amber-400">👥 የተጫዋቾች እንቅስቃሴ እና ታሪክ (Player Monitoring)</h2>
-                <div class="space-y-2">
-                    <input type="text" id="search-player-input" placeholder="በተጫዋች መታወቂያ (ID) ይፈልጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
-                    <button onclick="searchPlayerHistory()" class="w-full py-2 bg-slate-800 text-purple-300 text-xs font-bold rounded-xl cursor-pointer">ተጫዋች ፈልግ</button>
-                </div>
-                <div id="player-history-results" class="space-y-2 mt-2 max-h-60 overflow-y-auto">
-                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300">
-                        የተጫዋች መረጃ ለማየት ID አስገብተው ይፈልጉ።
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="admin-tab-userlist" class="hidden space-y-3">
-            <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-xs font-black text-purple-400">📋 የተመዝጋቢዎች ሙሉ ዝርዝር (Registered Users)</h2>
-                    <span id="total-users-count" class="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-lg font-bold">ጠቅላላ: 0</span>
-                </div>
-                <div class="space-y-2">
-                    <input type="text" id="filter-user-input" placeholder="በስም ወይም በ User ID ፈልጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white">
-                </div>
-                <div id="admin-registered-users-list" class="space-y-2 mt-2 max-h-72 overflow-y-auto pr-1">
-                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">
-                        እስካሁን የተመዘገበ ተጠቃሚ የለም።
-                    </div>
-                </div>
+        <div class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
+            <h2 class="text-xs font-black text-emerald-400">📥 የዲፖዚት ጥያቄዎች (Pending Deposits)</h2>
+            <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">ምንም የዲፖዚት ጥያቄ የለም።</div>
             </div>
         </div>
     </div>
 
-    <!-- 2. CARTELA SELECTION SCREEN -->
+    <!-- CARTELA SELECTION SCREEN -->
     <div id="selection-screen" class="hidden space-y-3">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
             <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
@@ -258,19 +166,14 @@
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
 
-        <!-- FIXED CARTELA GRID CONTAINER -->
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
             <div id="cartela-grid" class="number-grid"></div>
-        </div>
-
-        <div class="text-center text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">
-            🎁 ለመጀመሪያ ጊዜ 50 ብር ቦነስ ተሰጥቶዎታል። በአንድ ዙር 2 ካርቴላ መግዛት ይቻላል።
         </div>
 
         <div id="preview-cards-container" class="space-y-3"></div>
     </div>
 
-    <!-- 3. LIVE GAME SCREEN -->
+    <!-- LIVE GAME SCREEN -->
     <div id="game-screen" class="hidden space-y-2.5">
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-2.5 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -280,15 +183,9 @@
                     <p class="text-[7px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5">
-                <div class="bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-xl flex items-center gap-1">
-                    <span class="text-[8px] text-slate-400">Auto</span>
-                    <input type="checkbox" id="auto-check-game" class="accent-purple-500 w-3 h-3 cursor-pointer">
-                </div>
-                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
-                    <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
-                    <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
-                </div>
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
+                <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
+                <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
             </div>
         </div>
 
@@ -317,22 +214,35 @@
                     <div class="text-[7px] text-slate-400">የተጠራው ቁጥር</div>
                     <div class="text-[9px] text-purple-300 font-bold">የወጣ</div>
                 </div>
-                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-500 border-2 border-purple-400 flex items-center justify-center font-black text-sm shadow-xl text-white" id="current-ball-circle">
-                    --
-                </div>
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-500 border-2 border-purple-400 flex items-center justify-center font-black text-sm shadow-xl text-white" id="current-ball-circle">--</div>
             </div>
         </div>
 
         <div class="grid grid-cols-12 gap-2 items-start">
             <div class="col-span-4 glass-panel p-1.5 rounded-xl border border-purple-500/30">
                 <div class="text-[10px] font-bold text-slate-300 mb-1 text-center">የወጡ ቁጥሮች</div>
-                <div class="max-h-[350px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board"></div>
+                <div class="max-h-[300px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board"></div>
             </div>
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
         </div>
     </div>
 
     <!-- MODALS -->
+    <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit)</h3>
+                <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-3 text-left">
+                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
+                <button type="button" onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg">ክፍያ አረጋግጥ እና ላክ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER MODAL -->
     <div id="register-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl relative">
             <div class="flex justify-between items-center mb-4">
@@ -361,6 +271,7 @@
         </div>
     </div>
 
+    <!-- BALANCE MODAL -->
     <div id="balance-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">💰</div>
@@ -370,31 +281,7 @@
         </div>
     </div>
 
-    <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit)</h3>
-                <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
-            </div>
-            <div class="space-y-3 text-left">
-                <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                    <option value="CBE_Merchant">CBE Merchant (ንግድ ባንክ: 1287375)</option>
-                    <option value="Telebirr">Telebirr (ቴሌብር)</option>
-                </select>
-                <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-1">
-                    <p class="font-bold text-amber-400">📌 የንግድ ባንክ መርቻንት (CBE Merchant):</p>
-                    <p>• ቁጥር: <span class="font-black text-white text-xs bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">1287375</span></p>
-                    <p class="text-[10px] text-slate-400">ብር ከላኩ በኋላ የሚመጣውን የኤስኤምኤስ (SMS) ደረሰኝ ሙሉውን ኮፒ አድርገው ከታች ባለው ሳጥን ውስጥ ፔስት (Paste) ያድርጉ።</p>
-                </div>
-                
-                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት እዚህ ያድርጉ (SMS Text/TxRef)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white"></textarea>
-                
-                <button type="button" onclick="submitDeposit()" id="confirm-payment-btn" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- WITHDRAW MODAL -->
     <div id="withdraw-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
@@ -413,6 +300,7 @@
         </div>
     </div>
 
+    <!-- WINNER MODAL -->
     <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">🎉</div>
@@ -428,173 +316,65 @@
         function toggleAudio() {
             soundEnabled = !soundEnabled;
             const btn = document.getElementById('audio-toggle-btn');
-            if (soundEnabled) {
-                btn.innerText = "በርቷል";
-                btn.className = "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] cursor-pointer";
-            } else {
-                btn.innerText = "ክፈት";
-                btn.className = "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] cursor-pointer";
-            }
+            btn.innerText = soundEnabled ? "በርቷል" : "ክፈት";
+            btn.className = soundEnabled ? "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] cursor-pointer" : "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] cursor-pointer";
         }
 
-        const sounds = {
-            click: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
-            win: new Audio('https://assets.mixkit.co/active_storage/sfx/2701/2701-preview.mp3'),
-            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3')
-        };
+        const socket = io();
+        let userId = 855985673;
+        let takenCards = [];
+        let mySelectedCards = [];
+        let drawnNumbersList = [];
+        let drawnNumbersSet = new Set();
+        let markedNumbersMap = {};
+        let cardsDatabase = {};
 
-        function playSound(name) {
-            if (soundEnabled && sounds[name]) {
-                sounds[name].currentTime = 0;
-                sounds[name].volume = 0.5;
-                sounds[name].play().catch(e => console.log(e));
-            }
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
+            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
+            window.Telegram.WebApp.expand();
         }
 
-        function openRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.remove('hidden'); }
-        function closeRegisterModal() { playSound('click'); document.getElementById('register-modal').classList.add('hidden'); }
-        function openBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.remove('hidden'); }
-        function closeBalanceModal() { playSound('click'); document.getElementById('balance-modal').classList.add('hidden'); }
-        function openDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.remove('hidden'); }
-        function closeDepositModal() { playSound('click'); document.getElementById('deposit-modal').classList.add('hidden'); }
-        function openWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.remove('hidden'); }
-        function closeWithdrawModal() { playSound('click'); document.getElementById('withdraw-modal').classList.add('hidden'); }
-        
-        function closeWinnerModal() { 
-            playSound('click'); 
-            document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('selection-screen').classList.remove('hidden');
-        }
+        socket.on('connect', () => {
+            socket.emit('get_user_balance', { user_id: userId });
+            initCartelaGrid();
+        });
 
         function openGameSelection() {
-            try { playSound('click'); } catch(e) { console.log(e); }
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             initCartelaGrid();
         }
 
         function backToMenu() {
-            playSound('click');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
         function openAdminDashboard() {
-            playSound('click');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('admin-dashboard-screen').classList.remove('hidden');
-            socket.emit('get_registered_users', { admin_id: userId });
             socket.emit('get_pending_deposits', { admin_id: userId });
         }
 
         function closeAdminDashboard() {
-            playSound('click');
             document.getElementById('admin-dashboard-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        function switchAdminTab(tabName) {
-            playSound('click');
-            document.getElementById('admin-tab-deposits').classList.add('hidden');
-            document.getElementById('admin-tab-broadcast').classList.add('hidden');
-            document.getElementById('admin-tab-players').classList.add('hidden');
-            document.getElementById('admin-tab-userlist').classList.add('hidden');
-
-            document.getElementById('tab-btn-deposits').className = "py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer";
-            document.getElementById('tab-btn-broadcast').className = "py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer";
-            document.getElementById('tab-btn-players').className = "py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer";
-            document.getElementById('tab-btn-userlist').className = "py-2 px-1 text-center text-[9px] font-black rounded-xl bg-slate-800 text-slate-300 cursor-pointer";
-
-            document.getElementById(`admin-tab-${tabName}`).classList.remove('hidden');
-            document.getElementById(`tab-btn-${tabName}`).className = "py-2 px-1 text-center text-[9px] font-black rounded-xl bg-purple-600 text-white cursor-pointer";
-            
-            if(tabName === 'deposits') {
-                socket.emit('get_pending_deposits', { admin_id: userId });
-            }
+        function openRegisterModal() { document.getElementById('register-modal').classList.remove('hidden'); }
+        function closeRegisterModal() { document.getElementById('register-modal').classList.add('hidden'); }
+        function openBalanceModal() { document.getElementById('balance-modal').classList.remove('hidden'); }
+        function closeBalanceModal() { document.getElementById('balance-modal').classList.add('hidden'); }
+        function openDepositModal() { document.getElementById('deposit-modal').classList.remove('hidden'); }
+        function closeDepositModal() { document.getElementById('deposit-modal').classList.add('hidden'); }
+        function openWithdrawModal() { document.getElementById('withdraw-modal').classList.remove('hidden'); }
+        function closeWithdrawModal() { document.getElementById('withdraw-modal').classList.add('hidden'); }
+        
+        function closeWinnerModal() { 
+            document.getElementById('winner-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
         }
-
-        function approveDeposit(depositId) {
-            playSound('click');
-            socket.emit('approve_deposit', { admin_id: userId, deposit_id: depositId });
-        }
-
-        function rejectDeposit(depositId) {
-            playSound('click');
-            socket.emit('reject_deposit', { admin_id: userId, deposit_id: depositId });
-        }
-
-        socket.on('admin_pending_deposits', (data) => {
-            const depositsList = document.getElementById('admin-deposits-list');
-            if(!depositsList) return;
-
-            depositsList.innerHTML = '';
-            const pendingList = data.deposits || [];
-
-            if(pendingList.length === 0) {
-                depositsList.innerHTML = `<div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">ምንም የዲፖዚት ጥያቄ የለም።</div>`;
-                return;
-            }
-
-            pendingList.forEach(dep => {
-                const item = document.createElement('div');
-                item.className = 'bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-[11px] space-y-1.5';
-                item.innerHTML = `
-                    <div class="flex justify-between items-center text-emerald-400 font-black">
-                        <span>👤 ተጠቃሚ ID: ${dep.user_id}</span>
-                        <span class="bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-300 text-[10px]">${dep.amount} ETB</span>
-                    </div>
-                    <div class="text-slate-300">• ዘዴ: ${dep.method}</div>
-                    <div class="text-slate-400 text-[10px] bg-slate-950 p-2 rounded border border-slate-800/80 break-all"><b>ደረሰኝ/SMS:</b> ${dep.tx_ref}</div>
-                    <div class="flex gap-2 pt-1">
-                        <button onclick="approveDeposit('${dep.id}')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-[10px] cursor-pointer">አረጋግጥ (Approve)</button>
-                        <button onclick="rejectDeposit('${dep.id}')" class="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-lg text-[10px] cursor-pointer">ሰርዝ (Reject)</button>
-                    </div>
-                `;
-                depositsList.appendChild(item);
-            });
-        });
-
-        function sendBroadcast() {
-            const text = document.getElementById('broadcast-text').value.trim();
-            const fileInput = document.getElementById('broadcast-file');
-            if(!text && fileInput.files.length === 0) { 
-                playSound('error'); 
-                return alert("⚠️ እባክዎ የሚተላለፈውን ጽሁፍ ወይም ፋይል (ምስል/ቪዲዮ) ይምረጡ!"); 
-            }
-            
-            let mediaUrl = "";
-            if (fileInput.files.length > 0) {
-                mediaUrl = URL.createObjectURL(fileInput.files[0]);
-            }
-
-            const broadcastData = { text: text, media: mediaUrl, type: fileInput.files.length > 0 ? fileInput.files[0].type : '' };
-            socket.emit('send_broadcast', broadcastData);
-
-            playSound('win');
-            alert("📢 ማስታወቂያው/ብሮድካስቱ ለሁሉም ተጫዋቾች በተሳካ ሁኔታ ተልቋል!");
-            document.getElementById('broadcast-text').value = '';
-            fileInput.value = '';
-        }
-
-        function searchPlayerHistory() {
-            const query = document.getElementById('search-player-input').value.trim();
-            if(!query) return alert("⚠️ እባክዎ የተጫዋች ID ያስገቡ!");
-            const resContainer = document.getElementById('player-history-results');
-            resContainer.innerHTML = `
-                <div class="bg-slate-900/90 p-3 rounded-xl border border-purple-500/40 text-[11px] space-y-1">
-                    <div class="font-black text-purple-400">ተጫዋች ID: ${query}</div>
-                    <div class="text-slate-300">• ቀሪ ሂሳብ: 150.00 ETB</div>
-                    <div class="text-slate-300">• የገዙዋቸው ካርቴላዎች ብዛት: 12</div>
-                    <div class="text-emerald-400">• ያሸነፏቸው ጨዋታዎች: 2 ጊዜ</div>
-                    <div class="text-slate-400 text-[10px]">• የመጨረሻ ግብይት: 100 ETB (Deposit)</div>
-                </div>
-            `;
-        }
-
-        function openHistory() { playSound('click'); alert("📜 እስካሁን ያደረጓቸው የግብይት እና የጨዋታ ታሪኮች እዚህ ይታያሉ።"); }
-        function openInstruction() { playSound('click'); alert("ℹ️ የቢንጎ ጨዋታ ህጎች: ቢያንስ 1 ወይም 2 ካርቴላዎችን በመምረጥ በሰዓቱ ይሳተፉ።"); }
-        function openSupport() { playSound('click'); alert("🎧 ድጋፍ ለማግኘት በቴሌግራም አድራሻችን ያነጋግሩን @BKBingoHousebot"); }
 
         function submitRegister() {
             const fname = document.getElementById('reg-fullname').value.trim();
@@ -603,8 +383,7 @@
             const phone = document.getElementById('reg-phone').value.trim();
 
             if (!fname || !uname || !email || !phone) { 
-                playSound('error'); 
-                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች (ሙሉ ስም፣ ዩዘርኔም፣ ኢሜይል እና ስልክ ቁጥር) በትክክል ይሙሉ!"); 
+                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!"); 
             }
 
             const userData = {
@@ -619,146 +398,38 @@
             socket.emit('register_user', userData);
         }
 
-        const socket = io();
-        let userId = null;
-        let takenCards = [];
-        const ADMIN_USER_ID = 855985673; 
-
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
-            window.Telegram.WebApp.expand();
-        } else {
-            const urlParams = new URLSearchParams(window.location.search);
-            userId = parseInt(urlParams.get('user_id')) || 855985673; 
-        }
-
-        let mySelectedCards = [];
-        let drawnNumbersList = []; 
-        let drawnNumbersSet = new Set();
-        let markedNumbersMap = {};
-        let cardsDatabase = {};
-
-        socket.on('connect', () => {
-            if (userId) {
-                socket.emit('get_user_balance', { user_id: userId });
-            }
-            const adminBtn = document.getElementById('admin-access-btn');
-            if (adminBtn) adminBtn.classList.remove('hidden');
-            
-            initCartelaGrid();
-        });
-
         socket.on('registration_success', (data) => {
-            playSound('win');
             alert("✅ " + data.msg);
             closeRegisterModal();
-            socket.emit('get_registered_users', { admin_id: userId });
-        });
-
-        socket.on('registered_users_list', (data) => {
-            const listContainer = document.getElementById('admin-registered-users-list');
-            const countBadge = document.getElementById('total-users-count');
-            if(!listContainer) return;
-
-            listContainer.innerHTML = '';
-            countBadge.innerText = `ጠቅላላ: ${data.users.length}`;
-
-            if(data.users.length === 0) {
-                listContainer.innerHTML = `<div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center">እስካሁን የተመዘገበ ተጠቃሚ የለም።</div>`;
-                return;
-            }
-
-            data.users.forEach(user => {
-                const card = document.createElement('div');
-                card.className = 'bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-[11px] space-y-1';
-                card.innerHTML = `
-                    <div class="flex justify-between items-center text-purple-400 font-black">
-                        <span>👤 ${user.fullname}</span>
-                        <span class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded text-purple-300">ID: ${user.user_id}</span>
-                    </div>
-                    <div class="text-slate-300">• ዩዘርኔም: @${user.username}</div>
-                    <div class="text-slate-300">• ኢሜይል: ${user.email}</div>
-                    <div class="text-slate-300">• ስልክ ቁጥር: ${user.phone}</div>
-                    <div class="text-emerald-400 font-bold">• ቀሪ ሂሳብ: ${user.balance} ETB</div>
-                `;
-                listContainer.appendChild(card);
-            });
-        });
-
-        socket.on('balance_update', (data) => {
-            if(parseInt(data.user_id) === userId) {
-                const bStr = `${parseFloat(data.balance).toFixed(2)} ETB`;
-                document.getElementById('modal-balance-amount').innerText = bStr;
-                document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
-            }
-        });
-
-        socket.on('deposit_success', (data) => {
-            playSound('win');
-            alert(data.msg);
-            const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-            document.getElementById('modal-balance-amount').innerText = bStr;
-            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
-        });
-
-        socket.on('error_msg', (data) => {
-            playSound('error');
-            alert("⚠️ " + data.msg);
         });
 
         function submitDeposit() {
-            const btn = document.getElementById('confirm-payment-btn');
             const amountInput = document.getElementById('deposit_amount').value;
             const amount = parseFloat(amountInput);
             const smsInput = document.getElementById('sms_text_input').value.trim();
-            const method = document.getElementById('deposit-method').value;
 
             if (!amount || amount <= 0 || !smsInput) { 
-                playSound('error'); 
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ኮፒ ፖስት ያድርጉ!"); 
             }
 
-            btn.disabled = true;
-            btn.innerText = "እየተላከ ነው...";
-
-            try {
-                socket.emit('request_deposit', { 
-                    user_id: userId, 
-                    amount: amount, 
-                    tx_ref: smsInput, 
-                    sms_text: smsInput,
-                    method: method 
-                });
-                closeDepositModal();
-                alert("📥 የዲፖዚት ጥያቄዎ እና የኤስኤምኤስ ደረሰኝ ለአድሚን ዳሽቦርድ ተልኳል! ሲጸድቅ አካውንትዎ ይገባል።");
-                
-                document.getElementById('deposit_amount').value = '';
-                document.getElementById('sms_text_input').value = '';
-            } catch (error) {
-                console.error("Deposit Error:", error);
-                alert("የኔትወርክ ወይም የሰርቨር ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "ክፍያ አረጋግጥ እና ላክ";
-            }
+            socket.emit('request_deposit', { 
+                user_id: userId, 
+                amount: amount, 
+                tx_ref: smsInput, 
+                sms_text: smsInput,
+                method: 'CBE_Merchant' 
+            });
+            closeDepositModal();
+            alert("📥 የዲፖዚት ጥያቄዎ ለአድሚን ተልኳል!");
+            document.getElementById('deposit_amount').value = '';
+            document.getElementById('sms_text_input').value = '';
         }
-
-        socket.on('deposit_response', function(response) {
-            if (response.status === 'success') {
-                playSound('win');
-                alert(response.message);
-            } else {
-                playSound('error');
-                alert(response.message);
-            }
-        });
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
-            if (!amount || amount <= 0 || !account) { playSound('error'); return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት ቁጥር ያስገቡ!"); }
-            playSound('win');
+            if (!amount || amount <= 0 || !account) { return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!"); }
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
         }
@@ -775,21 +446,13 @@
 
                 if (isTaken) {
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
-                    btn.style.pointerEvents = 'none';
                 } else if (isSelected) {
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
-                    btn.onclick = () => {
-                        playSound('click');
-                        socket.emit('select_card', { user_id: userId, card_id: i });
-                    };
+                    btn.onclick = () => socket.emit('select_card', { user_id: userId, card_id: i });
                 } else {
-                    btn.className = 'number-cell bg-slate-800/80 text-slate-200 border-slate-700/60 active:scale-95';
+                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
                     btn.onclick = () => {
-                        if (mySelectedCards.length >= 2) {
-                            playSound('error');
-                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                        }
-                        playSound('click');
+                        if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
                         socket.emit('select_card', { user_id: userId, card_id: i });
                     };
                 }
@@ -804,93 +467,29 @@
         });
 
         socket.on('card_confirmed', (data) => {
-            playSound('click');
             if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             cardsDatabase[data.card_id] = data.matrix;
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
-            const bStr = `${parseFloat(data.new_balance).toFixed(2)} ETB`;
-            document.getElementById('modal-balance-amount').innerText = bStr;
-            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
+            updateBalanceDisplays(data.new_balance);
         });
 
-        function createCardHTML(cid, matrix, isPlayMode = false) {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700/80';
-            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
-
-            const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950/80 p-2 rounded-xl mb-2';
-
-            ['B','I','N','G','O'].forEach((h) => {
-                const hCell = document.createElement('div');
-                hCell.className = `p-1 rounded-lg font-black text-[11px] bg-slate-900 text-purple-400`;
-                hCell.innerText = h;
-                mGrid.appendChild(hCell);
-            });
-
-            matrix.forEach(row => {
-                row.forEach(val => {
-                    const cell = document.createElement('div');
-                    const isFree = val === 'FREE';
-                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
-
-                    cell.className = `p-2 rounded-lg text-xs font-black transition-all ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : (isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800/90 text-slate-200 cursor-pointer')}`;
-                    cell.innerText = val;
-
-                    if (isPlayMode && !isFree) {
-                        cell.onclick = () => {
-                            if (!drawnNumbersSet.has(val)) {
-                                playSound('error');
-                                return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
-                            }
-                            playSound('click');
-                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                            markedNumbersMap[cid].add(val);
-                            cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 transition-all shadow-lg';
-                        };
-                    }
-                    mGrid.appendChild(cell);
-                });
-            });
-
-            cardDiv.appendChild(mGrid);
-
-            if (isPlayMode) {
-                const claimBtn = document.createElement('button');
-                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer';
-                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
-                claimBtn.onclick = () => {
-                    playSound('click');
-                    const matrixData = cardsDatabase[cid];
-                    const markedSet = markedNumbersMap[cid] || new Set();
-                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
-                };
-                cardDiv.appendChild(claimBtn);
-            }
-            return cardDiv;
+        function updateBalanceDisplays(bal) {
+            const bStr = `${parseFloat(bal).toFixed(2)} ETB`;
+            document.getElementById('modal-balance-amount').innerText = bStr;
+            document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
         }
 
-        function renderPreviewCards() {
-            const container = document.getElementById('preview-cards-container');
-            if(!container) return;
-            container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
-        }
+        socket.on('balance_update', (data) => {
+            if(parseInt(data.user_id) === userId) updateBalanceDisplays(data.balance);
+        });
 
         socket.on('timer_update', (data) => {
             const tVal = `${data.time_left}s`;
             const sVal = data.sold_count;
-            ['timer', 'timer-game'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.innerText = tVal;
-            });
-            ['sold-count', 'sold-count-game'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.innerText = sVal;
-            });
+            ['timer', 'timer-game'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = tVal; });
+            ['sold-count', 'sold-count-game'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = sVal; });
         });
 
         socket.on('game_started', (data) => {
@@ -904,50 +503,12 @@
             document.getElementById('derash-amount').innerText = `${parseFloat(data.derash || 8).toFixed(2)} ETB`;
             
             updateCalledNumbersUI();
-
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
                 mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
             }
         });
-
-        function getLetterForNum(num) {
-            if (num >= 1 && num <= 15) return 'B';
-            if (num >= 16 && num <= 30) return 'I';
-            if (num >= 31 && num <= 45) return 'N';
-            if (num >= 46 && num <= 60) return 'G';
-            return 'O';
-        }
-
-        function updateCalledNumbersUI() {
-            const boardContainer = document.getElementById('called-numbers-board');
-            const gameBallsCount = document.getElementById('game-balls-count');
-            const selectionDrawnCount = document.getElementById('selection-drawn-count');
-            
-            const count = drawnNumbersList.length;
-            const countText = `${count}/75`;
-            
-            if(gameBallsCount) gameBallsCount.innerText = countText;
-            if(selectionDrawnCount) selectionDrawnCount.innerText = countText;
-
-            if(!boardContainer) return;
-            boardContainer.innerHTML = '';
-
-            drawnNumbersList.slice().reverse().forEach((num, index) => {
-                const itemDiv = document.createElement('div');
-                const letter = getLetterForNum(num);
-                const displayStr = `${letter}-${num}`;
-                
-                if (index === 0) {
-                    itemDiv.className = 'py-1 px-1.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-lg text-center shadow border border-amber-300';
-                } else {
-                    itemDiv.className = 'py-1 px-1.5 bg-slate-900/80 text-slate-300 font-bold text-[10px] rounded-lg text-center border border-slate-800';
-                }
-                itemDiv.innerText = displayStr;
-                boardContainer.appendChild(itemDiv);
-            });
-        }
 
         socket.on('number_drawn', (data) => {
             const num = data.number;
@@ -956,42 +517,98 @@
                 drawnNumbersList.push(num);
             }
             
-            const letter = getLetterForNum(num);
+            const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
             const circle = document.getElementById('current-ball-circle');
             if(circle) circle.innerText = `${letter}-${num}`;
-            
-            const isAutoChecked = document.getElementById('auto-check-game')?.checked || document.getElementById('auto-check')?.checked;
-            
-            if (isAutoChecked) {
-                mySelectedCards.forEach(cid => {
-                    const matrix = cardsDatabase[cid];
-                    if (matrix) {
-                        matrix.forEach(row => {
-                            if (row.includes(num)) {
-                                if (!markedNumbersMap[cid]) {
-                                    markedNumbersMap[cid] = new Set();
-                                }
-                                markedNumbersMap[cid].add(num);
-                            }
-                        });
-                    }
-                });
-                
-                const container = document.getElementById('my-cards-container');
-                if(container && container.children.length > 0) {
-                    container.innerHTML = '';
-                    mySelectedCards.forEach(cid => {
-                        container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
-                    });
-                }
-            }
 
             updateCalledNumbersUI();
-            playSound('click');
         });
 
+        function getLetterForNum(num) {
+            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+        }
+
+        function updateCalledNumbersUI() {
+            const boardContainer = document.getElementById('called-numbers-board');
+            const gameBallsCount = document.getElementById('game-balls-count');
+            const selectionDrawnCount = document.getElementById('selection-drawn-count');
+            
+            const countText = `${drawnNumbersList.length}/75`;
+            if(gameBallsCount) gameBallsCount.innerText = countText;
+            if(selectionDrawnCount) selectionDrawnCount.innerText = countText;
+
+            if(!boardContainer) return;
+            boardContainer.innerHTML = '';
+
+            drawnNumbersList.slice().reverse().forEach((num, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = index === 0 ? 'py-1 px-1.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-lg text-center shadow' : 'py-1 px-1.5 bg-slate-900 text-slate-300 font-bold text-[10px] rounded-lg text-center border border-slate-800';
+                itemDiv.innerText = `${getLetterForNum(num)}-${num}`;
+                boardContainer.appendChild(itemDiv);
+            });
+        }
+
+        function createCardHTML(cid, matrix, isPlayMode = false) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700';
+            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
+
+            const mGrid = document.createElement('div');
+            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950 p-2 rounded-xl mb-2';
+
+            ['B','I','N','G','O'].forEach(h => {
+                const hCell = document.createElement('div');
+                hCell.className = 'p-1 rounded-lg font-black text-[11px] bg-slate-900 text-purple-400';
+                hCell.innerText = h;
+                mGrid.appendChild(hCell);
+            });
+
+            matrix.forEach(row => {
+                row.forEach(val => {
+                    const cell = document.createElement('div');
+                    const isFree = val === 'FREE';
+                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
+
+                    cell.className = `p-2 rounded-lg text-xs font-black ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
+                    cell.innerText = val;
+
+                    if (isPlayMode && !isFree) {
+                        cell.onclick = () => {
+                            if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                            markedNumbersMap[cid].add(val);
+                            cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
+                        };
+                    }
+                    mGrid.appendChild(cell);
+                });
+            });
+            cardDiv.appendChild(mGrid);
+
+            if (isPlayMode) {
+                const claimBtn = document.createElement('button');
+                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1';
+                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
+                claimBtn.onclick = () => {
+                    const matrixData = cardsDatabase[cid];
+                    const markedSet = markedNumbersMap[cid] || new Set();
+                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
+                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+                };
+                cardDiv.appendChild(claimBtn);
+            }
+
+            return cardDiv;
+        }
+
+        function renderPreviewCards() {
+            const container = document.getElementById('preview-cards-container');
+            if(!container) return;
+            container.innerHTML = '';
+            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+        }
+
         socket.on('winner_announced', (data) => {
-            playSound('win');
             document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
             document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
             const wGrid = document.getElementById('winner-card-matrix');
@@ -1017,9 +634,7 @@
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
-        document.addEventListener("DOMContentLoaded", () => {
-            initCartelaGrid();
-        });
+        document.addEventListener("DOMContentLoaded", () => { initCartelaGrid(); });
     </script>
 </body>
 </html>
