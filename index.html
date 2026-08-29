@@ -624,7 +624,6 @@
             const adminBtn = document.getElementById('admin-access-btn');
             if (adminBtn) adminBtn.classList.remove('hidden');
             
-            // ሲገናኝ ግሪዱን በአግባቡ እንዲጭን ማድረግ
             initCartelaGrid();
         });
 
@@ -994,7 +993,6 @@
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
-        // ገጹ ሲጫን ወዲያውኑ የካርቴላ ሳጥኖቹን እንዲያሳይ ማድረግ
         document.addEventListener("DOMContentLoaded", () => {
             initCartelaGrid();
         });
