@@ -853,20 +853,45 @@
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
+        // --- FIXED TIMER & COUNTDOWN LOGIC ---
+        let currentTimerValue = 0;
+        let timerInterval = null;
+
         socket.on('timer_update', (data) => {
-            const tVal = `${data.time_left}s`;
+            currentTimerValue = data.time_left;
             const sVal = data.sold_count;
-            ['timer', 'timer-game'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.innerText = tVal;
-            });
+            
+            updateTimerDisplay();
+            
             ['sold-count', 'sold-count-game'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.innerText = sVal;
             });
+
+            // Start local interval countdown so it ticks down every second smoothly
+            if (!timerInterval) {
+                timerInterval = setInterval(() => {
+                    if (currentTimerValue > 0) {
+                        currentTimerValue--;
+                        updateTimerDisplay();
+                    }
+                }, 1000);
+            }
         });
 
+        function updateTimerDisplay() {
+            const tVal = `${currentTimerValue}s`;
+            ['timer', 'timer-game'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = tVal;
+            });
+        }
+
         socket.on('game_started', (data) => {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
             drawnNumbersSet.clear();
             drawnNumbersList = [];
             markedNumbersMap = {};
@@ -976,6 +1001,10 @@
         });
 
         socket.on('reset_game', () => {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
