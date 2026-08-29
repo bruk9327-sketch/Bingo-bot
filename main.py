@@ -1,4 +1,5 @@
 import eventlet
+
 eventlet.monkey_patch(all=True)
 from datetime import datetime
 import os
@@ -78,7 +79,7 @@ def handle_register_user(data):
     user_id = data.get('phone', 'unknown_user')
 
   data['user_id'] = user_id
-  
+
   existing_user = next(
       (u for u in registered_users_db if u.get('user_id') == user_id), None
   )
@@ -94,15 +95,15 @@ def handle_register_user(data):
   emit(
       'registration_success',
       {
-          'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።', 
-          'user_id': user_id
+          'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
+          'user_id': user_id,
       },
       room=request.sid,
   )
   emit(
-      'balance_update', 
-      {'user_id': user_id, 'balance': user_balances[user_id]}, 
-      room=request.sid
+      'balance_update',
+      {'user_id': user_id, 'balance': user_balances[user_id]},
+      room=request.sid,
   )
   socketio.emit('registered_users_list', {'users': registered_users_db})
 
@@ -114,7 +115,9 @@ def handle_get_registered_users(data):
 
 @socketio.on('get_pending_deposits')
 def handle_get_pending_deposits(data):
-  pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+  pending_list = [
+      dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
+  ]
   emit('admin_pending_deposits', {'deposits': pending_list}, room=request.sid)
 
 
@@ -145,11 +148,19 @@ def handle_request_deposit(data):
     method = data.get('method', 'CBE Merchant')
 
     if not user_id or not amount or (not tx_ref and not sms_text):
-      emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
+      emit(
+          'error_msg',
+          {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'},
+          room=request.sid,
+      )
       return
 
     if amount < 10:
-      emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
+      emit(
+          'error_msg',
+          {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'},
+          room=request.sid,
+      )
       return
 
     dep_id = deposit_id_counter
@@ -176,8 +187,14 @@ def handle_request_deposit(data):
 
     inline_keyboard = {
         'inline_keyboard': [[
-            {'text': '✅ አረጋግጥ (Approve)', 'callback_data': f'approve_dep_{dep_id}'},
-            {'text': '❌ ሰርዝ (Reject)', 'callback_data': f'reject_dep_{dep_id}'},
+            {
+                'text': '✅ አረጋግጥ (Approve)',
+                'callback_data': f'approve_dep_{dep_id}',
+            },
+            {
+                'text': '❌ ሰርዝ (Reject)',
+                'callback_data': f'reject_dep_{dep_id}',
+            },
         ]]
     }
 
@@ -205,21 +222,30 @@ def handle_approve_deposit(data):
     deposit['status'] = 'Approved'
     user_id = deposit['user_id']
     amount = deposit['amount']
-    
+
     if user_id not in user_balances:
       user_balances[user_id] = 50.00
     user_balances[user_id] += amount
 
-    socketio.emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
-    socketio.emit('deposit_success', {
-        'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
-        'new_balance': user_balances[user_id]
-    })
+    socketio.emit(
+        'balance_update',
+        {'user_id': user_id, 'balance': user_balances[user_id]},
+    )
+    socketio.emit(
+        'deposit_success',
+        {
+            'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
+            'new_balance': user_balances[user_id],
+        },
+    )
     send_telegram_custom_message(
         user_id,
-        f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user_balances[user_id]} ብር ነው።'
+        f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user_balances[user_id]}'
+        ' ብር ነው።',
     )
-    pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+    pending_list = [
+        dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
+    ]
     socketio.emit('admin_pending_deposits', {'deposits': pending_list})
 
 
@@ -231,9 +257,11 @@ def handle_reject_deposit(data):
     deposit['status'] = 'Rejected'
     send_telegram_custom_message(
         deposit['user_id'],
-        f'❌ የዲፖዚት ጥያቄዎ ({deposit["amount"]} ብር) ውድቅ ተደርጓል።'
+        f'❌ የዲፖዚት ጥያቄዎ ({deposit["amount"]} ብር) ውድቅ ተደርጓል።',
     )
-    pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+    pending_list = [
+        dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
+    ]
     socketio.emit('admin_pending_deposits', {'deposits': pending_list})
 
 
@@ -242,7 +270,9 @@ def handle_send_broadcast(data):
   text = data.get('text')
   media = data.get('media')
   file_type = data.get('type')
-  socketio.emit('receive_broadcast', {'text': text, 'media': media, 'type': file_type})
+  socketio.emit(
+      'receive_broadcast', {'text': text, 'media': media, 'type': file_type}
+  )
 
 
 @socketio.on('get_user_balance')
@@ -254,14 +284,20 @@ def handle_get_balance(data):
     user_balances[user_id] = 50.00
   emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
-  emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
+  emit(
+      'timer_update',
+      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+  )
 
 
 @socketio.on('select_card')
 def handle_select_card(data):
   global game_active, taken_cards_global, sold_cards_in_round
   if game_active:
-    emit('error_msg', {'msg': 'ጨዋታው ተጀምሯል! እባክዎ የሚቀጥለውን ዙር ይጠብቁ።'})
+    emit(
+        'error_msg',
+        {'msg': 'ጨዋታው ተጀምሯል! እባክዎ የሚቀጥለውን ዙር ይጠብቁ።'},
+    )
     return
 
   user_id = data.get('user_id')
@@ -280,7 +316,10 @@ def handle_select_card(data):
     return
 
   if card_id in taken_cards_global:
-    emit('error_msg', {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'})
+    emit(
+        'error_msg',
+        {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'},
+    )
     return
 
   user_balances[user_id] -= card_price
@@ -289,10 +328,25 @@ def handle_select_card(data):
 
   matrix = generate_bingo_matrix(card_id)
 
-  emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}, room=request.sid)
-  emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': user_balances[user_id]}, room=request.sid)
+  emit(
+      'balance_update',
+      {'user_id': user_id, 'balance': user_balances[user_id]},
+      room=request.sid,
+  )
+  emit(
+      'card_confirmed',
+      {
+          'card_id': card_id,
+          'matrix': matrix,
+          'new_balance': user_balances[user_id],
+      },
+      room=request.sid,
+  )
   socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
-  socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
+  socketio.emit(
+      'timer_update',
+      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+  )
 
 
 def generate_bingo_matrix(seed_val):
@@ -349,9 +403,21 @@ def background_game_loop():
           break
         drawn_balls.append(ball)
 
-        letter = 'B' if 1 <= ball <= 15 else ('I' if 16 <= ball <= 30 else ('N' if 31 <= ball <= 45 else ('G' if 46 <= ball <= 60 else 'O')))
+        letter = (
+            'B'
+            if 1 <= ball <= 15
+            else (
+                'I'
+                if 16 <= ball <= 30
+                else (
+                    'N'
+                    if 31 <= ball <= 45
+                    else ('G' if 46 <= ball <= 60 else 'O')
+                )
+            )
+        )
         display_str = f'{letter}-{ball}'
-        
+
         socketio.emit('new_number', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
         socketio.sleep(3)
@@ -390,7 +456,9 @@ def handle_claim_bingo(data):
             'card_matrix': matrix,
         },
     )
-    socketio.emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
+    socketio.emit(
+        'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
+    )
     eventlet.spawn_after(6, reset_game_state_completely)
   else:
     emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'})
