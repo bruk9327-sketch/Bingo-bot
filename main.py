@@ -417,7 +417,7 @@ def background_game_loop():
         )
         display_str = f'{letter}-{ball}'
 
-        socketio.emit('new_number', {'ball': ball, 'display': display_str})
+        socketio.emit('number_dispatch', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
         socketio.sleep(3)
 
