@@ -13,18 +13,25 @@ from flask_socketio import SocketIO, emit
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 
-# ከፊት ለፊት ካለው (Frontend) ጋር ሙሉ በሙሉ እንዲጣጣም async_mode='threading' እንጠቀማለን
-socketio = SocketIO(app, cors_allowed_origins='*', async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins='*', async_mode='eventlet')
 
-# ---------------------------------------------------------
-# የቴሌግራም ቦት ማስተካከያ (Telegram Bot Configurations)
-# ---------------------------------------------------------
 TELEGRAM_BOT_TOKEN = os.environ.get(
     'TELEGRAM_BOT_TOKEN', '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM'
 )
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
+
+user_balances = {}
+taken_cards_global = []
+game_timer = 15
+game_active = False
+sold_cards_in_round = []
+drawn_balls = []
+available_numbers = list(range(1, 76))
+registered_users_db = []
+pending_deposits = {}
+deposit_id_counter = 1
 
 
 def send_telegram_notification(message, reply_markup=None):
@@ -55,19 +62,6 @@ def send_telegram_custom_message(chat_id, text):
     print('Telegram Custom Message Error:', e)
 
 
-# ዳታቤዝ እና የጨዋታ ሁኔታዎች (Memory Storage)
-user_balances = {}
-taken_cards_global = []
-game_timer = 15
-game_active = False
-sold_cards_in_round = []
-drawn_balls = []
-available_numbers = list(range(1, 76))
-registered_users_db = []
-pending_deposits = {}
-deposit_id_counter = 1
-
-
 @socketio.on('connect')
 def handle_connect():
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
@@ -85,13 +79,6 @@ def handle_register_user(data):
 
   data['user_id'] = user_id
   
-  fullname = data.get('fullname')
-  username = data.get('username')
-  email = data.get('email')
-  phone = data.get('phone')
-  balance = data.get('balance', 50.00)
-
-  # ተጠቃሚው ቀድሞ መመዝገቡን ማረጋገጥ እና መረጃውን ማዘመን
   existing_user = next(
       (u for u in registered_users_db if u.get('user_id') == user_id), None
   )
@@ -102,9 +89,8 @@ def handle_register_user(data):
     registered_users_db.append(data)
 
   if user_id not in user_balances:
-    user_balances[user_id] = balance
+    user_balances[user_id] = data.get('balance', 50.00)
 
-  # ለተጠቃሚው ምዝገባው እንደተሳካ ማሳወቅ
   emit(
       'registration_success',
       {
@@ -113,52 +99,12 @@ def handle_register_user(data):
       },
       room=request.sid,
   )
-  
-  # ቀሪ ሂሳብ ማዘመን
   emit(
       'balance_update', 
       {'user_id': user_id, 'balance': user_balances[user_id]}, 
       room=request.sid
   )
-
-  # አድሚን ዳሽቦርድ ላይ ተመዝጋቢዎች ወዲያውኑ እንዲመጡ ማሳወቅ
   socketio.emit('registered_users_list', {'users': registered_users_db})
-
-
-# HTTP Route አማራጭ ለ ምዝገባ (Endpoint connection) ከፈለጉ
-@app.route('/api/register', methods=['POST'])
-def api_register_user():
-  try:
-    data = request.json or request.form or {}
-    user_id = data.get('user_id') or data.get('phone') or data.get('username')
-    if not user_id:
-      user_id = data.get('phone', 'unknown_user')
-
-    data['user_id'] = user_id
-    
-    existing_user = next(
-        (u for u in registered_users_db if u.get('user_id') == user_id), None
-    )
-
-    if existing_user:
-      existing_user.update(data)
-    else:
-      registered_users_db.append(data)
-
-    if user_id not in user_balances:
-      user_balances[user_id] = 50.00
-
-    socketio.emit('registered_users_list', {'users': registered_users_db})
-
-    return jsonify({
-        'status': 'success',
-        'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
-        'user_id': user_id,
-        'balance': user_balances[user_id]
-    }), 200
-  except Exception as e:
-    print('API Register Error:', e)
-    return jsonify({'status': 'error', 'msg': str(e)}), 500
 
 
 @socketio.on('get_registered_users')
@@ -166,30 +112,25 @@ def handle_get_registered_users(data):
   emit('registered_users_list', {'users': registered_users_db}, room=request.sid)
 
 
-# ---------------------------------------------------------
-# የባንክ ኤስኤምኤስ ጽሑፍን ወይም ሊንክ አጥንቶ TID የሚወስድ ተግባር
-# ---------------------------------------------------------
+@socketio.on('get_pending_deposits')
+def handle_get_pending_deposits(data):
+  pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+  emit('admin_pending_deposits', {'deposits': pending_list}, room=request.sid)
+
+
 def extract_transaction_info(sms_text):
   try:
-    # ከ CBE Pay ዩአርኤል ውስጥ TID ለመውጣት (ለምሳሌ: TID=DH51IKGLT45)
     tid_match = re.search(r'TID=([A-Za-z0-9]+)', sms_text)
     if tid_match:
       return tid_match.group(1)
-
-    # ሌላ መደበኛ የትራንዛክሽን ቁጥር ቅርጸት ካለ ለመፈለግ
     general_match = re.search(r'\b([A-Z0-9]{10,})\b', sms_text)
     if general_match:
       return general_match.group(1)
-
     return None
   except Exception as e:
     print(f'Parsing Error: {e}')
     return None
 
-
-# ---------------------------------------------------------
-# የዲፖዚት ማስተናገጃ ሩቶች (Socket.io & HTTP APIs)
-# ---------------------------------------------------------
 
 @socketio.on('request_deposit')
 def handle_request_deposit(data):
@@ -198,26 +139,17 @@ def handle_request_deposit(data):
     user_id = data.get('user_id')
     amount = float(data.get('amount', 0))
     sms_text = data.get('sms_text', '')
-    
     tx_ref = data.get('tx_ref') or data.get('transaction_ref')
     if not tx_ref and sms_text:
       tx_ref = extract_transaction_info(sms_text)
-
     method = data.get('method', 'CBE Merchant')
 
     if not user_id or not amount or (not tx_ref and not sms_text):
-      emit('deposit_response', {'status': 'error', 'message': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
       emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
       return
 
     if amount < 10:
-      emit('deposit_response', {'status': 'error', 'message': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
       emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
-      return
-
-    if not tx_ref:
-      emit('deposit_response', {'status': 'error', 'message': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!'}, room=request.sid)
-      emit('error_msg', {'msg': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!'}, room=request.sid)
       return
 
     dep_id = deposit_id_counter
@@ -227,20 +159,19 @@ def handle_request_deposit(data):
         'id': dep_id,
         'user_id': user_id,
         'amount': amount,
-        'transaction_ref': tx_ref,
+        'transaction_ref': tx_ref or 'N/A',
         'sms_text': sms_text,
         'method': method,
         'status': 'Pending',
     }
 
     admin_msg = (
-        f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ (Socket)*\n\n'
+        f'💰 *አዲስ የዲፖዚት ጥያቄ (Socket)*\n\n'
         f'- ጥያቄ ID: `{dep_id}`\n'
         f'- ተጠቃሚ ID: `{user_id}`\n'
         f'- መጠን: *{amount} ብር*\n'
         f'- ዘዴ: {method}\n'
-        f'- Ref/TID: `{tx_ref}`\n'
-        f'- ጽሑፍ: {sms_text[:100]}'
+        f'- Ref/TID: `{tx_ref}`'
     )
 
     inline_keyboard = {
@@ -256,183 +187,54 @@ def handle_request_deposit(data):
         'deposit_response',
         {
             'status': 'success',
-            'message': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው ባላንስዎ ላይ ይጨመራል።',
-            'dep_id': dep_id,
-        },
-        room=request.sid,
-    )
-    emit(
-        'deposit_pending',
-        {
-            'msg': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው ባላንስዎ ላይ ይጨመራል።',
+            'message': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!',
             'dep_id': dep_id,
         },
         room=request.sid,
     )
   except Exception as e:
     print('Deposit Socket Error:', e)
-    emit('deposit_response', {'status': 'error', 'message': 'የሰርቨር ስህተት አጋጥሟል። እባክዎ እንደገና ይሞክሩ።'}, room=request.sid)
-    emit('error_msg', {'msg': 'የዲፖዚት ጥያቄውን ማስተናገድ አልተቻለም።'}, room=request.sid)
+    emit('error_msg', {'msg': 'የሰርቨር ስህተት አጋጥሟል።'}, room=request.sid)
 
 
-@app.route('/api/deposit', methods=['POST'])
-@app.route('/api/deposit/submit', methods=['POST'])
-def api_deposit():
-  global deposit_id_counter
-  try:
-    data = request.json or request.form or {}
-    user_id = data.get('user_id')
-    amount = float(data.get('amount', 0))
-    sms_text = data.get('sms_text', '')
-    
-    tx_ref = data.get('tx_ref') or data.get('transaction_ref')
-    if not tx_ref and sms_text:
-      tx_ref = extract_transaction_info(sms_text)
-
-    method = data.get('method', 'CBE Merchant')
-
-    if not user_id or not amount or (not tx_ref and not sms_text):
-      return (
-          jsonify({
-              'status': 'error',
-              'msg': 'መረጃው አልተሟላም',
-              'message': 'መረጃው አልተሟላም',
-          }),
-          400,
-      )
-
-    if amount < 10:
-      return (
-          jsonify({
-              'status': 'error',
-              'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!',
-              'message': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!',
-          }),
-          400,
-      )
-
-    if not tx_ref:
-      return (
-          jsonify({
-              'status': 'error',
-              'msg': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!',
-              'message': 'የተላከው ኤስኤምኤስ ትክክለኛ የትራንዛክሽን መረጃ አልያዘም!',
-          }),
-          400,
-      )
-
-    dep_id = deposit_id_counter
-    deposit_id_counter += 1
-
-    pending_deposits[dep_id] = {
-        'id': dep_id,
-        'user_id': user_id,
-        'amount': amount,
-        'transaction_ref': tx_ref,
-        'sms_text': sms_text,
-        'method': method,
-        'status': 'Pending',
-    }
-
-    admin_msg = (
-        f'💰 *አዲስ የCBE Merchant ዲፖዚት ጥያቄ (API)*\n\n'
-        f'- ጥያቄ ID: `{dep_id}`\n'
-        f'- ተጠቃሚ ID: `{user_id}`\n'
-        f'- መጠን: *{amount} ብር*\n'
-        f'- ዘዴ: {method}\n'
-        f'- Ref/TID: `{tx_ref}`'
-    )
-
-    inline_keyboard = {
-        'inline_keyboard': [[
-            {'text': '✅ አረጋግጥ (Approve)', 'callback_data': f'approve_dep_{dep_id}'},
-            {'text': '❌ ውድቅ አድርግ (Reject)', 'callback_data': f'reject_dep_{dep_id}'},
-        ]]
-    }
-
-    send_telegram_notification(admin_msg, reply_markup=inline_keyboard)
-
-    return jsonify({
-        'status': 'success',
-        'msg': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!',
-        'message': 'የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!',
-        'dep_id': dep_id,
-    })
-  except Exception as e:
-    print('API Deposit Error:', e)
-    return jsonify({'status': 'error', 'msg': str(e), 'message': str(e)}), 500
-
-
-@app.route('/api/admin/action-deposit', methods=['POST'])
-def admin_action_deposit():
-  data = request.json or {}
+@socketio.on('approve_deposit')
+def handle_approve_deposit(data):
   deposit_id = int(data.get('deposit_id', 0))
-  action = data.get('action')
-
   deposit = pending_deposits.get(deposit_id)
-  if not deposit:
-    return jsonify({'status': 'error', 'message': 'ጥያቄው አልተገኘም'}), 404
-
-  if deposit['status'] != 'Pending':
-    return (
-        jsonify({'status': 'error', 'message': 'ይህ ጥያቄ ቀድሞ ተስተናግዷል!'}),
-        400,
-    )
-
-  user_id = deposit['user_id']
-  amount = deposit['amount']
-
-  if action == 'approve':
+  if deposit and deposit['status'] == 'Pending':
     deposit['status'] = 'Approved'
+    user_id = deposit['user_id']
+    amount = deposit['amount']
+    
     if user_id not in user_balances:
       user_balances[user_id] = 50.00
     user_balances[user_id] += amount
 
-    socketio.emit(
-        'balance_update',
-        {'user_id': user_id, 'balance': user_balances[user_id]},
-    )
-    socketio.emit(
-        'deposit_approved',
-        {
-            'dep_id': deposit_id,
-            'amount': amount,
-            'new_balance': user_balances[user_id],
-        },
-    )
-    socketio.emit(
-        'deposit_success',
-        {
-            'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
-            'new_balance': user_balances[user_id],
-        },
-    )
+    socketio.emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
+    socketio.emit('deposit_success', {
+        'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
+        'new_balance': user_balances[user_id]
+    })
     send_telegram_custom_message(
         user_id,
-        f'🎉 የCBE Merchant ክፍያዎ ጸድቋል! {amount} ብር ወደ አካውንትዎ ተጨምሯል። አዲሱ'
-        f' ባላንስዎ: {user_balances[user_id]} ብር ነው።',
+        f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user_balances[user_id]} ብር ነው።'
     )
-    return (
-        jsonify({
-            'status': 'success',
-            'message': 'ክፍያው ጸድቋል፣ የተጫዋቹ አካውንት ተሞልቷል።',
-        }),
-        200,
-    )
+    pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+    socketio.emit('admin_pending_deposits', {'deposits': pending_list})
 
-  elif action == 'reject':
+
+@socketio.on('reject_deposit')
+def handle_reject_deposit(data):
+  deposit_id = int(data.get('deposit_id', 0))
+  deposit = pending_deposits.get(deposit_id)
+  if deposit and deposit['status'] == 'Pending':
     deposit['status'] = 'Rejected'
     send_telegram_custom_message(
-        user_id,
-        f'❌ የዲፖዚት ጥያቄዎ ({amount} ብር) በአድሚን ውድቅ ተደርጓል። እባክዎን ትክክለኛ'
-        ' መረጃ መላክዎን ያረጋግጡ።',
+        deposit['user_id'],
+        f'❌ የዲፖዚት ጥያቄዎ ({deposit["amount"]} ብር) ውድቅ ተደርጓል።'
     )
-    return (
-        jsonify({'status': 'success', 'message': 'የዲፖዚት ጥያቄው ተሰርዟል።'}),
-        200,
-    )
-
-  return jsonify({'status': 'error', 'message': 'ትክክለኛው እርምጃ አልተመረጣም'}), 400
+    pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+    socketio.emit('admin_pending_deposits', {'deposits': pending_list})
 
 
 @socketio.on('send_broadcast')
@@ -440,9 +242,7 @@ def handle_send_broadcast(data):
   text = data.get('text')
   media = data.get('media')
   file_type = data.get('type')
-  socketio.emit(
-      'receive_broadcast', {'text': text, 'media': media, 'type': file_type}
-  )
+  socketio.emit('receive_broadcast', {'text': text, 'media': media, 'type': file_type})
 
 
 @socketio.on('get_user_balance')
@@ -452,14 +252,9 @@ def handle_get_balance(data):
     return
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
-  emit(
-      'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
-  )
+  emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
-  emit(
-      'timer_update',
-      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
-  )
+  emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
 
 
 @socketio.on('select_card')
@@ -494,25 +289,10 @@ def handle_select_card(data):
 
   matrix = generate_bingo_matrix(card_id)
 
-  emit(
-      'balance_update',
-      {'user_id': user_id, 'balance': user_balances[user_id]},
-      room=request.sid,
-  )
-  emit(
-      'card_confirmed',
-      {
-          'card_id': card_id,
-          'matrix': matrix,
-          'new_balance': user_balances[user_id],
-      },
-      room=request.sid,
-  )
+  emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}, room=request.sid)
+  emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': user_balances[user_id]}, room=request.sid)
   socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
-  socketio.emit(
-      'timer_update',
-      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
-  )
+  socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
 
 
 def generate_bingo_matrix(seed_val):
@@ -551,7 +331,7 @@ def background_game_loop():
             'timer_update',
             {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
         )
-        time.sleep(1)
+        socketio.sleep(1)
         game_timer -= 1
 
       if len(sold_cards_in_round) == 0:
@@ -569,27 +349,17 @@ def background_game_loop():
           break
         drawn_balls.append(ball)
 
-        letter = ''
-        if 1 <= ball <= 15:
-          letter = 'B'
-        elif 16 <= ball <= 30:
-          letter = 'I'
-        elif 31 <= ball <= 45:
-          letter = 'N'
-        elif 46 <= ball <= 60:
-          letter = 'G'
-        elif 61 <= ball <= 75:
-          letter = 'O'
-
+        letter = 'B' if 1 <= ball <= 15 else ('I' if 16 <= ball <= 30 else ('N' if 31 <= ball <= 45 else ('G' if 46 <= ball <= 60 else 'O')))
         display_str = f'{letter}-{ball}'
+        
         socketio.emit('new_number', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
-        time.sleep(4)
+        socketio.sleep(3)
 
-      time.sleep(5)
+      socketio.sleep(3)
     except Exception as e:
       print('Background Game Loop Error:', e)
-      time.sleep(1)
+      socketio.sleep(1)
 
 
 @socketio.on('claim_bingo')
@@ -606,8 +376,7 @@ def handle_claim_bingo(data):
     user_balances[user_id] = user_balances.get(user_id, 50.00) + prize
 
     send_telegram_notification(
-        f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ያሸነፈው ሽልማት: {prize}'
-        f' ብር\n- ካርቴላ ቁጥር: {card_id}'
+        f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize} ብር'
     )
 
     matrix = generate_bingo_matrix(card_id)
@@ -621,16 +390,10 @@ def handle_claim_bingo(data):
             'card_matrix': matrix,
         },
     )
-
-    threading.Thread(target=reset_game_state_delayed, daemon=True).start()
-    emit(
-        'balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}
-    )
+    socketio.emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]})
+    eventlet.spawn_after(6, reset_game_state_completely)
   else:
-    emit(
-        'error_msg',
-        {'msg': '❌ ቢንጎ አልተሟላም! እባክዎ በትክክል የተጠሩትን ቁጥሮች ይጫኑ።'},
-    )
+    emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'})
 
 
 def check_bingo_win(board):
@@ -650,11 +413,6 @@ def check_bingo_win(board):
   except Exception as e:
     print('Check Bingo Error:', e)
   return False
-
-
-def reset_game_state_delayed():
-  time.sleep(6)
-  reset_game_state_completely()
 
 
 def reset_game_state_completely():
@@ -678,126 +436,9 @@ def admin_panel():
   return render_template('admin.html')
 
 
-@app.route('/telegram-webhook', methods=['POST'])
-def telegram_webhook():
-  global pending_deposits, user_balances
-  try:
-    data = request.get_json() or {}
-
-    if 'callback_query' in data:
-      query = data['callback_query']
-      callback_data = query.get('data', '')
-      chat_id = query['message']['chat']['id']
-      message_id = query['message']['message_id']
-
-      if (
-          callback_data.startswith('approve_dep_')
-          or callback_data.startswith('reject_dep_')
-          or callback_data.startswith('approve_')
-          or callback_data.startswith('reject_')
-      ):
-        parts = callback_data.split('_')
-        if 'dep' in callback_data:
-          action = parts[0]
-          dep_id = int(parts[2])
-        else:
-          action = parts[0]
-          dep_id = int(parts[1])
-
-        deposit = pending_deposits.get(dep_id)
-        if deposit and deposit['status'] == 'Pending':
-          user_id = deposit['user_id']
-          amount = deposit['amount']
-
-          if action == 'approve':
-            deposit['status'] = 'Approved'
-            if user_id not in user_balances:
-              user_balances[user_id] = 50.00
-            user_balances[user_id] += amount
-
-            socketio.emit(
-                'balance_update',
-                {'user_id': user_id, 'balance': user_balances[user_id]},
-            )
-            socketio.emit(
-                'deposit_approved',
-                {
-                    'dep_id': dep_id,
-                    'amount': amount,
-                    'new_balance': user_balances[user_id],
-                },
-            )
-            socketio.emit(
-                'deposit_success',
-                {
-                    'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
-                    'new_balance': user_balances[user_id],
-                },
-            )
-            send_telegram_custom_message(
-                user_id,
-                f'🎉 የCBE Merchant ክፍያዎ ጸድቋል! {amount} ብር ወደ አካውንትዎ ተጨምሯል።'
-                f' አዲሱ ባላንስዎ: {user_balances[user_id]} ብር ነው።',
-            )
-
-            response_text = (
-                f'✅ *ዲፖዚት ጸድቋል (Approved)*\n- ጥያቄ ID: `{dep_id}`\n- ተጠቃሚ:'
-                f' `{user_id}`\n- መጠን: *{amount} ብር*'
-            )
-          else:
-            deposit['status'] = 'Rejected'
-            send_telegram_custom_message(
-                user_id,
-                f'❌ የዲፖዚት ጥያቄዎ ({amount} ብር) በአድሚን ውድቅ ተደርጓል። እባክዎን'
-                ' ትክክለኛ መረጃ መላክዎን ያረጋግጡ።',
-            )
-            response_text = (
-                f'❌ *ዲፖዚት ውድቅ ተደርጓል (Rejected)*\n- ጥያቄ ID: `{dep_id}`\n-'
-                f' ተጠቃሚ: `{user_id}`\n- መጠን: *{amount} ብር*'
-            )
-
-          try:
-            url = (
-                f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText'
-            )
-            requests.post(
-                url,
-                json={
-                    'chat_id': chat_id,
-                    'message_id': message_id,
-                    'text': response_text,
-                    'parse_mode': 'Markdown',
-                },
-                timeout=5,
-            )
-          except Exception as e:
-            print('Edit Message Error:', e)
-
-      return jsonify({'status': 'ok'})
-
-    if 'message' in data:
-      message = data['message']
-      chat_id = message['chat']['id']
-      text = message.get('text', '')
-      user_id = str(message['from']['id'])
-
-      if text.strip() in ['/admin', '/Admin']:
-        admin_url = 'https://bingo-bot-c90r.onrender.com/admin'
-        send_telegram_custom_message(
-            chat_id,
-            f'👋 እንኳን ደህና መጡ! (የእርስዎ Telegram ID: {user_id})\nየአድሚን ዳሽቦርዱን'
-            f' ለመክፈት ይህንን ሊንክ ይጠቀሙ:\n{admin_url}',
-        )
-
-    return jsonify({'status': 'ok'})
-  except Exception as e:
-    print('Webhook General Error:', e)
-    return jsonify({'status': 'error'}), 500
-
+# አፕሊኬሽኑ ሲነሳ የጨዋታውን ሉፕ በ Eventlet በኩል ማስጀመር
+socketio.start_background_task(background_game_loop)
 
 if __name__ == '__main__':
-  t = threading.Thread(target=background_game_loop, daemon=True)
-  t.start()
-
   port = int(os.environ.get('PORT', 10000))
-  socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+  socketio.run(app, host='0.0.0.0', port=port)
