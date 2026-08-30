@@ -89,7 +89,6 @@ def handle_register_user(data):
     registered_users_db.append(data)
 
   if user_id not in user_balances:
-    # ለእያንዳንዱ ተጫዋች የተለየ መነሻ 50 ብር ቋሚ እንዲሆን ተደርጓል
     user_balances[user_id] = float(data.get('balance', 50.00))
 
   emit(
@@ -113,12 +112,26 @@ def handle_get_registered_users(data):
   emit('registered_users_list', {'users': registered_users_db}, room=request.sid)
 
 
+@socketio.on('get_admin_stats')
+def handle_get_admin_stats(data):
+  total_users = len(registered_users_db)
+  total_revenue = sum(len(sold_cards_in_round) * 10.00 for _ in [1]) # በቀላሉ የሒሳብ ማቀናበሪያ
+  emit('admin_stats_data', {'total_users': total_users, 'total_revenue': total_revenue}, room=request.sid)
+
+
 @socketio.on('get_pending_deposits')
 def handle_get_pending_deposits(data):
   pending_list = [
       dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
   ]
-  emit('admin_pending_deposits', {'deposits': pending_list}, room=request.sid)
+  emit('admin_deposits_data', {'deposits': pending_list}, room=request.sid)
+
+
+@socketio.on('admin_broadcast')
+def handle_admin_broadcast(data):
+  message = data.get('message')
+  if message:
+    socketio.emit('receive_broadcast', {'text': message})
 
 
 def extract_transaction_info(sms_text):
@@ -209,13 +222,18 @@ def handle_request_deposit(data):
         },
         room=request.sid,
     )
+    
+    # አድሚን ፓነል ላይ ወዲያውኑ እንዲታደስ
+    pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
+    socketio.emit('admin_deposits_data', {'deposits': pending_list})
+
   except Exception as e:
     print('Deposit Socket Error:', e)
     emit('error_msg', {'msg': 'የሰርቨር ስህተት አጋጥሟል።'}, room=request.sid)
 
 
-@socketio.on('approve_deposit')
-def handle_approve_deposit(data):
+@socketio.on('admin_approve_deposit')
+def handle_admin_approve_deposit(data):
   deposit_id = int(data.get('deposit_id', 0))
   deposit = pending_deposits.get(deposit_id)
   if deposit and deposit['status'] == 'Pending':
@@ -231,26 +249,18 @@ def handle_approve_deposit(data):
         'balance_update',
         {'user_id': user_id, 'balance': user_balances[user_id]},
     )
-    socketio.emit(
-        'deposit_success',
-        {
-            'msg': f'🎉 በሰኬት {amount} ብር አካውንትዎ ተሞልቷል!',
-            'new_balance': user_balances[user_id],
-        },
-    )
     send_telegram_custom_message(
         user_id,
-        f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user_balances[user_id]}'
-        ' ብር ነው።',
+        f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user_balances[user_id]} ብር ነው።',
     )
     pending_list = [
         dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
     ]
-    socketio.emit('admin_pending_deposits', {'deposits': pending_list})
+    socketio.emit('admin_deposits_data', {'deposits': pending_list})
 
 
-@socketio.on('reject_deposit')
-def handle_reject_deposit(data):
+@socketio.on('admin_reject_deposit')
+def handle_admin_reject_deposit(data):
   deposit_id = int(data.get('deposit_id', 0))
   deposit = pending_deposits.get(deposit_id)
   if deposit and deposit['status'] == 'Pending':
@@ -262,16 +272,31 @@ def handle_reject_deposit(data):
     pending_list = [
         dep for dep in pending_deposits.values() if dep['status'] == 'Pending'
     ]
-    socketio.emit('admin_pending_deposits', {'deposits': pending_list})
+    socketio.emit('admin_deposits_data', {'deposits': pending_list})
 
 
-@socketio.on('send_broadcast')
-def handle_send_broadcast(data):
-  text = data.get('text')
-  media = data.get('media')
-  file_type = data.get('type')
-  socketio.emit(
-      'receive_broadcast', {'text': text, 'media': media, 'type': file_type}
+@socketio.on('request_withdrawal')
+def handle_request_withdrawal(data):
+  user_id = data.get('user_id')
+  amount = float(data.get('amount', 0))
+  account = data.get('account')
+  method = data.get('method')
+
+  if not user_id or amount <= 0 or not account:
+    return
+
+  if user_id not in user_balances or float(user_balances[user_id]) < amount:
+    return
+
+  user_balances[user_id] = float(user_balances[user_id]) - amount
+  emit('balance_update', {'user_id': user_id, 'balance': user_balances[user_id]}, room=request.sid)
+  
+  send_telegram_notification(
+      f'📤 *የገንዘብ ማውጣት (Withdraw) ጥያቄ*\n\n'
+      f'- ተጠቃሚ ID: `{user_id}`\n'
+      f'- መጠን: *{amount} ብር*\n'
+      f'- ዘዴ: {method}\n'
+      f'- አካውንት: `{account}`'
   )
 
 
@@ -321,7 +346,6 @@ def handle_select_card(data):
   if user_id not in user_balances:
     user_balances[user_id] = 50.00
 
-  # የራሱን ትክክለኛ ባላንስ ማረጋገጥ እና መቀነስ
   if float(user_balances[user_id]) < card_price:
     emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'}, room=request.sid)
     return
@@ -415,25 +439,7 @@ def background_game_loop():
           break
         drawn_balls.append(ball)
 
-        letter = (
-            'B'
-            if 1 <= ball <= 15
-            else (
-                'I'
-                if 16 <= ball <= 30
-                else (
-                    'N'
-                    if 31 <= ball <= 45
-                    else ('G' if 46 <= ball <= 60 else 'O')
-                )
-            )
-        )
-        display_str = f'{letter}-{ball}'
-
-        socketio.emit('number_dispatch', {'ball': ball, 'display': display_str})
         socketio.emit('number_drawn', {'number': ball})
-        
-        # ቁጥሮቹ በየ 10 ሰከንድ እንዲወጡ ተደርጓል
         socketio.sleep(10)
 
       socketio.sleep(10)
