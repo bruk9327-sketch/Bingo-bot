@@ -1,5 +1,6 @@
 from gevent import monkey
 monkey.patch_all(all=True)
+
 from datetime import datetime
 import os
 import random
@@ -115,7 +116,7 @@ def handle_get_registered_users(data):
 @socketio.on('get_admin_stats')
 def handle_get_admin_stats(data):
   total_users = len(registered_users_db)
-  total_revenue = sum(len(sold_cards_in_round) * 10.00 for _ in [1]) # በቀላሉ የሒሳብ ማቀናበሪያ
+  total_revenue = sum(len(sold_cards_in_round) * 10.00 for _ in [1])
   emit('admin_stats_data', {'total_users': total_users, 'total_revenue': total_revenue}, room=request.sid)
 
 
@@ -223,7 +224,6 @@ def handle_request_deposit(data):
         room=request.sid,
     )
     
-    # አድሚን ፓነል ላይ ወዲያውኑ እንዲታደስ
     pending_list = [dep for dep in pending_deposits.values() if dep['status'] == 'Pending']
     socketio.emit('admin_deposits_data', {'deposits': pending_list})
 
