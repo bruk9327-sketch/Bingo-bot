@@ -362,7 +362,10 @@
 
         // Render ላይ ከ gevent-websocket ጋር በተቀናጀ መልኩ በትክክል እንዲገናኝ የተስተካከለ የ Socket initialization
         const socket = io({
-            transports: ['websocket', 'polling']
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000
         });
 
         let userId = 855985673;
@@ -379,14 +382,20 @@
         }
 
         socket.on('connect', () => {
+            console.log("Connected to server via socket ID:", socket.id);
             socket.emit('get_user_balance', { user_id: userId });
             initCartelaGrid();
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error("Socket connection error:", err);
         });
 
         function openGameSelection() {
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             initCartelaGrid();
+            socket.emit('get_user_balance', { user_id: userId });
         }
 
         function backToMenu() {
@@ -502,7 +511,10 @@
 
         function openRegisterModal() { document.getElementById('register-modal').classList.remove('hidden'); }
         function closeRegisterModal() { document.getElementById('register-modal').classList.add('hidden'); }
-        function openBalanceModal() { document.getElementById('balance-modal').classList.remove('hidden'); }
+        function openBalanceModal() { 
+            socket.emit('get_user_balance', { user_id: userId });
+            document.getElementById('balance-modal').classList.remove('hidden'); 
+        }
         function closeBalanceModal() { document.getElementById('balance-modal').classList.add('hidden'); }
         function openDepositModal() { document.getElementById('deposit-modal').classList.remove('hidden'); }
         function closeDepositModal() { document.getElementById('deposit-modal').classList.add('hidden'); }
@@ -538,8 +550,9 @@
         }
 
         socket.on('registration_success', (data) => {
-            alert("✅ " + data.msg);
+            alert("✅ " + (data.msg || "ምዝገባው በተሳካ ሁኔታ ተጠናቋል!"));
             closeRegisterModal();
+            socket.emit('get_user_balance', { user_id: userId });
         });
 
         function submitDeposit() {
@@ -612,17 +625,22 @@
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
-            updateBalanceDisplays(data.new_balance);
+            if (data.new_balance !== undefined) {
+                updateBalanceDisplays(data.new_balance);
+            }
         });
 
         function updateBalanceDisplays(bal) {
             const bStr = `${parseFloat(bal).toFixed(2)} ETB`;
-            document.getElementById('modal-balance-amount').innerText = bStr;
+            const modalBal = document.getElementById('modal-balance-amount');
+            if(modalBal) modalBal.innerText = bStr;
             document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
         }
 
         socket.on('balance_update', (data) => {
-            if(parseInt(data.user_id) === userId) updateBalanceDisplays(data.balance);
+            if(parseInt(data.user_id) === userId) {
+                updateBalanceDisplays(data.balance);
+            }
         });
 
         socket.on('timer_update', (data) => {
@@ -640,7 +658,8 @@
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('derash-amount').innerText = `${parseFloat(data.derash || 8).toFixed(2)} ETB`;
+            const derashEl = document.getElementById('derash-amount');
+            if(derashEl) derashEl.innerText = `${parseFloat(data.derash || 8).toFixed(2)} ETB`;
             
             updateCalledNumbersUI();
             const container = document.getElementById('my-cards-container');
@@ -657,7 +676,7 @@
                 drawnNumbersList.push(num);
             }
             
-            const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+            const letter = getLetterForNum(num);
             const circle = document.getElementById('current-ball-circle');
             if(circle) circle.innerText = `${letter}-${num}`;
 
@@ -670,13 +689,15 @@
                     if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                     const matrix = cardsDatabase[cid];
                     
-                    matrix.forEach((row) => {
-                        row.forEach((val) => {
-                            if (val == num) {
-                                markedNumbersMap[cid].add(val);
-                            }
+                    if(matrix) {
+                        matrix.forEach((row) => {
+                            row.forEach((val) => {
+                                if (val == num) {
+                                    markedNumbersMap[cid].add(val);
+                                }
+                            });
                         });
-                    });
+                    }
                 });
 
                 const container = document.getElementById('my-cards-container');
@@ -726,26 +747,28 @@
                 mGrid.appendChild(hCell);
             });
 
-            matrix.forEach(row => {
-                row.forEach(val => {
-                    const cell = document.createElement('div');
-                    const isFree = val === 'FREE';
-                    const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
+            if (matrix) {
+                matrix.forEach(row => {
+                    row.forEach(val => {
+                        const cell = document.createElement('div');
+                        const isFree = val === 'FREE';
+                        const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
-                    cell.className = `p-2 rounded-lg text-xs font-black ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
-                    cell.innerText = val;
+                        cell.className = `p-2 rounded-lg text-xs font-black ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
+                        cell.innerText = val;
 
-                    if (isPlayMode && !isFree) {
-                        cell.onclick = () => {
-                            if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
-                            if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                            markedNumbersMap[cid].add(val);
-                            cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
-                        };
-                    }
-                    mGrid.appendChild(cell);
+                        if (isPlayMode && !isFree) {
+                            cell.onclick = () => {
+                                if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                                if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
+                                markedNumbersMap[cid].add(val);
+                                cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
+                            };
+                        }
+                        mGrid.appendChild(cell);
+                    });
                 });
-            });
+            }
             cardDiv.appendChild(mGrid);
 
             if (isPlayMode) {
@@ -772,8 +795,10 @@
         }
 
         socket.on('winner_announced', (data) => {
-            document.getElementById('winner-name').innerText = `${data.winner_name} አሸንፏል!`;
-            document.getElementById('winner-prize').innerText = `${parseFloat(data.prize).toFixed(2)} ETB`;
+            const wName = document.getElementById('winner-name');
+            const wPrize = document.getElementById('winner-prize');
+            if(wName) wName.innerText = `${data.winner_name || 'ተጫዋች'} አሸንፏል!`;
+            if(wPrize) wPrize.innerText = `${parseFloat(data.prize || 0).toFixed(2)} ETB`;
             const wGrid = document.getElementById('winner-card-matrix');
             if(wGrid) {
                 wGrid.innerHTML = '';
