@@ -101,70 +101,42 @@ def handle_connect():
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
 
-
 @socketio.on('register_user')
 def handle_register_user(data):
-  try:
-    phone = data.get('phone')
+    user_id = data.get('user_id')
+    full_name = data.get('full_name')  # ፊት ለፊት በ full_name ነው የሚላከው
     username = data.get('username')
-    full_name = data.get('full_name') or data.get('fullName') or data.get('fullname')
     email = data.get('email')
-    raw_user_id = data.get('user_id')
+    phone = data.get('phone')
+    balance = data.get('balance', 50.00)
 
-    user_id = raw_user_id or phone or username or email
+    if not user_id or not full_name or not username:
+        emit('registration_success', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'})
+        return
 
-    if not user_id:
-      emit(
-          'error_msg',
-          {'msg': 'እባክዎ ትክክለኛ መረጃ (ስልክ ቁጥር ወይም መለያ) ያስገቡ።'},
-          room=request.sid,
-      )
-      return
+    try:
+        # ዳታቤዝ ውስጥ ለማስቀመጥ የሚደረግ አሰራር (እዚህ ጋር የእርስዎን የ DB ሞዴል ይጠቀሙ)
+        #  მაგალიተፈ: User ሞዴል ካለዎት full_name የሚለውን ვርብ መጠቀም ይኖርብታል
+        user = User.query.filter_by(user_id=user_id).first()
+        if user:
+            user.full_name = full_name
+            user.username = username
+            user.email = email
+            user.phone = phone
+        else:
+            user = User(user_id=user_id, full_name=full_name, username=username, email=email, phone=phone, balance=balance)
+            db.session.add(user)
+        
+        db.session.commit()
+        
+        # ለክላይንቱ የተሳካ መሆኑን መላክ
+        emit('registration_success', {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration Error: {e}")
+        emit('registration_success', {'success': False, 'msg': 'በሰርቨር በኩል ስህተት ተፈጥሯል ደግሞ ይሞክሩ::'})
 
-    user = None
-    if raw_user_id:
-      user = User.query.filter_by(user_id=str(raw_user_id)).first()
-    if not user and phone:
-      user = User.query.filter_by(phone=phone).first()
-    if not user and username:
-      user = User.query.filter_by(username=username).first()
 
-    if user:
-      user.username = username or user.username
-      user.full_name = full_name or user.full_name
-      user.email = email or user.email
-      if phone:
-        user.phone = phone
-      if raw_user_id and not user.user_id:
-        user.user_id = str(raw_user_id)
-    else:
-      user = User(
-          user_id=str(user_id),
-          phone=phone,
-          username=username,
-          full_name=full_name,
-          email=email,
-          balance=float(data.get('balance', 50.00)),
-      )
-      db.session.add(user)
-
-    db.session.commit()
-
-    emit(
-        'registration_success',
-        {
-            'status': 'success',
-            'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
-            'user_id': user.user_id,
-            'balance': user.balance,
-        },
-        room=request.sid,
-    )
-    emit(
-        'balance_update',
-        {'user_id': user.user_id, 'balance': user.balance},
-        room=request.sid,
-    )
 
     users_list = [
         {
