@@ -15,7 +15,6 @@ from flask_socketio import SocketIO, emit
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 
-# የሬንደር (Render) የ PostgreSQL ዳታቤዝ ዩአርኤል (ከ Environment Variable የሚነበብ ወይም ሎካል)
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///bkbingo.db')
 if database_url.startswith('postgres://'):
   database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -33,7 +32,6 @@ TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
 
-# --- የዳታቤዝ ሞዴሎች (Database Models) ---
 class User(db.Model):
   __tablename__ = 'users'
   id = db.Column(db.Integer, primary_key=True)
@@ -57,7 +55,6 @@ class Deposit(db.Model):
 with app.app_context():
   db.create_all()
 
-# ግሎባል ቬርያብሎች ለጨዋታው ሂደት
 taken_cards_global = []
 game_timer = 15
 game_active = False
@@ -112,7 +109,6 @@ def handle_register_user(data):
     emit('error_msg', {'msg': 'እባክዎ መለያ (ID ወይም ስልክ ቁጥር) ያስገቡ።'}, room=request.sid)
     return
 
-  # በስልክ ቁጥር ወይም በ user_id ዩኒክ መሆኑን ማረጋገጥ
   user = None
   if phone:
     user = User.query.filter((User.user_id == user_id) | (User.phone == phone)).first()
