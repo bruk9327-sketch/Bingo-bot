@@ -14,6 +14,7 @@ from flask_socketio import SocketIO, emit
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
 
+# Flask-SocketIO ከ Gevent ጋር በትክክል እንዲሠራ መዋቀሩ
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent')
 
 TELEGRAM_BOT_TOKEN = os.environ.get(
@@ -116,7 +117,7 @@ def handle_get_registered_users(data):
 @socketio.on('get_admin_stats')
 def handle_get_admin_stats(data):
   total_users = len(registered_users_db)
-  total_revenue = sum(len(sold_cards_in_round) * 10.00 for _ in [1])
+  total_revenue = len(sold_cards_in_round) * 10.00
   emit('admin_stats_data', {'total_users': total_users, 'total_revenue': total_revenue}, room=request.sid)
 
 
