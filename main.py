@@ -36,8 +36,10 @@ class User(db.Model):
   __tablename__ = 'users'
   id = db.Column(db.Integer, primary_key=True)
   user_id = db.Column(db.String(100), unique=True, nullable=False)
-  phone = db.Column(db.String(50), unique=True, nullable=True)
+  phone = db.Column(db.String(50), nullable=True)
   username = db.Column(db.String(100), nullable=True)
+  full_name = db.Column(db.String(150), nullable=True)
+  email = db.Column(db.String(120), nullable=True)
   balance = db.Column(db.Float, default=50.00)
 
 
@@ -103,10 +105,14 @@ def handle_connect():
 @socketio.on('register_user')
 def handle_register_user(data):
   phone = data.get('phone')
-  user_id = data.get('user_id') or phone or data.get('username')
+  username = data.get('username')
+  full_name = data.get('full_name') or data.get('fullName')
+  email = data.get('email')
+  
+  user_id = phone or username or email or data.get('user_id')
   
   if not user_id:
-    emit('error_msg', {'msg': 'እባክዎ መለያ (ID ወይም ስልክ ቁጥር) ያስገቡ።'}, room=request.sid)
+    emit('error_msg', {'msg': 'እባክዎ ትክክለኛ መረጃ (ስልክ ቁጥር ወይም መለያ) ያስገቡ።'}, room=request.sid)
     return
 
   user = None
@@ -116,14 +122,18 @@ def handle_register_user(data):
     user = User.query.filter_by(user_id=user_id).first()
 
   if user:
-    user.username = data.get('username', user.username)
+    user.username = username or user.username
+    user.full_name = full_name or user.full_name
+    user.email = email or user.email
     if phone:
       user.phone = phone
   else:
     user = User(
-        user_id=user_id,
+        user_id=str(user_id),
         phone=phone,
-        username=data.get('username'),
+        username=username,
+        full_name=full_name,
+        email=email,
         balance=float(data.get('balance', 50.00))
     )
     db.session.add(user)
@@ -144,13 +154,19 @@ def handle_register_user(data):
       room=request.sid,
   )
   
-  users_list = [{'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 'balance': u.balance} for u in User.query.all()]
+  users_list = [{
+      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
+      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
+  } for u in User.query.all()]
   socketio.emit('registered_users_list', {'users': users_list})
 
 
 @socketio.on('get_registered_users')
 def handle_get_registered_users(data):
-  users_list = [{'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 'balance': u.balance} for u in User.query.all()]
+  users_list = [{
+      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
+      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
+  } for u in User.query.all()]
   emit('registered_users_list', {'users': users_list}, room=request.sid)
 
 
@@ -593,32 +609,43 @@ def admin_panel():
 def api_login():
   data = request.get_json() or {}
   phone = data.get('phone')
-  user_id = data.get('telegram_id') or phone or data.get('username')
+  username = data.get('username')
+  full_name = data.get('full_name') or data.get('fullName')
+  email = data.get('email')
+  
+  user_id = phone or username or email or data.get('telegram_id')
   if not user_id:
-    return jsonify({'error': 'User ID or Phone is required'}), 400
+    return jsonify({'error': 'User ID, Phone or Email is required'}), 400
 
   user = None
   if phone:
-    user = User.query.filter((User.user_id == user_id) | (User.phone == phone)).first()
+    user = User.query.filter((User.user_id == str(user_id)) | (User.phone == phone)).first()
   else:
-    user = User.query.filter_by(user_id=user_id).first()
+    user = User.query.filter_by(user_id=str(user_id)).first()
 
   if user:
-    user.username = data.get('username', user.username)
+    user.username = username or user.username
+    user.full_name = full_name or user.full_name
+    user.email = email or user.email
     if phone:
       user.phone = phone
   else:
     user = User(
-        user_id=user_id,
+        user_id=str(user_id),
         phone=phone,
-        username=data.get('username'),
+        username=username,
+        full_name=full_name,
+        email=email,
         balance=float(data.get('balance', 50.00))
     )
     db.session.add(user)
   
   db.session.commit()
 
-  users_list = [{'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 'balance': u.balance} for u in User.query.all()]
+  users_list = [{
+      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
+      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
+  } for u in User.query.all()]
   socketio.emit('registered_users_list', {'users': users_list})
     
   return jsonify({
