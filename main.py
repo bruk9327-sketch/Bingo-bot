@@ -1,16 +1,15 @@
-from gevent import monkey
-monkey.patch_all(all=True)
-
 from datetime import datetime
 import os
 import random
 import re
 import threading
 import time
-import requests
 from flask import Flask, jsonify, render_template, request
-from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit
+from flask_sqlalchemy import SQLAlchemy
+from gevent import monkey
+
+monkey.patch_all(all=True)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
@@ -31,6 +30,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get(
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
+
 
 class User(db.Model):
   __tablename__ = 'users'
@@ -104,69 +104,106 @@ def handle_connect():
 
 @socketio.on('register_user')
 def handle_register_user(data):
-  phone = data.get('phone')
-  username = data.get('username')
-  full_name = data.get('full_name') or data.get('fullName')
-  email = data.get('email')
-  
-  user_id = phone or username or email or data.get('user_id')
-  
-  if not user_id:
-    emit('error_msg', {'msg': 'እባክዎ ትክክለኛ መረጃ (ስልክ ቁጥር ወይም መለያ) ያስገቡ።'}, room=request.sid)
-    return
+  try:
+    phone = data.get('phone')
+    username = data.get('username')
+    full_name = data.get('full_name') or data.get('fullName') or data.get('fullname')
+    email = data.get('email')
+    raw_user_id = data.get('user_id')
 
-  user = None
-  if phone:
-    user = User.query.filter((User.user_id == user_id) | (User.phone == phone)).first()
-  else:
-    user = User.query.filter_by(user_id=user_id).first()
+    user_id = raw_user_id or phone or username or email
 
-  if user:
-    user.username = username or user.username
-    user.full_name = full_name or user.full_name
-    user.email = email or user.email
-    if phone:
-      user.phone = phone
-  else:
-    user = User(
-        user_id=str(user_id),
-        phone=phone,
-        username=username,
-        full_name=full_name,
-        email=email,
-        balance=float(data.get('balance', 50.00))
+    if not user_id:
+      emit(
+          'error_msg',
+          {'msg': 'እባክዎ ትክክለኛ መረጃ (ስልክ ቁጥር ወይም መለያ) ያስገቡ።'},
+          room=request.sid,
+      )
+      return
+
+    user = None
+    if raw_user_id:
+      user = User.query.filter_by(user_id=str(raw_user_id)).first()
+    if not user and phone:
+      user = User.query.filter_by(phone=phone).first()
+    if not user and username:
+      user = User.query.filter_by(username=username).first()
+
+    if user:
+      user.username = username or user.username
+      user.full_name = full_name or user.full_name
+      user.email = email or user.email
+      if phone:
+        user.phone = phone
+      if raw_user_id and not user.user_id:
+        user.user_id = str(raw_user_id)
+    else:
+      user = User(
+          user_id=str(user_id),
+          phone=phone,
+          username=username,
+          full_name=full_name,
+          email=email,
+          balance=float(data.get('balance', 50.00)),
+      )
+      db.session.add(user)
+
+    db.session.commit()
+
+    emit(
+        'registration_success',
+        {
+            'status': 'success',
+            'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
+            'user_id': user.user_id,
+            'balance': user.balance,
+        },
+        room=request.sid,
     )
-    db.session.add(user)
-  
-  db.session.commit()
+    emit(
+        'balance_update',
+        {'user_id': user.user_id, 'balance': user.balance},
+        room=request.sid,
+    )
 
-  emit(
-      'registration_success',
-      {
-          'msg': 'ምዝገባዎ በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቷል።',
-          'user_id': user.user_id,
-      },
-      room=request.sid,
-  )
-  emit(
-      'balance_update',
-      {'user_id': user.user_id, 'balance': user.balance},
-      room=request.sid,
-  )
-  
-  users_list = [{
-      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
-      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
-  } for u in User.query.all()]
-  socketio.emit('registered_users_list', {'users': users_list})
+    users_list = [
+        {
+            'user_id': u.user_id,
+            'phone': u.phone,
+            'username': u.username,
+            'full_name': u.full_name,
+            'email': u.email,
+            'balance': u.balance,
+        }
+        for u in User.query.all()
+    ]
+    socketio.emit('registered_users_list', {'users': users_list})
+
+  except Exception as e:
+    print(f'Error in register_user: {e}')
+    emit(
+        'registration_success',
+        {
+            'status': 'error',
+            'msg': 'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል ዳግሞ ይሞክሩ።',
+        },
+        room=request.sid,
+    )
 
 
 @socketio.on('get_registered_users')
 def handle_get_registered_users(data):
-  users_list = [{
-      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
-      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
-  } for u in User.query.all()]
+  users_list = [
+      {
+          'user_id': u.user_id,
+          'phone': u.phone,
+          'username': u.username,
+          'full_name': u.full_name,
+          'email': u.email,
+          'balance': u.balance,
+      }
+      for u in User.query.all()
+  ]
   emit('registered_users_list', {'users': users_list}, room=request.sid)
 
 
@@ -174,16 +211,27 @@ def handle_get_registered_users(data):
 def handle_get_admin_stats(data):
   total_users = User.query.count()
   total_revenue = len(sold_cards_in_round) * 10.00
-  emit('admin_stats_data', {'total_users': total_users, 'total_revenue': total_revenue}, room=request.sid)
+  emit(
+      'admin_stats_data',
+      {'total_users': total_users, 'total_revenue': total_revenue},
+      room=request.sid,
+  )
 
 
 @socketio.on('get_pending_deposits')
 def handle_get_pending_deposits(data):
   pending_list = Deposit.query.filter_by(status='Pending').all()
-  deposits_data = [{
-      'id': d.id, 'user_id': d.user_id, 'amount': d.amount, 
-      'transaction_ref': d.transaction_ref, 'method': d.method, 'status': d.status
-  } for d in pending_list]
+  deposits_data = [
+      {
+          'id': d.id,
+          'user_id': d.user_id,
+          'amount': d.amount,
+          'transaction_ref': d.transaction_ref,
+          'method': d.method,
+          'status': d.status,
+      }
+      for d in pending_list
+  ]
   emit('admin_deposits_data', {'deposits': deposits_data}, room=request.sid)
 
 
@@ -241,7 +289,7 @@ def handle_request_deposit(data):
         transaction_ref=tx_ref or 'N/A',
         sms_text=sms_text,
         method=method,
-        status='Pending'
+        status='Pending',
     )
     db.session.add(deposit)
     db.session.commit()
@@ -279,12 +327,19 @@ def handle_request_deposit(data):
         },
         room=request.sid,
     )
-    
+
     pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [{
-        'id': d.id, 'user_id': d.user_id, 'amount': d.amount, 
-        'transaction_ref': d.transaction_ref, 'method': d.method, 'status': d.status
-    } for d in pending_list]
+    deposits_data = [
+        {
+            'id': d.id,
+            'user_id': d.user_id,
+            'amount': d.amount,
+            'transaction_ref': d.transaction_ref,
+            'method': d.method,
+            'status': d.status,
+        }
+        for d in pending_list
+    ]
     socketio.emit('admin_deposits_data', {'deposits': deposits_data})
 
   except Exception as e:
@@ -311,14 +366,22 @@ def handle_admin_approve_deposit(data):
       )
       send_telegram_custom_message(
           user_id,
-          f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።',
+          f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance}'
+          ' ብር ነው።',
       )
-    
+
     pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [{
-        'id': d.id, 'user_id': d.user_id, 'amount': d.amount, 
-        'transaction_ref': d.transaction_ref, 'method': d.method, 'status': d.status
-    } for d in pending_list]
+    deposits_data = [
+        {
+            'id': d.id,
+            'user_id': d.user_id,
+            'amount': d.amount,
+            'transaction_ref': d.transaction_ref,
+            'method': d.method,
+            'status': d.status,
+        }
+        for d in pending_list
+    ]
     socketio.emit('admin_deposits_data', {'deposits': deposits_data})
 
 
@@ -334,10 +397,17 @@ def handle_admin_reject_deposit(data):
         f'❌ የዲፖዚት ጥያቄዎ ({deposit.amount} ብር) ውድቅ ተደርጓል።',
     )
     pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [{
-        'id': d.id, 'user_id': d.user_id, 'amount': d.amount, 
-        'transaction_ref': d.transaction_ref, 'method': d.method, 'status': d.status
-    } for d in pending_list]
+    deposits_data = [
+        {
+            'id': d.id,
+            'user_id': d.user_id,
+            'amount': d.amount,
+            'transaction_ref': d.transaction_ref,
+            'method': d.method,
+            'status': d.status,
+        }
+        for d in pending_list
+    ]
     socketio.emit('admin_deposits_data', {'deposits': deposits_data})
 
 
@@ -357,9 +427,13 @@ def handle_request_withdrawal(data):
 
   user.balance = float(user.balance) - amount
   db.session.commit()
-  
-  emit('balance_update', {'user_id': user_id, 'balance': user.balance}, room=request.sid)
-  
+
+  emit(
+      'balance_update',
+      {'user_id': user_id, 'balance': user.balance},
+      room=request.sid,
+  )
+
   send_telegram_notification(
       f'📤 *የገንዘብ ማውጣት (Withdraw) ጥያቄ*\n\n'
       f'- ተጠቃሚ ID: `{user_id}`\n'
@@ -381,7 +455,11 @@ def handle_get_balance(data):
       {'user_id': user_id, 'balance': float(balance)},
       room=request.sid,
   )
-  emit('update_selected_cards', {'taken_cards': taken_cards_global}, room=request.sid)
+  emit(
+      'update_selected_cards',
+      {'taken_cards': taken_cards_global},
+      room=request.sid,
+  )
   emit(
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
@@ -532,7 +610,7 @@ def handle_claim_bingo(data):
     game_active = False
     total_pool = len(sold_cards_in_round) * 10.00
     prize = max(total_pool * 0.90, 8)
-    
+
     user = User.query.filter_by(user_id=user_id).first()
     if user:
       user.balance = float(user.balance) + float(prize)
@@ -612,14 +690,16 @@ def api_login():
   username = data.get('username')
   full_name = data.get('full_name') or data.get('fullName')
   email = data.get('email')
-  
+
   user_id = phone or username or email or data.get('telegram_id')
   if not user_id:
     return jsonify({'error': 'User ID, Phone or Email is required'}), 400
 
   user = None
   if phone:
-    user = User.query.filter((User.user_id == str(user_id)) | (User.phone == phone)).first()
+    user = User.query.filter(
+        (User.user_id == str(user_id)) | (User.phone == phone)
+    ).first()
   else:
     user = User.query.filter_by(user_id=str(user_id)).first()
 
@@ -636,24 +716,34 @@ def api_login():
         username=username,
         full_name=full_name,
         email=email,
-        balance=float(data.get('balance', 50.00))
+        balance=float(data.get('balance', 50.00)),
     )
     db.session.add(user)
-  
+
   db.session.commit()
 
-  users_list = [{
-      'user_id': u.user_id, 'phone': u.phone, 'username': u.username, 
-      'full_name': u.full_name, 'email': u.email, 'balance': u.balance 
-  } for u in User.query.all()]
+  users_list = [
+      {
+          'user_id': u.user_id,
+          'phone': u.phone,
+          'username': u.username,
+          'full_name': u.full_name,
+          'email': u.email,
+          'balance': u.balance,
+      }
+      for u in User.query.all()
+  ]
   socketio.emit('registered_users_list', {'users': users_list})
-    
-  return jsonify({
-      'status': 'success',
-      'message': 'Login successful',
-      'user_id': user.user_id,
-      'balance': user.balance
-  }), 200
+
+  return (
+      jsonify({
+          'status': 'success',
+          'message': 'Login successful',
+          'user_id': user.user_id,
+          'balance': user.balance,
+      }),
+      200,
+  )
 
 
 socketio.start_background_task(background_game_loop)
