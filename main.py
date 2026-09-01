@@ -529,6 +529,24 @@ def admin_panel():
   return render_template('admin.html')
 
 
+@app.route('/api/login', methods=['POST'])
+def api_login():
+  data = request.get_json() or {}
+  user_id = data.get('telegram_id') or data.get('username') or data.get('phone')
+  if not user_id:
+    return jsonify({'error': 'User ID is required'}), 400
+  
+  if user_id not in user_balances:
+    user_balances[user_id] = 50.00
+    
+  return jsonify({
+      'status': 'success',
+      'message': 'Login successful',
+      'user_id': user_id,
+      'balance': user_balances[user_id]
+  }), 200
+
+
 socketio.start_background_task(background_game_loop)
 
 if __name__ == '__main__':
