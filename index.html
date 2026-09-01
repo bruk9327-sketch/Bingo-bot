@@ -459,7 +459,7 @@
                 userCard.className = 'bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 text-xs flex justify-between items-center';
                 userCard.innerHTML = `
                     <div>
-                        <div class="font-black text-white">${user.fullname || 'ስም የሌለው'} (@${user.username || 'N/A'})</div>
+                        <div class="font-black text-white">${user.full_name || 'ስም የሌለው'} (@${user.username || 'N/A'})</div>
                         <div class="text-[10px] text-slate-400">ስልክ: ${user.phone || 'N/A'} | ኢሜይል: ${user.email || 'N/A'}</div>
                     </div>
                     <div class="text-right">
@@ -539,7 +539,7 @@
 
             const userData = {
                 user_id: userId,
-                fullname: fname,
+                full_name: fname, // ከ backend (full_name) ጋር እንዲመሳሰል ተደረገ
                 username: uname,
                 email: email,
                 phone: phone,
