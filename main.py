@@ -536,8 +536,26 @@ def api_login():
   if not user_id:
     return jsonify({'error': 'User ID is required'}), 400
   
+  # ዴታውን ማስተካከል
+  data['user_id'] = user_id
+  if 'balance' not in data:
+    data['balance'] = 50.00
+
+  # በአድሚን ዳሽቦርድ ዝርዝር ውስጥ መኖሩን ማረጋገጥ ወይም መጨመር
+  existing_user = next(
+      (u for u in registered_users_db if u.get('user_id') == user_id), None
+  )
+
+  if existing_user:
+    existing_user.update(data)
+  else:
+    registered_users_db.append(data)
+
   if user_id not in user_balances:
-    user_balances[user_id] = 50.00
+    user_balances[user_id] = float(data.get('balance', 50.00))
+
+  # አድሚን ፓነል ላይ ሎጊን ያደረጉ ተጠቃሚዎች ዝርዝር በሶኬት እንዲዘምን ማድረግ
+  socketio.emit('registered_users_list', {'users': registered_users_db})
     
   return jsonify({
       'status': 'success',
