@@ -125,12 +125,20 @@ def handle_connect():
 
 @socketio.on('register_user')
 def handle_register_user(data):
-  user_id = str(data.get('user_id', '')).strip()
+  # ከዳታው የሚመጣውን user_id በትክክል እንቀበላለን፤ ከሌለ ግን በስልክ ቁጥር ወይም በስም እንፈጥራለን
+  user_id = str(data.get('user_id') or data.get('phone') or '').strip()
   full_name = data.get('full_name')
   username = data.get('username')
   email = data.get('email')
   phone = data.get('phone')
   balance = data.get('balance', 50.00)
+
+  # user_id ከሌለ በስልክ ቁጥር ወይም በሰዓት (Timestamp) በመጠቀም ልዩ ID እናመነጫለን
+  if not user_id or user_id == 'None' or user_id == '':
+    if phone:
+      user_id = str(phone)
+    else:
+      user_id = f'user_{int(time.time())}'
 
   if not user_id or not full_name:
     emit(
@@ -688,12 +696,12 @@ def api_login():
   username = data.get('username')
   full_name = data.get('full_name') or data.get('fullName')
   email = data.get('email')
+  telegram_id = data.get('telegram_id') or data.get('user_id')
 
-  user_id = str(
-      phone or username or email or data.get('telegram_id') or '855985673'
-  )
-  if not user_id:
-    return jsonify({'error': 'User ID, Phone or Email is required'}), 400
+  # ቋሚውን ID (855985673) በማስወገድ በእውነተኛው መረጃ እንተካዋለን
+  user_id = str(telegram_id or phone or username or email or '')
+  if not user_id or user_id == 'None':
+    user_id = f'user_{int(time.time())}'
 
   user = User.query.filter_by(user_id=user_id).first()
   if user:
@@ -723,7 +731,7 @@ def api_login():
           'full_name': u.full_name,
           'email': u.email,
           'balance': u.balance,
-        }
+      }
       for u in User.query.all()
   ]
   socketio.emit('registered_users_list', {'users': users_list})
