@@ -55,7 +55,6 @@ class Deposit(db.Model):
   status = db.Column(db.String(20), default='Pending')
 
 
-# አፕሊኬሽኑ ሲነሳ ዳታቤዙን እና ሰንጠረዦቹን በራስ-ሰር እንዲፈጥር እና እንዲያስተካክል (Auto-migration fix)
 with app.app_context():
   db.create_all()
   inspector = sa.inspect(db.engine)
@@ -125,7 +124,6 @@ def handle_connect():
 
 @socketio.on('register_user')
 def handle_register_user(data):
-  # ከዳታው የሚመጣውን user_id በትክክል እንቀበላለን፤ ከሌለ ግን በስልክ ቁጥር ወይም በስም እንፈጥራለን
   user_id = str(data.get('user_id') or data.get('phone') or '').strip()
   full_name = data.get('full_name')
   username = data.get('username')
@@ -133,7 +131,6 @@ def handle_register_user(data):
   phone = data.get('phone')
   balance = data.get('balance', 50.00)
 
-  # user_id ከሌለ በስልክ ቁጥር ወይም በሰዓት (Timestamp) በመጠቀም ልዩ ID እናመነጫለን
   if not user_id or user_id == 'None' or user_id == '':
     if phone:
       user_id = str(phone)
@@ -500,6 +497,7 @@ def handle_select_card(data):
   balance = user.balance if user else 50.00
 
   if float(balance) < card_price:
+    emit('balance_update', {'user_id': user_id, 'balance': float(balance), 'msg': 'በቂ ሂሳብ የለዎትም!'})
     emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'}, room=request.sid)
     return
 
@@ -615,27 +613,31 @@ def handle_claim_bingo(data):
   if check_bingo_win(board):
     game_active = False
     total_pool = len(sold_cards_in_round) * 10.00
-    prize = max(total_pool * 0.90, 8)
+    prize_amount = max(total_pool * 0.90, 8)
 
     user = User.query.filter_by(user_id=user_id).first()
     if user:
-      user.balance = float(user.balance) + float(prize)
+      user.balance = float(user.balance) + float(prize_amount)
       db.session.commit()
       balance = user.balance
+      full_name = user.full_name or f'ተጫዋች {user_id}'
     else:
-      balance = 50.00 + float(prize)
+      balance = 50.00 + float(prize_amount)
+      full_name = f'ተጫዋች {user_id}'
 
     send_telegram_notification(
-        f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize} ብር'
+        f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize_amount} ብር'
     )
 
     matrix = generate_bingo_matrix(card_id)
+    
+    emit('balance_update', {'user_id': user_id, 'balance': float(balance)}, room=request.sid)
     socketio.emit(
         'winner_announced',
         {
-            'winner_name': f'ተጫዋች {user_id}',
+            'winner_name': full_name,
             'winner_ids': [user_id],
-            'prize': prize,
+            'prize': prize_amount,
             'card_id': card_id,
             'card_matrix': matrix,
         },
@@ -698,7 +700,6 @@ def api_login():
   email = data.get('email')
   telegram_id = data.get('telegram_id') or data.get('user_id')
 
-  # ቋሚውን ID (855985673) በማስወገድ በእውነተኛው መረጃ እንተካዋለን
   user_id = str(telegram_id or phone or username or email or '')
   if not user_id or user_id == 'None':
     user_id = f'user_{int(time.time())}'
