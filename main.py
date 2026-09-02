@@ -112,11 +112,15 @@ def handle_register_user(data):
   balance = data.get('balance', 50.00)
 
   if not user_id or not full_name or not username:
-    emit('registration_success', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'})
+    emit(
+        'registration_response',
+        {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'},
+        room=request.sid,
+    )
     return
 
   try:
-    user = User.query.filter_by(user_id=user_id).first()
+    user = User.query.filter_by(user_id=str(user_id)).first()
     if user:
       user.full_name = full_name
       user.username = username
@@ -124,7 +128,7 @@ def handle_register_user(data):
       user.phone = phone
     else:
       user = User(
-          user_id=user_id,
+          user_id=str(user_id),
           full_name=full_name,
           username=username,
           email=email,
@@ -135,7 +139,11 @@ def handle_register_user(data):
 
     db.session.commit()
 
-    emit('registration_success', {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'})
+    emit(
+        'registration_response',
+        {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'},
+        room=request.sid,
+    )
 
     users_list = [
         {
@@ -154,11 +162,8 @@ def handle_register_user(data):
     db.session.rollback()
     print(f'Error in register_user: {e}')
     emit(
-        'registration_success',
-        {
-            'status': 'error',
-            'msg': 'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል ዳግሞ ይሞክሩ።',
-        },
+        'registration_response',
+        {'success': False, 'msg': 'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል ዳግሞ ይሞክሩ።'},
         room=request.sid,
     )
 
@@ -256,7 +261,7 @@ def handle_request_deposit(data):
       return
 
     deposit = Deposit(
-        user_id=user_id,
+        user_id=str(user_id),
         amount=amount,
         transaction_ref=tx_ref or 'N/A',
         sms_text=sms_text,
@@ -328,7 +333,7 @@ def handle_admin_approve_deposit(data):
     user_id = deposit.user_id
     amount = deposit.amount
 
-    user = User.query.filter_by(user_id=user_id).first()
+    user = User.query.filter_by(user_id=str(user_id)).first()
     if user:
       user.balance = float(user.balance) + float(amount)
       db.session.commit()
@@ -393,7 +398,7 @@ def handle_request_withdrawal(data):
   if not user_id or amount <= 0 or not account:
     return
 
-  user = User.query.filter_by(user_id=user_id).first()
+  user = User.query.filter_by(user_id=str(user_id)).first()
   if not user or float(user.balance) < amount:
     return
 
@@ -420,7 +425,7 @@ def handle_get_balance(data):
   user_id = data.get('user_id')
   if not user_id:
     return
-  user = User.query.filter_by(user_id=user_id).first()
+  user = User.query.filter_by(user_id=str(user_id)).first()
   balance = user.balance if user else 50.00
   emit(
       'balance_update',
@@ -462,7 +467,7 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይመዝገቡ።'}, room=request.sid)
     return
 
-  user = User.query.filter_by(user_id=user_id).first()
+  user = User.query.filter_by(user_id=str(user_id)).first()
   balance = user.balance if user else 50.00
 
   if float(balance) < card_price:
@@ -583,7 +588,7 @@ def handle_claim_bingo(data):
     total_pool = len(sold_cards_in_round) * 10.00
     prize = max(total_pool * 0.90, 8)
 
-    user = User.query.filter_by(user_id=user_id).first()
+    user = User.query.filter_by(user_id=str(user_id)).first()
     if user:
       user.balance = float(user.balance) + float(prize)
       db.session.commit()
