@@ -101,42 +101,41 @@ def handle_connect():
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
 
+
 @socketio.on('register_user')
 def handle_register_user(data):
-    user_id = data.get('user_id')
-    full_name = data.get('full_name')  # ፊት ለፊት በ full_name ነው የሚላከው
-    username = data.get('username')
-    email = data.get('email')
-    phone = data.get('phone')
-    balance = data.get('balance', 50.00)
+  user_id = data.get('user_id')
+  full_name = data.get('full_name')
+  username = data.get('username')
+  email = data.get('email')
+  phone = data.get('phone')
+  balance = data.get('balance', 50.00)
 
-    if not user_id or not full_name or not username:
-        emit('registration_success', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'})
-        return
+  if not user_id or not full_name or not username:
+    emit('registration_success', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'})
+    return
 
-    try:
-        # ዳታቤዝ ውስጥ ለማስቀመጥ የሚደረግ አሰራር (እዚህ ጋር የእርስዎን የ DB ሞዴል ይጠቀሙ)
-        #  მაგალიተፈ: User ሞዴል ካለዎት full_name የሚለውን ვርብ መጠቀም ይኖርብታል
-        user = User.query.filter_by(user_id=user_id).first()
-        if user:
-            user.full_name = full_name
-            user.username = username
-            user.email = email
-            user.phone = phone
-        else:
-            user = User(user_id=user_id, full_name=full_name, username=username, email=email, phone=phone, balance=balance)
-            db.session.add(user)
-        
-        db.session.commit()
-        
-        # ለክላይንቱ የተሳካ መሆኑን መላክ
-        emit('registration_success', {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'})
-    except Exception as e:
-        db.session.rollback()
-        print(f"Registration Error: {e}")
-        emit('registration_success', {'success': False, 'msg': 'በሰርቨር በኩል ስህተት ተፈጥሯል ደግሞ ይሞክሩ::'})
+  try:
+    user = User.query.filter_by(user_id=user_id).first()
+    if user:
+      user.full_name = full_name
+      user.username = username
+      user.email = email
+      user.phone = phone
+    else:
+      user = User(
+          user_id=user_id,
+          full_name=full_name,
+          username=username,
+          email=email,
+          phone=phone,
+          balance=balance,
+      )
+      db.session.add(user)
 
+    db.session.commit()
 
+    emit('registration_success', {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'})
 
     users_list = [
         {
@@ -152,6 +151,7 @@ def handle_register_user(data):
     socketio.emit('registered_users_list', {'users': users_list})
 
   except Exception as e:
+    db.session.rollback()
     print(f'Error in register_user: {e}')
     emit(
         'registration_success',
