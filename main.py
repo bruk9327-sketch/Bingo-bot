@@ -152,6 +152,8 @@ def handle_register_user(data):
       user.username = username
       user.email = email
       user.phone = phone
+      # አሁን ካለው የውሂብ ጎታ (Database) የሚገኘውን ትክክለኛ ባላንስ እንይዛለን እንጂ በዘፈቀደ አዲስ ባላንስ አናስገባም
+      balance = user.balance
     else:
       user = User(
           user_id=user_id,
@@ -167,7 +169,7 @@ def handle_register_user(data):
 
     emit(
         'registration_response',
-        {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!'},
+        {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!', 'balance': float(balance)},
         room=request.sid,
     )
 
@@ -449,10 +451,16 @@ def handle_request_withdrawal(data):
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
   user_id = str(data.get('user_id'))
-  if not user_id:
+  if not user_id or user_id == 'None':
     return
   user = User.query.filter_by(user_id=user_id).first()
-  balance = user.balance if user else 50.00
+  # ተጠቃሚው ካልተገኘ በዳታቤዝ ውስጥ አዲስ ፈጥረን ወይም ነባሩን 50 ብር እንሰጣለን
+  if not user:
+    user = User(user_id=user_id, balance=50.00, full_name=f'ተጫዋች {user_id}')
+    db.session.add(user)
+    db.session.commit()
+    
+  balance = user.balance
   emit(
       'balance_update',
       {'user_id': user_id, 'balance': float(balance)},
@@ -489,12 +497,17 @@ def handle_select_card(data):
     pass
 
   card_price = 10.00
-  if not user_id:
+  if not user_id or user_id == 'None':
     emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይመዝገቡ።'}, room=request.sid)
     return
 
   user = User.query.filter_by(user_id=user_id).first()
-  balance = user.balance if user else 50.00
+  if not user:
+    user = User(user_id=user_id, balance=50.00, full_name=f'ተጫዋች {user_id}')
+    db.session.add(user)
+    db.session.commit()
+
+  balance = user.balance
 
   if float(balance) < card_price:
     emit('balance_update', {'user_id': user_id, 'balance': float(balance), 'msg': 'በቂ ሂሳብ የለዎትም!'})
@@ -509,10 +522,9 @@ def handle_select_card(data):
     )
     return
 
-  if user:
-    user.balance = float(user.balance) - card_price
-    db.session.commit()
-    balance = user.balance
+  user.balance = float(user.balance) - card_price
+  db.session.commit()
+  balance = user.balance
 
   taken_cards_global.append(card_id)
   sold_cards_in_round.append({'user_id': user_id, 'card_id': card_id})
@@ -711,14 +723,16 @@ def api_login():
     user.email = email or user.email
     if phone:
       user.phone = phone
+    balance = user.balance
   else:
+    balance = float(data.get('balance', 50.00))
     user = User(
         user_id=user_id,
         phone=phone,
         username=username,
         full_name=full_name,
         email=email,
-        balance=float(data.get('balance', 50.00)),
+        balance=balance,
     )
     db.session.add(user)
 
@@ -742,7 +756,7 @@ def api_login():
           'status': 'success',
           'message': 'Login successful',
           'user_id': user.user_id,
-          'balance': user.balance,
+          'balance': balance,
       }),
       200,
   )
