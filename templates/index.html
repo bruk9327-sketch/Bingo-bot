@@ -370,6 +370,7 @@
         // ከቴሌግራም ዌብ አፕ (Telegram WebApp) ትክክለኛውን ID በዲናሚክ ሁኔታ ማግኘት
         const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         let userId = tgUser ? String(tgUser.id) : ('user_' + Math.floor(Math.random() * 1000000));
+        window.userId = userId; // አፕሊኬሽኑ ሚኒማይዝ ሆኖ ሲመለስ (visibilitychange) እንዲያገኘው 
 
         let takenCards = [];
         let mySelectedCards = [];
@@ -390,6 +391,15 @@
 
         socket.on('connect_error', (err) => {
             console.error("Socket connection error:", err);
+        });
+
+        // ተጫዋቹ አፕሊኬሽኑን ሚኒማይዝ አድርጎ ሲመለስ የባላንስ መቆም ችግር እንዳይኖር የሚደረግ ክትትል
+        document.addEventListener("visibilitychange", function() {
+            if (document.visibilityState === 'visible') {
+                if (typeof socket !== 'undefined' && window.userId) {
+                    socket.emit('get_user_balance', { user_id: window.userId });
+                }
+            }
         });
 
         function openGameSelection() {
