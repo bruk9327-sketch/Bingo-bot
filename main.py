@@ -54,6 +54,7 @@ class Deposit(db.Model):
   status = db.Column(db.String(20), default='Pending')
 
 
+# አፕሊኬሽኑ ሲነሳ ዳታቤዙን እና ሰንጠረዦቹን በራስ-ሰር እንዲፈጥር እና እንዲያስተካክል
 with app.app_context():
   db.create_all()
 
