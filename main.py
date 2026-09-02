@@ -32,6 +32,9 @@ TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
 
+# ድጋሚ ክፍያ እንዳይወሰድ (Duplicate Prevention) እና የተከናወኑ ቲዲዎችን ለመያዝ
+PROCESSED_TIDS = set()
+
 
 class User(db.Model):
   __tablename__ = 'users'
@@ -152,7 +155,6 @@ def handle_register_user(data):
       user.username = username
       user.email = email
       user.phone = phone
-      # አሁን ካለው የውሂብ ጎታ (Database) የሚገኘውን ትክክለኛ ባላንስ እንይዛለን እንጂ በዘፈቀደ አዲስ ባላንስ አናስገባም
       balance = user.balance
     else:
       user = User(
@@ -267,9 +269,12 @@ def handle_request_deposit(data):
     user_id = str(data.get('user_id'))
     amount = float(data.get('amount', 0))
     sms_text = data.get('sms_text', '')
-    tx_ref = data.get('tx_ref') or data.get('transaction_ref')
+    tx_ref = data.get('tx_ref') or data.get('transaction_ref') or ''
+    tx_ref = tx_ref.strip()
+    
     if not tx_ref and sms_text:
-      tx_ref = extract_transaction_info(sms_text)
+      tx_ref = extract_transaction_info(sms_text) or ''
+    
     method = data.get('method', 'CBE Merchant')
 
     if not user_id or not amount or (not tx_ref and not sms_text):
@@ -288,6 +293,52 @@ def handle_request_deposit(data):
       )
       return
 
+    # 1. ዱፕሊኬት ትራንዛክሽን እንዳይኖር ማረጋገጥ (Duplicate Check)
+    if tx_ref and tx_ref in PROCESSED_TIDS:
+      emit('balance_update', {'user_id': user_id, 'msg': '⚠️ ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
+      emit('error_msg', {'msg': 'ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
+      return
+
+    existing_deposit = Deposit.query.filter_by(transaction_ref=tx_ref).first() if tx_ref else None
+    if existing_deposit and existing_deposit.status in ['Approved', 'Pending']:
+      emit('error_msg', {'msg': 'ይህ የትራንዛክሽን ሬፈረንስ አስቀድሞ ተመዝግቧል ወይም ጸድቋል!'}, room=request.sid)
+      return
+
+    # 2. አውቶማቲክ አፕሮቫል (Auto-Approval Logic)
+    auto_approve = True 
+    if auto_approve and tx_ref and (len(tx_ref) > 5 or "TID=" in sms_text or "Thank you" in sms_text):
+      PROCESSED_TIDS.add(tx_ref)
+      
+      user = User.query.filter_by(user_id=user_id).first()
+      if user:
+        user.balance = float(user.balance) + float(amount)
+      else:
+        user = User(user_id=user_id, balance=float(amount) + 50.00, full_name=f'ተጫዋች {user_id}')
+        db.session.add(user)
+      
+      deposit = Deposit(
+          user_id=user_id,
+          amount=amount,
+          transaction_ref=tx_ref,
+          sms_text=sms_text,
+          method=method,
+          status='Approved',
+      )
+      db.session.add(deposit)
+      db.session.commit()
+
+      emit('balance_update', {'user_id': user_id, 'balance': user.balance}, room=request.sid)
+      socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance})
+      
+      send_telegram_custom_message(
+          user_id,
+          f'🎉 ክፍያዎ በአውቶማቲክ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።'
+      )
+      
+      print(f"Auto-approved deposit of {amount} ETB for user {user_id} with Ref: {tx_ref}")
+      return
+
+    # 3. አውቶማቲክ ካልሆነ ወደ ዳታቤዝ እና ለአድሚን ዳሽቦርድ ፔንዲንግ ዝርዝር ውስጥ ማስገባት
     deposit = Deposit(
         user_id=user_id,
         amount=amount,
@@ -358,6 +409,9 @@ def handle_admin_approve_deposit(data):
   deposit = Deposit.query.get(deposit_id)
   if deposit and deposit.status == 'Pending':
     deposit.status = 'Approved'
+    if deposit.transaction_ref and deposit.transaction_ref != 'N/A':
+      PROCESSED_TIDS.add(deposit.transaction_ref)
+      
     user_id = deposit.user_id
     amount = deposit.amount
 
@@ -371,8 +425,7 @@ def handle_admin_approve_deposit(data):
       )
       send_telegram_custom_message(
           user_id,
-          f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance}'
-          ' ብር ነው።',
+          f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።',
       )
 
     pending_list = Deposit.query.filter_by(status='Pending').all()
@@ -454,7 +507,6 @@ def handle_get_balance(data):
   if not user_id or user_id == 'None':
     return
   user = User.query.filter_by(user_id=user_id).first()
-  # ተጠቃሚው ካልተገኘ በዳታቤዝ ውስጥ አዲስ ፈጥረን ወይም ነባሩን 50 ብር እንሰጣለን
   if not user:
     user = User(user_id=user_id, balance=50.00, full_name=f'ተጫዋች {user_id}')
     db.session.add(user)
