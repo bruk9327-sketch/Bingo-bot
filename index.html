@@ -109,7 +109,6 @@
             <button onclick="closeAdminDashboard()" class="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer">← ወደ ዋናው ሜኑ</button>
         </div>
 
-        <!-- Admin Stats Overview -->
         <div class="grid grid-cols-3 gap-2 text-center">
             <div class="glass-panel p-2.5 rounded-2xl border border-emerald-500/30">
                 <div class="text-[9px] text-slate-300 font-bold mb-0.5">አጠቃላይ ተመዝጋቢዎች</div>
@@ -125,14 +124,12 @@
             </div>
         </div>
 
-        <!-- Tab Navigations for Admin -->
         <div class="grid grid-cols-3 gap-1.5">
             <button onclick="switchAdminTab('deposits')" id="tab-btn-deposits" class="py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black cursor-pointer shadow">የዲፖዚት ጥያቄዎች</button>
             <button onclick="switchAdminTab('players')" id="tab-btn-players" class="py-2 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black cursor-pointer">ተጫዋቾች & ሂስትሪ</button>
             <button onclick="switchAdminTab('broadcast')" id="tab-btn-broadcast" class="py-2 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-black cursor-pointer">ብሮድካስት (Broadcast)</button>
         </div>
 
-        <!-- Tab 1: Deposits -->
         <div id="admin-tab-deposits" class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2">
             <h2 class="text-xs font-black text-emerald-400">📥 የክፍያ እና የዲፖዚት ማረጋገጫዎች (Pending Deposits)</h2>
             <div id="admin-deposits-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -140,7 +137,6 @@
             </div>
         </div>
 
-        <!-- Tab 2: Players & History -->
         <div id="admin-tab-players" class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2 hidden">
             <h2 class="text-xs font-black text-purple-400">👥 የተመዝጋቢዎች ዝርዝር (Registered Users)</h2>
             <div id="admin-users-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -148,11 +144,10 @@
             </div>
         </div>
 
-        <!-- Tab 3: Broadcast -->
         <div id="admin-tab-broadcast" class="glass-panel p-3 rounded-2xl border border-slate-700 space-y-2.5 hidden">
             <h2 class="text-xs font-black text-amber-400">📢 ለሁሉም ተጫዋቾች ማስታወቂያ መላኪያ (Broadcast)</h2>
             <div class="space-y-2">
-                <textarea id="broadcast-msg-text" rows="4" placeholder="የመልዕክት ጽሁፍ እዚህ ይጻፉ (ለምሳሌ: አዲስ ዙር ተጀምሯል 50 ብር ቦነስ ተዘጋጅቷል!)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white outline-none focus:border-amber-500"></textarea>
+                <textarea id="broadcast-msg-text" rows="4" placeholder="የመልዕክት ጽሁፍ እዚህ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white outline-none focus:border-amber-500"></textarea>
                 <button onclick="sendAdminBroadcast()" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-red-600 text-slate-950 font-black text-xs rounded-xl shadow cursor-pointer">መልዕክቱን ለሁሉም ላክ (Broadcast Now)</button>
             </div>
         </div>
@@ -360,7 +355,6 @@
             btn.className = soundEnabled ? "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] cursor-pointer" : "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] cursor-pointer";
         }
 
-        // Render ላይ ከ gevent-websocket ጋር በተቀናጀ መልኩ በትክክል እንዲገናኝ የተስተካከለ የ Socket initialization
         const socket = io({
             transports: ['websocket', 'polling'],
             reconnection: true,
@@ -489,7 +483,7 @@
                     </div>
                     <div class="bg-slate-950 p-2 rounded-lg text-[10px] text-slate-300 font-mono">${dep.sms_text}</div>
                     <div class="flex gap-2">
-                        <button onclick="approveDeposit(${dep.id}, ${dep.user_id}, ${dep.amount})" class="flex-1 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-lg text-[10px] cursor-pointer">አረጋግጥ (Approve)</button>
+                        <button onclick="approveDeposit(${dep.id}, '${dep.user_id}', ${dep.amount})" class="flex-1 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-lg text-[10px] cursor-pointer">አረጋግጥ (Approve)</button>
                         <button onclick="rejectDeposit(${dep.id})" class="flex-1 py-1.5 bg-rose-500 text-white font-black rounded-lg text-[10px] cursor-pointer">ሰርዝ (Reject)</button>
                     </div>
                 `;
@@ -539,7 +533,7 @@
 
             const userData = {
                 user_id: userId,
-                full_name: fname, // ከ backend (full_name) ጋር እንዲመሳሰል ተደረገ
+                full_name: fname,
                 username: uname,
                 email: email,
                 phone: phone,
@@ -549,10 +543,12 @@
             socket.emit('register_user', userData);
         }
 
-        socket.on('registration_success', (data) => {
+        socket.on('registration_response', (data) => {
             alert("✅ " + (data.msg || "ምዝገባው በተሳካ ሁኔታ ተጠናቋል!"));
-            closeRegisterModal();
-            socket.emit('get_user_balance', { user_id: userId });
+            if (data.success) {
+                closeRegisterModal();
+                socket.emit('get_user_balance', { user_id: userId });
+            }
         });
 
         function submitDeposit() {
@@ -638,7 +634,7 @@
         }
 
         socket.on('balance_update', (data) => {
-            if(parseInt(data.user_id) === userId) {
+            if(String(data.user_id) === String(userId)) {
                 updateBalanceDisplays(data.balance);
             }
         });
@@ -808,6 +804,7 @@
         });
 
         socket.on('reset_game', () => {
+            mySelectedCards = theCards = [];
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
