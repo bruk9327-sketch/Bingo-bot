@@ -362,7 +362,7 @@
             reconnectionDelay: 1000
         });
 
-        let userId = 855985673;
+        let userId = "855985673";
         let takenCards = [];
         let mySelectedCards = [];
         let drawnNumbersList = [];
@@ -371,7 +371,7 @@
         let cardsDatabase = {};
 
         if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-            userId = parseInt(window.Telegram.WebApp.initDataUnsafe.user.id);
+            userId = String(window.Telegram.WebApp.initDataUnsafe.user.id);
             window.Telegram.WebApp.expand();
         }
 
@@ -786,7 +786,7 @@
         function renderPreviewCards() {
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
-            container.innerHTML = '';
+            container.innerHTML = '',
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
@@ -804,7 +804,6 @@
         });
 
         socket.on('reset_game', () => {
-            mySelectedCards = theCards = [];
             mySelectedCards = [];
             takenCards = [];
             drawnNumbersSet.clear();
