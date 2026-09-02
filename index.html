@@ -347,6 +347,11 @@
     </div>
 
     <script>
+        // የድሮውን የተሳሳተ ቋሚ ID ከlocalStorage እናስወግዳለን
+        if (localStorage.getItem('user_id') === '855985673') {
+            localStorage.removeItem('user_id');
+        }
+
         let soundEnabled = false;
         function toggleAudio() {
             soundEnabled = !soundEnabled;
@@ -362,7 +367,10 @@
             reconnectionDelay: 1000
         });
 
-        let userId = "855985673";
+        // ከቴሌግራም ዌብ አፕ (Telegram WebApp) ትክክለኛውን ID በዲናሚክ ሁኔታ ማግኘት
+        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        let userId = tgUser ? String(tgUser.id) : ('user_' + Math.floor(Math.random() * 1000000));
+
         let takenCards = [];
         let mySelectedCards = [];
         let drawnNumbersList = [];
@@ -370,13 +378,12 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
 
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
-            userId = String(window.Telegram.WebApp.initDataUnsafe.user.id);
+        if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.expand();
         }
 
         socket.on('connect', () => {
-            console.log("Connected to server via socket ID:", socket.id);
+            console.log("Connected to server via socket ID:", socket.id, "User ID:", userId);
             socket.emit('get_user_balance', { user_id: userId });
             initCartelaGrid();
         });
@@ -786,7 +793,7 @@
         function renderPreviewCards() {
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
-            container.innerHTML = '',
+            container.innerHTML = '';
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
