@@ -8,6 +8,7 @@ from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from gevent import monkey
+import sqlalchemy as sa
 
 monkey.patch_all(all=True)
 
@@ -54,9 +55,28 @@ class Deposit(db.Model):
   status = db.Column(db.String(20), default='Pending')
 
 
-# አፕሊኬሽኑ ሲነሳ ዳታቤዙን እና ሰንጠረዦቹን በራስ-ሰር እንዲፈጥር እና እንዲያስተካክል
+# አፕሊኬሽኑ ሲነሳ ዳታቤዙን እና ሰንጠረዦቹን በራስ-ሰር እንዲፈጥር እና እንዲያስተካክል (Auto-migration fix)
 with app.app_context():
   db.create_all()
+  inspector = sa.inspect(db.engine)
+  columns = [col['name'] for col in inspector.get_columns('users')]
+  
+  with db.engine.connect() as conn:
+    if 'full_name' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN full_name VARCHAR(150);'))
+      conn.commit()
+    if 'username' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN username VARCHAR(100);'))
+      conn.commit()
+    if 'email' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN email VARCHAR(120);'))
+      conn.commit()
+    if 'phone' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN phone VARCHAR(50);'))
+      conn.commit()
+    if 'balance' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
+      conn.commit()
 
 taken_cards_global = []
 game_timer = 15
@@ -161,10 +181,10 @@ def handle_register_user(data):
 
   except Exception as e:
     db.session.rollback()
-    print(f'Error in register_user: {e}')
+    print(f'Error in register_user: {str(e)}')
     emit(
         'registration_response',
-        {'success': False, 'msg': 'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል ዳግሞ ይሞክሩ።'},
+        {'success': False, 'msg': f'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል: {str(e)}'},
         room=request.sid,
     )
 
@@ -703,7 +723,7 @@ def api_login():
           'full_name': u.full_name,
           'email': u.email,
           'balance': u.balance,
-      }
+        }
       for u in User.query.all()
   ]
   socketio.emit('registered_users_list', {'users': users_list})
