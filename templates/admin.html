@@ -2,118 +2,183 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>BKBINGO PRO - Admin Panel</title>
+    <title>BKBINGO PRO - Advanced Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+        }
         body {
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
             margin: 0;
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .header-card {
-            background: #1e293b;
-            padding: 15px 20px;
+            background: var(--card-bg);
+            padding: 20px;
             border-radius: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            border: 1px solid #334155;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
         }
         .header-card h2 {
             margin: 0;
-            font-size: 18px;
-            color: #38bdf8;
+            font-size: 20px;
+            color: var(--accent-blue);
         }
         .logout-btn {
-            background: #ef4444;
+            background: var(--accent-red);
             color: white;
-            padding: 8px 12px;
+            padding: 8px 16px;
             border-radius: 6px;
             text-decoration: none;
             font-size: 14px;
             font-weight: bold;
+            transition: background 0.2s;
         }
-        .logout-btn:hover {
-            background: #dc2626;
-        }
+        .logout-btn:hover { background: #dc2626; }
+
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
         .stat-card {
-            background: #1e293b;
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
             text-align: center;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-color);
         }
         .stat-card h3 {
             margin: 0 0 10px 0;
             font-size: 14px;
-            color: #94a3b8;
+            color: var(--text-muted);
         }
         .stat-card .value {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: bold;
-            color: #38bdf8;
+            color: var(--accent-blue);
         }
-        .broadcast-card {
-            background: #1e293b;
-            padding: 20px;
+
+        /* Tabs Navigation */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+        .tab-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .tab-btn.active, .tab-btn:hover {
+            background: var(--accent-blue);
+            color: #0f172a;
+            border-color: var(--accent-blue);
+        }
+
+        /* Tab Content Panels */
+        .panel-section {
+            display: none;
+            background: var(--card-bg);
+            padding: 25px;
             border-radius: 12px;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-color);
+            margin-bottom: 25px;
         }
-        .broadcast-card h3 {
+        .panel-section.active {
+            display: block;
+        }
+        .panel-section h3 {
             margin-top: 0;
-            color: #38bdf8;
-            font-size: 16px;
+            color: var(--accent-blue);
+            font-size: 18px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
         }
-        textarea {
+
+        /* Forms & Inputs */
+        input[type="text"], input[type="file"], textarea {
             width: 100%;
-            height: 100px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #fff;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
             padding: 12px;
             border-radius: 8px;
             box-sizing: border-box;
-            resize: vertical;
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
-        textarea:focus {
+        textarea { height: 120px; resize: vertical; }
+        input:focus, textarea:focus {
             outline: none;
-            border-color: #38bdf8;
+            border-color: var(--accent-blue);
         }
-        .broadcast-btn {
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        .action-btn {
+            background: var(--accent-green);
             color: white;
             border: none;
-            width: 100%;
-            padding: 12px;
+            padding: 12px 20px;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
+            width: 100%;
+            transition: opacity 0.2s;
         }
-        .broadcast-btn:hover {
-            opacity: 0.9;
+        .action-btn:hover { opacity: 0.9; }
+
+        /* Tables for Lists */
+        .table-responsive {
+            overflow-x: auto;
         }
-        @media(max-width: 600px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
         }
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.5);
+        }
+        tr:hover { background: rgba(56, 189, 248, 0.05); }
+
+        .badge-success { color: var(--accent-green); font-weight: bold; }
+        .badge-pending { color: var(--accent-orange); font-weight: bold; }
     </style>
 </head>
 <body>
@@ -121,8 +186,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header-card">
-            <h2>🔒 ADMIN CONTROL PANEL</h2>
-            <a href="/admin-logout" class="logout-btn">← ወደ ዋናው ገጽ</a>
+            <h2>🛡️ BKBINGO PRO - Executive Admin Dashboard</h2>
+            <a href="/admin-logout" class="logout-btn">ውጣ (Logout)</a>
         </div>
 
         <!-- Stats Grid -->
@@ -132,8 +197,12 @@
                 <div class="value" id="totalUsers">0</div>
             </div>
             <div class="stat-card">
-                <h3>የሀብ ገቢ (Revenue)</h3>
+                <h3>አጠቃላይ ገቢ (Revenue)</h3>
                 <div class="value" id="totalRevenue">0 ETB</div>
+            </div>
+            <div class="stat-card">
+                <h3>ክፍያ ትራንዛክሽኖች</h3>
+                <div class="value" id="totalTransactions">0</div>
             </div>
             <div class="stat-card">
                 <h3>ንቁ ጨዋታዎች</h3>
@@ -141,34 +210,190 @@
             </div>
         </div>
 
-        <!-- Broadcast Section -->
-        <div class="broadcast-card">
-            <h3>📢 ለሁሉም ተጫዋቾች ማስታወቂያ መላኪያ (Broadcast)</h3>
-            <textarea id="broadcastMsg" placeholder="መልዕክት አሁንም እዚህ ይጻፉ..."></textarea>
-            <button class="broadcast-btn" onclick="sendBroadcast()">መልዕክቱን ለሁሉም ልክ (Broadcast Now)</button>
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'broadcastTab')">📢 ብሮድካስት & ሚዲያ</button>
+            <button class="tab-btn" onclick="switchTab(event, 'usersTab')">👥 ተጠቃሚዎች ዝርዝር</button>
+            <button class="tab-btn" onclick="switchTab(event, 'paymentsTab')">💳 የክፍያ ትራንዛክሽኖች</button>
+            <button class="tab-btn" onclick="switchTab(event, 'historyTab')">🎮 የተጫዋች ጨዋታ ሂስትሪ</button>
+        </div>
+
+        <!-- Tab 1: Broadcast & Media Upload -->
+        <div id="broadcastTab" class="panel-section active">
+            <h3>ማስታወቂያ፣ ምስል እና ቪዲዮ ማስተላለፊያ</h3>
+            <div style="margin-bottom: 20px;">
+                <label style="color:var(--text-muted); display:block; margin-bottom:8px;">የጽሁፍ ማስታወቂያ (Broadcast Message)</label>
+                <textarea id="broadcastMsg" placeholder="ለተጫዋቾች የሚተላለፍ መልዕክት እዚህ ይጻፉ..."></textarea>
+                <button class="action-btn" style="background: linear-gradient(135deg, #f59e0b, #ef4444); margin-bottom: 20px;" onclick="sendBroadcast()">መልዕክቱን ለሁሉም ላክ (Broadcast Now)</button>
+            </div>
+
+            <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
+
+            <div>
+                <label style="color:var(--text-muted); display:block; margin-bottom:8px;">ሚዲያ (ምስል ወይም ቪዲዮ) ጫን እና ላክ</label>
+                <input type="file" id="mediaFile" accept="image/*,video/*">
+                <input type="text" id="mediaCaption" placeholder="ከምስሉ/ቪዲዮው ጋር አብሮ የሚሄድ መግለጫ (Caption)...">
+                <button class="action-btn" onclick="uploadAndSendMedia()">ሚዲያውን ለተጫዋቾች አሰራጭ</button>
+            </div>
+        </div>
+
+        <!-- Tab 2: Users List -->
+        <div id="usersTab" class="panel-section">
+            <h3>የተመዝጋቢ ተጫዋቾች ዝርዝር</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ተጠቃሚ መለያ (ID)</th>
+                            <th>ስም (Username)</th>
+                            <th>ስልክ ቁጥር</th>
+                            <th>ቀሪ ሂሳብ (Balance)</th>
+                            <th>የተመዘገበበት ቀን</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- ዳታው በጃቫስክሪፕት ይሞላል -->
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted);">መረጃዎች እየተጫኑ ነው...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 3: Payment Transactions -->
+        <div id="paymentsTab" class="panel-section">
+            <h3>የክፍያ (Payment) ትራንዛክሽኖች ታሪክ</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>የትራንዛክሽን ID</th>
+                            <th>ተጫዋች</th>
+                            <th>መጠን (ETB)</th>
+                            <th>ባንክ/አገልግሎት</th>
+                            <th>ሁኔታ (Status)</th>
+                            <th>ቀን & ሰዓት</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">ምንም ትራንዛክሽን የለም</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 4: Player History -->
+        <div id="historyTab" class="panel-section">
+            <h3>አጠቃላይ የተጫዋች ጨዋታ ሂስትሪ (Game History)</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>የጨዋታ ID</th>
+                            <th>ተጫዋች</th>
+                            <th>የተገዙ ካርዶች ብዛት</th>
+                            <th>ውጤት (Win/Loss)</th>
+                            <th>የተሸለመው ሽልማት</th>
+                            <th>ሰዓት</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">ምንም የጨዋታ ሂስትሪ የለም</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
         const socket = io();
 
-        // ስታቲስቲክስ መረጃዎችን ከ ሰርቨር መጠየቅ
+        // ገጽ ሲከፈት ስታቲስቲክስ እና መረጃዎችን መጠየቅ
         socket.emit('get_admin_stats', {});
+        socket.emit('get_admin_details', {});
 
         socket.on('admin_stats_data', function(data) {
-            document.getElementById('totalUsers').innerText = data.total_users;
-            document.getElementById('totalRevenue').innerText = data.total_revenue + ' ETB';
+            document.getElementById('totalUsers').innerText = data.total_users || 0;
+            document.getElementById('totalRevenue').innerText = (data.total_revenue || 0) + ' ETB';
+            document.getElementById('totalTransactions').innerText = data.total_transactions || 0;
         });
+
+        // የተጠቃሚዎች እና ትራንዛክሽን መረጃዎችን መቀበያ (ዳታቤዝ ኪዮሪዎችን መሠረት করে ሰርቨር ላይ event መኖር አለበት)
+        socket.on('admin_detailed_data', function(data) {
+            // ተጠቃሚዎች
+            if(data.users && data.users.length > 0) {
+                let uHtml = '';
+                data.users.forEach(u => {
+                    uHtml += `<tr><td>${u.id}</td><td>${u.username || 'N/A'}</td><td>${u.phone || '-'}</td><td>${u.balance} ETB</td><td>${u.joined_date}</td></tr>`;
+                });
+                document.getElementById('usersTableBody').innerHTML = uHtml;
+            }
+
+            // ትራንዛክሽኖች
+            if(data.payments && data.payments.length > 0) {
+                let pHtml = '';
+                data.payments.forEach(p => {
+                    pHtml += `<tr><td>${p.tx_id}</td><td>${p.username}</td><td>${p.amount} ETB</td><td>${p.gateway}</td><td class="badge-success">${p.status}</td><td>${p.date}</td></tr>`;
+                });
+                document.getElementById('paymentsTableBody').innerHTML = pHtml;
+            }
+
+            // ሂስትሪ
+            if(data.history && data.history.length > 0) {
+                let hHtml = '';
+                data.history.forEach(h => {
+                    hHtml += `<tr><td>${h.game_id}</td><td>${h.username}</td><td>${h.cards_count}</td><td>${h.result}</td><td>${h.prize} ETB</td><td>${h.time}</td></tr>`;
+                });
+                document.getElementById('historyTableBody').innerHTML = hHtml;
+            }
+        });
+
+        // ታብ መቀየሪያ ሎጂክ
+        function switchTab(evt, tabName) {
+            let sections = document.getElementsByClassName('panel-section');
+            for (let s of sections) { s.classList.remove('active'); }
+
+            let buttons = document.getElementsByClassName('tab-btn');
+            for (let b of buttons) { b.classList.remove('active'); }
+
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
 
         function sendBroadcast() {
             const msg = document.getElementById('broadcastMsg').value.trim();
-            if(!msg) {
-                alert('እባክዎ የሚተላለፈውን መልዕክት ይጻፉ!');
+            if(!msg) { alert('እባክዎ የማስታወቂያ ጽሁፍ ይጻፉ!'); return; }
+            socket.emit('admin_broadcast', { message: msg });
+            alert('ማስታወቂያው በተሳካ ሁኔታ ተልኳል!');
+            document.getElementById('broadcastMsg').value = '';
+        }
+
+        function uploadAndSendMedia() {
+            const fileInput = document.getElementById('mediaFile');
+            const caption = document.getElementById('mediaCaption').value.trim();
+            if(fileInput.files.length === 0) {
+                alert('እባክዎ የሚጫን ምስል ወይም ቪዲዮ ይምረጡ!');
                 return;
             }
-            socket.emit('admin_broadcast', { message: msg });
-            alert('ማስታወቂያው ለተጫዋቾቹ በተሳካ ሁኔታ ተልኳል!');
-            document.getElementById('broadcastMsg').value = '';
+            // ፋይሉን ወደ Base64 በመቀየር በ Socket አማካይነት መላክ ይቻላል
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                socket.emit('admin_media_broadcast', {
+                    file_data: e.target.result,
+                    file_type: file.type,
+                    caption: caption
+                });
+                alert('ሚዲያው ለተጫዋቾቹ በመላክ ላይ ይገኛል!');
+                fileInput.value = '';
+                document.getElementById('mediaCaption').value = '';
+            };
+            reader.readAsDataURL(file);
         }
     </script>
 </body>
