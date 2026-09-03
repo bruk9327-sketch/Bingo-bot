@@ -9,6 +9,7 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from gevent import monkey
 import sqlalchemy as sa
+from sqlalchemy import func
 import requests
 
 monkey.patch_all(all=True)
@@ -68,6 +69,16 @@ class Deposit(db.Model):
   sms_text = db.Column(db.Text, nullable=True)
   method = db.Column(db.String(50), nullable=True)
   status = db.Column(db.String(20), default='Pending')
+
+
+class Transaction(db.Model):
+  __tablename__ = 'transactions'
+  id = db.Column(db.Integer, primary_key=True)
+  user_id = db.Column(db.String(100), nullable=False)
+  type = db.Column(db.String(50), nullable=False) # e.g., 'deposit', 'withdrawal', 'game_bet'
+  amount = db.Column(db.Float, nullable=False)
+  status = db.Column(db.String(20), default='pending') # e.g., 'pending', 'completed', 'rejected'
+  created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 with app.app_context():
@@ -311,6 +322,15 @@ def handle_request_deposit(data):
         status='Pending',
     )
     db.session.add(deposit)
+    
+    # Also mirror into Transaction table for enhanced admin dashboard tracking
+    tx_record = Transaction(
+        user_id=user_id,
+        type='deposit',
+        amount=amount,
+        status='pending'
+    )
+    db.session.add(tx_record)
     db.session.commit()
 
     admin_msg = (
@@ -378,6 +398,11 @@ def handle_admin_approve_deposit(data):
     user_id = deposit.user_id
     amount = deposit.amount
 
+    # Update corresponding transaction record if exists
+    tx_record = Transaction.query.filter_by(user_id=user_id, type='deposit', status='pending').first()
+    if tx_record:
+      tx_record.status = 'completed'
+
     user = User.query.filter_by(user_id=str(user_id)).first()
     if user:
       user.balance = float(user.balance) + float(amount)
@@ -412,6 +437,11 @@ def handle_admin_reject_deposit(data):
   deposit = Deposit.query.get(deposit_id)
   if deposit and deposit.status == 'Pending':
     deposit.status = 'Rejected'
+    
+    tx_record = Transaction.query.filter_by(user_id=deposit.user_id, type='deposit', status='pending').first()
+    if tx_record:
+      tx_record.status = 'rejected'
+      
     db.session.commit()
     send_telegram_custom_message(
         deposit.user_id,
@@ -447,6 +477,14 @@ def handle_request_withdrawal(data):
     return
 
   user.balance = float(user.balance) - amount
+  
+  tx_record = Transaction(
+      user_id=user_id,
+      type='withdrawal',
+      amount=amount,
+      status='pending'
+  )
+  db.session.add(tx_record)
   db.session.commit()
 
   emit(
@@ -534,6 +572,14 @@ def handle_select_card(data):
     return
 
   user.balance = float(user.balance) - card_price
+  
+  tx_record = Transaction(
+      user_id=user_id,
+      type='game_bet',
+      amount=card_price,
+      status='completed'
+  )
+  db.session.add(tx_record)
   db.session.commit()
   balance = user.balance
 
@@ -707,33 +753,103 @@ def index():
 
 
 # ==========================================
-# አድሚን ሴኩሪቲ እና ሎጂክ (Admin Authentication)
+# የተስተካከለ የአድሚን ዳሽቦርድ እና ሮቶች (Admin Routes Integrated)
 # ==========================================
+
+@app.route('/admin', methods=['GET'])
+def admin_dashboard():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # 1. አጠቃላይ ማጠቃለያ (Summary Metrics) - ዳታቤዝ ባዶ ቢሆንም ስህተት እንዳይፈጥር ተደርጓል
+        total_users = User.query.count() or 0
+        total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
+        
+        total_revenue = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'deposit', 
+            Transaction.status == 'completed'
+        ).scalar() or 0.0
+        
+        total_profit = total_revenue * 0.25 # 25% ንጹህ ትርፍ
+        
+        # 2. የዕለት፣ ወር እና አመት ገቢዎች
+        today = datetime.utcnow().date()
+        current_month = today.month
+        current_year = today.year
+        
+        daily_revenue = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'deposit', 
+            Transaction.status == 'completed',
+            func.date(Transaction.created_at) == today
+        ).scalar() or 0.0
+        
+        monthly_revenue = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'deposit',
+            Transaction.status == 'completed',
+            func.extract('month', Transaction.created_at) == current_month,
+            func.extract('year', Transaction.created_at) == current_year
+        ).scalar() or 0.0
+
+        yearly_revenue = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'deposit',
+            Transaction.status == 'completed',
+            func.extract('year', Transaction.created_at) == current_year
+        ).scalar() or 0.0
+
+        # 3. ጥያቄዎች
+        pending_deposits = Transaction.query.filter_by(type='deposit', status='pending').all() or []
+        pending_withdrawals = Transaction.query.filter_by(type='withdrawal', status='pending').all() or []
+
+    except Exception as e:
+        print(f"Database Error: {e}")
+        db.create_all()
+        total_users = 0
+        total_orders = 0
+        total_revenue = 0.0
+        total_profit = 0.0
+        daily_revenue = 0.0
+        monthly_revenue = 0.0
+        yearly_revenue = 0.0
+        pending_deposits = []
+        pending_withdrawals = []
+
+    return render_template('admin.html',
+                           total_users=total_users,
+                           total_orders=total_orders,
+                           total_revenue=total_revenue,
+                           total_profit=total_profit,
+                           daily_revenue=daily_revenue,
+                           monthly_revenue=monthly_revenue,
+                           yearly_revenue=yearly_revenue,
+                           pending_deposits=pending_deposits,
+                           pending_withdrawals=pending_withdrawals)
+
 
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        action_type = request.form.get('action_type')
+        action_type = request.form.get('action_type', 'signin')
+        username = request.form.get('username') or request.form.get('new_username')
+        password = request.form.get('password') or request.form.get('new_password')
         
         # 1. ሲግኢን (Sign In) ሎጂክ
-        if action_type == 'signin':
-            username = request.form.get('username')
-            password = request.form.get('password')
-            
-            # በመጀመሪያ ከአድሚን ዳታቤዝ መፈለግ
+        if action_type == 'signin' or not action_type:
+            # Check AdminUser table
             admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
             if admin and admin.password == password:
                 session['admin_logged'] = True
+                session['is_admin'] = True
                 session['admin_name'] = admin.username
                 return redirect(url_for('admin_dashboard'))
             
-            # ካልተገኘ በአካባቢው (Environment Variable) ካለው አድሚን ጋር ማወዳደር
-            elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk'):
+            # Check environment password fallback
+            elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
                 session['admin_logged'] = True
+                session['is_admin'] = True
                 session['admin_name'] = username
                 return redirect(url_for('admin_dashboard'))
             else:
-                # እንደ አማራጭ ከተለመዱት መደበኛ ተጠቃሚዎች መግባት ከፈለጉ
                 user = User.query.filter(
                     (User.email == username) | (User.phone == username) | (User.username == username) | (User.user_id == username)
                 ).first()
@@ -778,15 +894,11 @@ def admin_login():
         
     return render_template('admin_login.html')
 
-@app.route('/admin')
-def admin_dashboard():
-    if not session.get('admin_logged'):
-        return redirect(url_for('admin_login'))
-    return render_template('admin.html')
 
 @app.route('/admin-logout')
 def admin_logout():
     session.pop('admin_logged', None)
+    session.pop('is_admin', None)
     session.pop('admin_name', None)
     return redirect(url_for('admin_login'))
 
