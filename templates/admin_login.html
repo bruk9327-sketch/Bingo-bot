@@ -24,7 +24,6 @@
             width: 100%;
             max-width: 420px;
         }
-        /* Top Brand Card */
         .brand-card {
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
@@ -65,8 +64,6 @@
             color: #94a3b8;
             font-size: 13px;
         }
-
-        /* Form Card */
         .form-card {
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
@@ -75,8 +72,6 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
-
-        /* Tabs (Sign In / Sign Up) */
         .auth-tabs {
             display: flex;
             background: #090d16;
@@ -103,16 +98,12 @@
             color: #fff;
             box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
         }
-
-        /* Forms Container */
         .form-section {
             display: none;
         }
         .form-section.active {
             display: block;
         }
-
-        /* Input Fields */
         .input-group {
             margin-bottom: 16px;
             text-align: left;
@@ -140,8 +131,6 @@
             border-color: #fbbf24;
             box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
         }
-
-        /* Submit Button */
         .submit-btn {
             width: 100%;
             padding: 13px;
@@ -160,8 +149,6 @@
             opacity: 0.95;
             transform: translateY(-1px);
         }
-
-        /* Forgot Password link */
         .forgot-link {
             text-align: right;
             margin-top: 8px;
@@ -175,8 +162,6 @@
         .forgot-link a:hover {
             text-decoration: underline;
         }
-
-        /* Flash / Error / Success Message */
         .msg-box {
             padding: 10px;
             border-radius: 8px;
@@ -195,8 +180,6 @@
             color: #22c55e;
             border-color: rgba(34, 197, 94, 0.3);
         }
-
-        /* Modal Styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -271,25 +254,20 @@
 <body>
 
     <div class="login-container">
-        <!-- Top Brand Card -->
         <div class="brand-card">
             <div class="logo-img-container">
-                <!-- የሎጎ ምስል (ከስታቲክ ፎልደር እንዲያነብ የተደረገ) -->
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="BKBINGO HOUSE Logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'90\' height=\'90\'><circle cx=\'45\' cy=\'45\' r=\'43\' fill=\'none\' stroke=\'%23fbbf24\' stroke-width=\'2\'/><text x=\'50%\' y=\'52%\' font-size=\'13\' fill=\'%23fbbf24\' text-anchor=\'middle\' font-weight=\'bold\'>BKBINGO</text></svg>'">
             </div>
             <h2>BKBINGO HOUSE</h2>
             <p>ወደ አካውንትዎ ይግቡ ወይም ይመዝገቡ</p>
         </div>
 
-        <!-- Form Card -->
         <div class="form-card">
-            <!-- Tabs -->
             <div class="auth-tabs">
                 <button class="tab-btn active" type="button" id="tabSigninBtn" onclick="switchTab('signin')">ግባ (Sign In)</button>
                 <button class="tab-btn" type="button" id="tabSignupBtn" onclick="switchTab('signup')">ተመዝገብ (Sign Up)</button>
             </div>
 
-            <!-- Flash / Status Messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
@@ -298,7 +276,6 @@
               {% endif %}
             {% endwith %}
 
-            <!-- 1. Sign In Form -->
             <div id="signinSection" class="form-section active">
                 <form method="POST" action="{{ url_for('admin_login') }}">
                     <input type="hidden" name="action_type" value="signin">
@@ -321,7 +298,6 @@
                 </form>
             </div>
 
-            <!-- 2. Sign Up Form -->
             <div id="signupSection" class="form-section">
                 <form method="POST" action="{{ url_for('admin_login') }}">
                     <input type="hidden" name="action_type" value="signup">
@@ -348,7 +324,7 @@
         </div>
     </div>
 
-    <!-- Forgot Password Modal (ፖፕ-አፕ) -->
+    <!-- Forgot Password Modal -->
     <div id="forgotModal" class="modal-overlay">
         <div class="modal-content">
             <h3>የይለፍ ቃል ማግኛ (Recovery)</h3>
@@ -367,7 +343,6 @@
     </div>
 
     <script>
-        // ታቦችን የማቀያየር ጃቫስክሪፕት
         function switchTab(type) {
             const signinBtn = document.getElementById('tabSigninBtn');
             const signupBtn = document.getElementById('tabSignupBtn');
@@ -387,7 +362,6 @@
             }
         }
 
-        // የፎርጎት ፓስወርድ ፖፕ-አፕ (Modal) መቆጣጠሪያ
         const forgotLink = document.getElementById('forgotPasswordLink');
         const forgotModal = document.getElementById('forgotModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
