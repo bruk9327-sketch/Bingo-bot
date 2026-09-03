@@ -711,7 +711,7 @@ def admin_login():
             username = request.form.get('username')
             password = request.form.get('password')
             
-            # ፓስወርዱ የአድሚን መሆኑን ማረጋገጥ (ወይም በዳታቤዝ ውስጥ ያሉ ተጠቃሚዎችን ማጣራት ይቻላል)
+            # ፓስወርዱ የአድሚን መሆኑን ማረጋገጥ 
             if password == ADMIN_SECRET_PASSWORD:
                 session['is_admin'] = True
                 return redirect(url_for('admin_panel'))
@@ -757,13 +757,13 @@ def admin_login():
                 (User.email == recovery_identity) | (User.phone == recovery_identity) | (User.username == recovery_identity)
             ).first()
             
-            if user:
-                # ቴሌግራም ሎጊን በመጠቀም ለአድሚን ማሳወቂያ መላክ ይቻላል
-                send_telegram_notification(
-                    f'🔑 *የይለፍ ቃል ማስተካከያ ጥያቄ*\n\n'
-                    f'- ተጠቃሚ: `{user.full_name}`\n'
-                    f'- መለያ (ID/Contact): `{recovery_identity}`'
-                )
+            # ተጠቃሚው በዳታቤዝ ውስጥ መኖሩንና አለመኖሩን በማረጋገጥ ለቴሌግራም አድሚን ዝርዝር መረጃ መላክ
+            user_info_str = f"ስም/ዩዘር: {user.full_name} (ID: {user.user_id})" if user else "ያልተመዘገበ አካውንት ሊሆን ይችላል"
+            send_telegram_notification(
+                f'🔑 *የይለፍ ቃል ማስተካከያ (Forgot Password) ጥያቄ*\n\n'
+                f'- የተጠቃሚ መረጃ: `{recovery_identity}`\n'
+                f'- የዳታቤዝ ሁኔታ: {user_info_str}'
+            )
             
             flash(f'የይለፍ ቃል ማስተካከያ ጥያቄዎ ({recovery_identity}) ለሲስተም አስተዳዳሪው ተልኳል።', 'success')
             
@@ -773,7 +773,7 @@ def admin_login():
 
 @app.route('/admin')
 def admin_panel():
-    # አድሚን መሆኑን በሲክሰን (Session) ማረጋገጥ፤ ካልገባ ወደ መግቢያው ይመልሰዋል
+    # አድሚን መሆኑን በሲሰን (Session) ማረጋገጥ፤ ካልገባ ወደ መግቢያው ይመልሰዋል
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
     return render_template('admin.html')
