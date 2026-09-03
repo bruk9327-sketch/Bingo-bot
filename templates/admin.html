@@ -2,399 +2,459 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>BKBINGO PRO - Advanced Admin Dashboard</title>
+    <title>AdminPro Dashboard - BKBINGO PRO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Chart.js ለግራፎች -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --border-color: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-blue: #38bdf8;
-            --accent-green: #10b981;
-            --accent-orange: #f59e0b;
-            --accent-red: #ef4444;
+            --sidebar-bg: #0f172a;
+            --main-bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary-blue: #2563eb;
+            --border-color: #e2e8f0;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-color);
+            background: var(--main-bg);
             color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            display: flex;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
         }
-        .header-card {
-            background: var(--card-bg);
+        .sidebar-brand {
             padding: 20px;
-            border-radius: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            border-bottom: 1px solid #1e293b;
+        }
+        .sidebar-brand span { color: #38bdf8; font-size: 14px; display: block; }
+        .sidebar-menu {
+            list-style: none;
+            padding: 15px;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .sidebar-menu li { margin-bottom: 5px; }
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .sidebar-menu a:hover, .sidebar-menu li.active a {
+            background: var(--primary-blue);
+            color: #fff;
+        }
+        .sidebar-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-footer img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+        .top-navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
+        }
+        .search-box {
+            background: #fff;
             border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 300px;
         }
-        .header-card h2 {
-            margin: 0;
-            font-size: 20px;
-            color: var(--accent-blue);
-        }
-        .logout-btn {
-            background: var(--accent-red);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
+        .search-box input {
+            border: none;
+            outline: none;
+            width: 100%;
             font-size: 14px;
-            font-weight: bold;
-            transition: background 0.2s;
         }
-        .logout-btn:hover { background: #dc2626; }
+        .welcome-section {
+            margin-bottom: 25px;
+        }
+        .welcome-section h1 {
+            margin: 0 0 5px 0;
+            font-size: 24px;
+        }
+        .welcome-section p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
 
-        /* Stats Grid */
+        /* Stats Cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
         }
         .stat-card {
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
-            text-align: center;
             border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .stat-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-        .stat-card .value {
-            font-size: 26px;
-            font-weight: bold;
-            color: var(--accent-blue);
-        }
-
-        /* Tabs Navigation */
-        .tabs {
+        .stat-card .header-stat {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-        }
-        .tab-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-        .tab-btn.active, .tab-btn:hover {
-            background: var(--accent-blue);
-            color: #0f172a;
-            border-color: var(--accent-blue);
-        }
-
-        /* Tab Content Panels */
-        .panel-section {
-            display: none;
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 25px;
-        }
-        .panel-section.active {
-            display: block;
-        }
-        .panel-section h3 {
-            margin-top: 0;
-            color: var(--accent-blue);
-            font-size: 18px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-        }
-
-        /* Forms & Inputs */
-        input[type="text"], input[type="file"], textarea {
-            width: 100%;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            padding: 12px;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 14px;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 15px;
         }
-        textarea { height: 120px; resize: vertical; }
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-        }
-        .action-btn {
-            background: var(--accent-green);
-            color: white;
-            border: none;
-            padding: 12px 20px;
+        .stat-card .icon {
+            width: 40px;
+            height: 40px;
             border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .stat-card .value {
+            font-size: 22px;
             font-weight: bold;
-            font-size: 15px;
-            cursor: pointer;
-            width: 100%;
-            transition: opacity 0.2s;
+            margin: 5px 0;
         }
-        .action-btn:hover { opacity: 0.9; }
+        .stat-card .trend {
+            font-size: 12px;
+            color: #16a34a;
+            font-weight: 600;
+        }
 
-        /* Tables for Lists */
-        .table-responsive {
-            overflow-x: auto;
+        /* Dashboard Grid Layout (Charts & Orders) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
+        .card-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .card-header h3 { margin: 0; font-size: 16px; }
+        .card-header a { color: var(--primary-blue); text-decoration: none; font-size: 13px; font-weight: 600; }
+
+        /* Recent Orders List */
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
             font-size: 14px;
         }
-        th, td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        th {
-            color: var(--text-muted);
-            background: rgba(15, 23, 42, 0.5);
-        }
-        tr:hover { background: rgba(56, 189, 248, 0.05); }
+        .order-item:last-child { border-bottom: none; }
+        .order-info span { display: block; font-size: 12px; color: var(--text-muted); }
+        .status-completed { color: #16a34a; background: #dcfce7; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .status-pending { color: #ca8a04; background: #fef9c3; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
 
-        .badge-success { color: var(--accent-green); font-weight: bold; }
-        .badge-pending { color: var(--accent-orange); font-weight: bold; }
+        /* Bottom Grid (Products & Activity) */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .product-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        @media(max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .dashboard-grid, .bottom-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- Header -->
-        <div class="header-card">
-            <h2>🛡️ BKBINGO PRO - Executive Admin Dashboard</h2>
-            <a href="/admin-logout" class="logout-btn">ውጣ (Logout)</a>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-brand">
+                🛡️ AdminPro
+                <span style="font-size:11px; color:#94a3b8;">Dashboard</span>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="active"><a href="#">📊 ዳሽቦርድ (Dashboard)</a></li>
+                <li><a href="#">📈 አናሊቲክስ (Analytics)</a></li>
+                <li><a href="#">👥 ተጠቃሚዎች (Users)</a></li>
+                <li><a href="#">📦 ምርቶች (Products)</a></li>
+                <li><a href="#">🛒 ትዕዛዞች (Orders)</a></li>
+                <li><a href="#">💳 የክፍያ ትራንዛክሽን</a></li>
+                <li><a href="#">📢 ማስታወቂያ (Broadcast)</a></li>
+                <li><a href="#">⚙️ ሴቲንግ (Settings)</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-footer">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" alt="Admin">
+            <div>
+                <div style="font-size: 14px; font-weight: bold;">Biruk Reta</div>
+                <div style="font-size: 12px; color: #94a3b8;">Administrator</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" placeholder="ፈልግ...">
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span>🔔 5</span>
+                <span>✉️ 3</span>
+                <a href="/admin-logout" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">ውጣ (Logout)</a>
+            </div>
         </div>
 
-        <!-- Stats Grid -->
+        <!-- Welcome Message -->
+        <div class="welcome-section">
+            <h1>እንኳን ደህና መጡ፣ Biruk Reta! 👋</h1>
+            <p>የዛሬውን የስርዓትዎ ሁኔታ መረጃዎች ከዚህ በታች ይመልከቱ።</p>
+        </div>
+
+        <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>አጠቃላይ ተመዝጋቢዎች</h3>
-                <div class="value" id="totalUsers">0</div>
+                <div class="header-stat">
+                    <h3>አጠቃላይ ተጠቃሚዎች</h3>
+                    <div class="icon" style="background: #e0f2fe; color: #0284c7;">👥</div>
+                </div>
+                <div class="value" id="totalUsers">12,458</div>
+                <div class="trend">↑ 12.5% ካለፈው ወር</div>
             </div>
             <div class="stat-card">
-                <h3>አጠቃላይ ገቢ (Revenue)</h3>
-                <div class="value" id="totalRevenue">0 ETB</div>
+                <div class="header-stat">
+                    <h3>አጠቃላይ ትዕዛዞች</h3>
+                    <div class="icon" style="background: #dcfce7; color: #16a34a;">🛒</div>
+                </div>
+                <div class="value">3,264</div>
+                <div class="trend">↑ 8.4% ካለፈው ወር</div>
             </div>
             <div class="stat-card">
-                <h3>ክፍያ ትራንዛክሽኖች</h3>
-                <div class="value" id="totalTransactions">0</div>
+                <div class="header-stat">
+                    <h3>አጠቃላይ ገቢ (Revenue)</h3>
+                    <div class="icon" style="background: #f3e8ff; color: #9333ea;">💳</div>
+                </div>
+                <div class="value" id="totalRevenue">45,896 ETB</div>
+                <div class="trend">↑ 15.7% ካለፈው ወር</div>
             </div>
             <div class="stat-card">
-                <h3>ንቁ ጨዋታዎች</h3>
-                <div class="value">1</div>
+                <div class="header-stat">
+                    <h3>አጠቃላይ ትርፍ (Profit)</h3>
+                    <div class="icon" style="background: #ffedd5; color: #ea580c;">💰</div>
+                </div>
+                <div class="value">12,540 ETB</div>
+                <div class="trend">↑ 10.3% ካለፈው ወር</div>
             </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab(event, 'broadcastTab')">📢 ብሮድካስት & ሚዲያ</button>
-            <button class="tab-btn" onclick="switchTab(event, 'usersTab')">👥 ተጠቃሚዎች ዝርዝር</button>
-            <button class="tab-btn" onclick="switchTab(event, 'paymentsTab')">💳 የክፍያ ትራንዛክሽኖች</button>
-            <button class="tab-btn" onclick="switchTab(event, 'historyTab')">🎮 የተጫዋች ጨዋታ ሂስትሪ</button>
-        </div>
-
-        <!-- Tab 1: Broadcast & Media Upload -->
-        <div id="broadcastTab" class="panel-section active">
-            <h3>ማስታወቂያ፣ ምስል እና ቪዲዮ ማስተላለፊያ</h3>
-            <div style="margin-bottom: 20px;">
-                <label style="color:var(--text-muted); display:block; margin-bottom:8px;">የጽሁፍ ማስታወቂያ (Broadcast Message)</label>
-                <textarea id="broadcastMsg" placeholder="ለተጫዋቾች የሚተላለፍ መልዕክት እዚህ ይጻፉ..."></textarea>
-                <button class="action-btn" style="background: linear-gradient(135deg, #f59e0b, #ef4444); margin-bottom: 20px;" onclick="sendBroadcast()">መልዕክቱን ለሁሉም ላክ (Broadcast Now)</button>
+        <!-- Dashboard Grid (Sales Chart & Recent Orders) -->
+        <div class="dashboard-grid">
+            <!-- Sales Overview Chart -->
+            <div class="card-box">
+                <div class="card-header">
+                    <h3>የሽያጭ አጠቃላይ እይታ (Sales Overview)</h3>
+                    <select style="border: 1px solid var(--border-color); padding: 5px; border-radius: 6px; outline:none;">
+                        <option>ወርሃዊ (Monthly)</option>
+                        <option>ዓመታዊ (Yearly)</option>
+                    </select>
+                </div>
+                <canvas id="salesChart" height="110"></canvas>
             </div>
 
-            <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
-
-            <div>
-                <label style="color:var(--text-muted); display:block; margin-bottom:8px;">ሚዲያ (ምስል ወይም ቪዲዮ) ጫን እና ላክ</label>
-                <input type="file" id="mediaFile" accept="image/*,video/*">
-                <input type="text" id="mediaCaption" placeholder="ከምስሉ/ቪዲዮው ጋር አብሮ የሚሄድ መግለጫ (Caption)...">
-                <button class="action-btn" onclick="uploadAndSendMedia()">ሚዲያውን ለተጫዋቾች አሰራጭ</button>
-            </div>
-        </div>
-
-        <!-- Tab 2: Users List -->
-        <div id="usersTab" class="panel-section">
-            <h3>የተመዝጋቢ ተጫዋቾች ዝርዝር</h3>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ተጠቃሚ መለያ (ID)</th>
-                            <th>ስም (Username)</th>
-                            <th>ስልክ ቁጥር</th>
-                            <th>ቀሪ ሂሳብ (Balance)</th>
-                            <th>የተመዘገበበት ቀን</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody">
-                        <!-- ዳታው በጃቫስክሪፕት ይሞላል -->
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted);">መረጃዎች እየተጫኑ ነው...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab 3: Payment Transactions -->
-        <div id="paymentsTab" class="panel-section">
-            <h3>የክፍያ (Payment) ትራንዛክሽኖች ታሪክ</h3>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>የትራንዛክሽን ID</th>
-                            <th>ተጫዋች</th>
-                            <th>መጠን (ETB)</th>
-                            <th>ባንክ/አገልግሎት</th>
-                            <th>ሁኔታ (Status)</th>
-                            <th>ቀን & ሰዓት</th>
-                        </tr>
-                    </thead>
-                    <tbody id="paymentsTableBody">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted);">ምንም ትራንዛክሽን የለም</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Recent Orders -->
+            <div class="card-box">
+                <div class="card-header">
+                    <h3>የቅርብ ጊዜ ትዕዛዞች</h3>
+                    <a href="#">ሁሉንም እይ</a>
+                </div>
+                <div>
+                    <div class="order-item">
+                        <div>
+                            <strong>#ORD-1289</strong>
+                            <span>አቤበ ከበደ</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>256.00 ETB</strong>
+                            <span class="status-completed">ተጠናቋል</span>
+                        </div>
+                    </div>
+                    <div class="order-item">
+                        <div>
+                            <strong>#ORD-1288</strong>
+                            <span>ሰላም ተስፋዬ</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>125.50 ETB</strong>
+                            <span class="status-pending">በሂደት ላይ</span>
+                        </div>
+                    </div>
+                    <div class="order-item">
+                        <div>
+                            <strong>#ORD-1287</strong>
+                            <span>ትጋየ ገታቸው</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>342.00 ETB</strong>
+                            <span class="status-completed">ተጠናቋል</span>
+                        </div>
+                    </div>
+                    <div class="order-item">
+                        <div>
+                            <strong>#ORD-1286</strong>
+                            <span>ሀና ወርቁ</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong>78.90 ETB</strong>
+                            <span class="status-pending">በሂደት ላይ</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Tab 4: Player History -->
-        <div id="historyTab" class="panel-section">
-            <h3>አጠቃላይ የተጫዋች ጨዋታ ሂስትሪ (Game History)</h3>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>የጨዋታ ID</th>
-                            <th>ተጫዋች</th>
-                            <th>የተገዙ ካርዶች ብዛት</th>
-                            <th>ውጤት (Win/Loss)</th>
-                            <th>የተሸለመው ሽልማት</th>
-                            <th>ሰዓት</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted);">ምንም የጨዋታ ሂስትሪ የለም</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- Bottom Grid (Top Products & Country stats) -->
+        <div class="bottom-grid">
+            <div class="card-box">
+                <div class="card-header">
+                    <h3>ታዋቂ ምርቶች / ጨዋታዎች</h3>
+                    <a href="#">ሁሉንም እይ</a>
+                </div>
+                <div>
+                    <div class="product-row">
+                        <span>🎮 VIP Bingo Card Pack</span>
+                        <strong>1,245 ሽያጭ</strong>
+                    </div>
+                    <div class="product-row">
+                        <span>⭐ Gold Membership Pass</span>
+                        <strong>982 ሽያጭ</strong>
+                    </div>
+                    <div class="product-row">
+                        <span>🎟️ Standard Bingo Ticket</span>
+                        <strong>876 ሽያጭ</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-box">
+                <div class="card-header">
+                    <h3>የሳምንቱ እንቅስቃሴ (Weekly Activity)</h3>
+                    <a href="#">ሁሉንም እይ</a>
+                </div>
+                <canvas id="weeklyChart" height="100"></canvas>
             </div>
         </div>
     </div>
 
     <script>
-        const socket = io();
-
-        // ገጽ ሲከፈት ስታቲስቲክስ እና መረጃዎችን መጠየቅ
-        socket.emit('get_admin_stats', {});
-        socket.emit('get_admin_details', {});
-
-        socket.on('admin_stats_data', function(data) {
-            document.getElementById('totalUsers').innerText = data.total_users || 0;
-            document.getElementById('totalRevenue').innerText = (data.total_revenue || 0) + ' ETB';
-            document.getElementById('totalTransactions').innerText = data.total_transactions || 0;
-        });
-
-        // የተጠቃሚዎች እና ትራንዛክሽን መረጃዎችን መቀበያ (ዳታቤዝ ኪዮሪዎችን መሠረት করে ሰርቨር ላይ event መኖር አለበት)
-        socket.on('admin_detailed_data', function(data) {
-            // ተጠቃሚዎች
-            if(data.users && data.users.length > 0) {
-                let uHtml = '';
-                data.users.forEach(u => {
-                    uHtml += `<tr><td>${u.id}</td><td>${u.username || 'N/A'}</td><td>${u.phone || '-'}</td><td>${u.balance} ETB</td><td>${u.joined_date}</td></tr>`;
-                });
-                document.getElementById('usersTableBody').innerHTML = uHtml;
-            }
-
-            // ትራንዛክሽኖች
-            if(data.payments && data.payments.length > 0) {
-                let pHtml = '';
-                data.payments.forEach(p => {
-                    pHtml += `<tr><td>${p.tx_id}</td><td>${p.username}</td><td>${p.amount} ETB</td><td>${p.gateway}</td><td class="badge-success">${p.status}</td><td>${p.date}</td></tr>`;
-                });
-                document.getElementById('paymentsTableBody').innerHTML = pHtml;
-            }
-
-            // ሂስትሪ
-            if(data.history && data.history.length > 0) {
-                let hHtml = '';
-                data.history.forEach(h => {
-                    hHtml += `<tr><td>${h.game_id}</td><td>${h.username}</td><td>${h.cards_count}</td><td>${h.result}</td><td>${h.prize} ETB</td><td>${h.time}</td></tr>`;
-                });
-                document.getElementById('historyTableBody').innerHTML = hHtml;
+        // Sales Overview Line Chart
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: 'Revenue',
+                    data: [20000, 22000, 25000, 30000, 35000, 45000, 38000, 40000, 42000, 37000, 39000, 32000],
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
             }
         });
 
-        // ታብ መቀየሪያ ሎጂክ
-        function switchTab(evt, tabName) {
-            let sections = document.getElementsByClassName('panel-section');
-            for (let s of sections) { s.classList.remove('active'); }
-
-            let buttons = document.getElementsByClassName('tab-btn');
-            for (let b of buttons) { b.classList.remove('active'); }
-
-            document.getElementById(tabName).classList.add('active');
-            evt.currentTarget.classList.add('active');
-        }
-
-        function sendBroadcast() {
-            const msg = document.getElementById('broadcastMsg').value.trim();
-            if(!msg) { alert('እባክዎ የማስታወቂያ ጽሁፍ ይጻፉ!'); return; }
-            socket.emit('admin_broadcast', { message: msg });
-            alert('ማስታወቂያው በተሳካ ሁኔታ ተልኳል!');
-            document.getElementById('broadcastMsg').value = '';
-        }
-
-        function uploadAndSendMedia() {
-            const fileInput = document.getElementById('mediaFile');
-            const caption = document.getElementById('mediaCaption').value.trim();
-            if(fileInput.files.length === 0) {
-                alert('እባክዎ የሚጫን ምስል ወይም ቪዲዮ ይምረጡ!');
-                return;
+        // Weekly Activity Bar Chart
+        const ctxWeekly = document.getElementById('weeklyChart').getContext('2d');
+        new Chart(ctxWeekly, {
+            type: 'bar',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    data: [4000, 6000, 5000, 7000, 8500, 6000, 4500],
+                    backgroundColor: '#2563eb',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
             }
-            // ፋይሉን ወደ Base64 በመቀየር በ Socket አማካይነት መላክ ይቻላል
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                socket.emit('admin_media_broadcast', {
-                    file_data: e.target.result,
-                    file_type: file.type,
-                    caption: caption
-                });
-                alert('ሚዲያው ለተጫዋቾቹ በመላክ ላይ ይገኛል!');
-                fileInput.value = '';
-                document.getElementById('mediaCaption').value = '';
-            };
-            reader.readAsDataURL(file);
-        }
+        });
     </script>
 </body>
 </html>
