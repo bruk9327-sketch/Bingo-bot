@@ -51,6 +51,14 @@ class User(db.Model):
   balance = db.Column(db.Float, default=50.00)
 
 
+class AdminUser(db.Model):
+    __tablename__ = 'admin_users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    contact = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+
+
 class Deposit(db.Model):
   __tablename__ = 'deposits'
   id = db.Column(db.Integer, primary_key=True)
@@ -65,27 +73,29 @@ class Deposit(db.Model):
 with app.app_context():
   db.create_all()
   inspector = sa.inspect(db.engine)
-  columns = [col['name'] for col in inspector.get_columns('users')]
+  tables = inspector.get_table_names()
   
-  with db.engine.connect() as conn:
-    if 'full_name' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN full_name VARCHAR(150);'))
-      conn.commit()
-    if 'username' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN username VARCHAR(100);'))
-      conn.commit()
-    if 'email' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN email VARCHAR(120);'))
-      conn.commit()
-    if 'phone' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN phone VARCHAR(50);'))
-      conn.commit()
-    if 'password' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN password VARCHAR(255);'))
-      conn.commit()
-    if 'balance' not in columns:
-      conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
-      conn.commit()
+  if 'users' in tables:
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    with db.engine.connect() as conn:
+      if 'full_name' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN full_name VARCHAR(150);'))
+        conn.commit()
+      if 'username' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN username VARCHAR(100);'))
+        conn.commit()
+      if 'email' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN email VARCHAR(120);'))
+        conn.commit()
+      if 'phone' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN phone VARCHAR(50);'))
+        conn.commit()
+      if 'password' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN password VARCHAR(255);'))
+        conn.commit()
+      if 'balance' not in columns:
+        conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
+        conn.commit()
 
 taken_cards_global = []
 game_timer = 15
@@ -703,7 +713,6 @@ def index():
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        # በታብ (Sign In, Sign Up, Forgot Password) የተላከውን action_type መቀበል
         action_type = request.form.get('action_type')
         
         # 1. ሲግኢን (Sign In) ሎጂክ
@@ -711,11 +720,20 @@ def admin_login():
             username = request.form.get('username')
             password = request.form.get('password')
             
-            # ፓስወርዱ የአድሚን መሆኑን ማረጋገጥ 
-            if password == ADMIN_SECRET_PASSWORD:
-                session['is_admin'] = True
-                return redirect(url_for('admin_panel'))
+            # በመጀመሪያ ከአድሚን ዳታቤዝ መፈለግ
+            admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
+            if admin and admin.password == password:
+                session['admin_logged'] = True
+                session['admin_name'] = admin.username
+                return redirect(url_for('admin_dashboard'))
+            
+            # ካልተገኘ በአካባቢው (Environment Variable) ካለው አድሚን ጋር ማወዳደር
+            elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk'):
+                session['admin_logged'] = True
+                session['admin_name'] = username
+                return redirect(url_for('admin_dashboard'))
             else:
+                # እንደ አማራጭ ከተለመዱት መደበኛ ተጠቃሚዎች መግባት ከፈለጉ
                 user = User.query.filter(
                     (User.email == username) | (User.phone == username) | (User.username == username) | (User.user_id == username)
                 ).first()
@@ -724,64 +742,53 @@ def admin_login():
                     flash('እንኳን ደህና መጡ!', 'success')
                     return redirect(url_for('index'))
                 else:
-                    flash('የተሳሳተ ዩዘርናም ወይም የይለፍ ቃል!', 'error')
-            
+                    flash('⚠️ ትክክለኛ ያልሆነ መግቢያ ስም ወይም የይለፍ ቃል!', 'error')
+                
         # 2. ሲግአፕ (Sign Up) ሎጂክ
         elif action_type == 'signup':
             new_username = request.form.get('new_username')
             new_contact = request.form.get('new_contact')
             new_password = request.form.get('new_password')
             
-            existing = User.query.filter((User.email == new_contact) | (User.phone == new_contact) | (User.username == new_username)).first()
+            existing = AdminUser.query.filter_by(username=new_username).first()
             if existing:
-                flash('ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!', 'error')
+                flash('⚠️ ይህ ዩዘርናም ቀደም ሲል ተይዟል!', 'error')
             else:
-                user = User(
-                    user_id=new_contact,
-                    full_name=new_username,
-                    username=new_username,
-                    email=new_contact if '@' in new_contact else None,
-                    phone=new_contact if '@' not in new_contact else None,
-                    password=new_password,
-                    balance=50.00
-                )
-                db.session.add(user)
+                new_admin = AdminUser(username=new_username, contact=new_contact, password=new_password)
+                db.session.add(new_admin)
                 db.session.commit()
-                flash('በተሳካ ሁኔታ ተመዝግበዋል! አሁን መግባት (Sign In) ይችላሉ።', 'success')
-            
-        # 3. የይለፍ ቃል ማግኛ (Forgot Password) ፋንክሽናል ሎጂክ
+                flash('✅ ምዝገባው ተሳክቷል! አሁን መግባት ይችላሉ።', 'success')
+                
+        # 3. የይለፍ ቃል ማግኛ (Forgot Password) ሎጂክ
         elif action_type == 'forgot_password':
-            recovery_identity = request.form.get('recovery_identity')
+            identity = request.form.get('recovery_identity')
             
-            user = User.query.filter(
-                (User.email == recovery_identity) | (User.phone == recovery_identity) | (User.username == recovery_identity)
-            ).first()
+            admin = AdminUser.query.filter((AdminUser.username == identity) | (AdminUser.contact == identity)).first()
+            admin_info_str = f"አድሚን ስም: {admin.username} (ኮንታክት: {admin.contact})" if admin else "ያልተመዘገበ አድሚን አካውንት"
             
-            # ተጠቃሚው በዳታቤዝ ውስጥ መኖሩንና አለመኖሩን በማረጋገጥ ለቴሌግራም አድሚን ዝርዝር መረጃ መላክ
-            user_info_str = f"ስም/ዩዘር: {user.full_name} (ID: {user.user_id})" if user else "ያልተመዘገበ አካውንት ሊሆን ይችላል"
             send_telegram_notification(
                 f'🔑 *የይለፍ ቃል ማስተካከያ (Forgot Password) ጥያቄ*\n\n'
-                f'- የተጠቃሚ መረጃ: `{recovery_identity}`\n'
-                f'- የዳታቤዝ ሁኔታ: {user_info_str}'
+                f'- የተጠቃሚ/አድሚን መረጃ: `{identity}`\n'
+                f'- የዳታቤዝ ሁኔታ: {admin_info_str}'
             )
             
-            flash(f'የይለፍ ቃል ማስተካከያ ጥያቄዎ ({recovery_identity}) ለሲስተም አስተዳዳሪው ተልኳል።', 'success')
+            flash(f'ℹ️ የይለፍ ቃል ማግኛ ጥያቄዎ ({identity}) ለአስተዳዳሪው ተልኳል!', 'success')
             
         return redirect(url_for('admin_login'))
         
     return render_template('admin_login.html')
 
 @app.route('/admin')
-def admin_panel():
-    # አድሚን መሆኑን በሲሰን (Session) ማረጋገጥ፤ ካልገባ ወደ መግቢያው ይመልሰዋል
-    if not session.get('is_admin'):
+def admin_dashboard():
+    if not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     return render_template('admin.html')
 
 @app.route('/admin-logout')
 def admin_logout():
-    session.pop('is_admin', None)
-    return redirect(url_for('index'))
+    session.pop('admin_logged', None)
+    session.pop('admin_name', None)
+    return redirect(url_for('admin_login'))
 
 
 socketio.start_background_task(background_game_loop)
