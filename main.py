@@ -4,16 +4,17 @@ import random
 import re
 import threading
 import time
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from gevent import monkey
 import sqlalchemy as sa
+import requests
 
 monkey.patch_all(all=True)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'bkbingo_secret_key_2026'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///bkbingo.db')
 if database_url.startswith('postgres://'):
@@ -31,6 +32,9 @@ TELEGRAM_BOT_TOKEN = os.environ.get(
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
+
+# የአድሚን ፓስወርድ ከ Environment Variable (Render) ማንበብ
+ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'DefaultSecurePass123')
 
 PROCESSED_TIDS = set()
 
@@ -692,9 +696,32 @@ def index():
   return render_template('index.html')
 
 
+# ==========================================
+# አድሚን ሴኩሪቲ እና ሎጂክ (Admin Authentication)
+# ==========================================
+
+@app.route('/admin-login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        entered_password = request.form.get('password')
+        if entered_password == ADMIN_SECRET_PASSWORD:
+            session['is_admin'] = True
+            return redirect(url_for('admin_panel'))
+        else:
+            flash('የገባችሁት ፓስወርድ ስህተት ነው!', 'danger')
+    return render_template('admin_login.html')
+
 @app.route('/admin')
 def admin_panel():
-  return render_template('admin.html')
+    # አድሚን መሆኑን በሲክሰን (Session) ማረጋገጥ፤ ካልገባ ወደ መግቢያው ይመልሰዋል
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    return render_template('admin.html')
+
+@app.route('/admin-logout')
+def admin_logout():
+    session.pop('is_admin', None)
+    return redirect(url_for('index'))
 
 
 socketio.start_background_task(background_game_loop)
