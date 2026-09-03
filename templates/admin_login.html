@@ -2,7 +2,7 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>BKBINGO HOUSE - Login</title>
+    <title>BKBINGO HOUSE - Portal</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -10,7 +10,6 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            /* ከምስል 2 እና 3 የተወሰደ የጨለማ እና የከበሩ ድምቀቶች ከለር ስብጥር (Gradient) */
             background: linear-gradient(135deg, #090d16, #1e1b4b, #3b0764);
             color: #fff;
             display: flex;
@@ -37,12 +36,16 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(251, 191, 36, 0.15);
         }
         .logo-img-container {
-            width: 90px;
-            height: 90px;
+            width: 85px;
+            height: 85px;
             margin: 0 auto 12px auto;
             border-radius: 50%;
             overflow: hidden;
             border: 2px solid #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1e1b4b;
             box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
         }
         .logo-img-container img {
@@ -99,6 +102,14 @@
             background: linear-gradient(135deg, #8b5cf6, #ec4899);
             color: #fff;
             box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+        }
+
+        /* Forms Container */
+        .form-section {
+            display: none;
+        }
+        .form-section.active {
+            display: block;
         }
 
         /* Input Fields */
@@ -165,16 +176,24 @@
             text-decoration: underline;
         }
 
-        /* Error Message */
-        .error-msg {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
+        /* Flash / Error / Success Message */
+        .msg-box {
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 15px;
             font-size: 13px;
-            border: 1px solid rgba(239, 68, 68, 0.3);
             text-align: center;
+            border: 1px solid;
+        }
+        .msg-error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .msg-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border-color: rgba(34, 197, 94, 0.3);
         }
 
         /* Modal Styles */
@@ -193,7 +212,7 @@
         }
         .modal-content {
             background: #0f172a;
-            padding: 30px 25px;
+            padding: 25px;
             border-radius: 16px;
             width: 90%;
             max-width: 360px;
@@ -210,19 +229,39 @@
             font-size: 13px;
             color: #94a3b8;
             line-height: 1.5;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #090d16;
+            border: 1px solid #334155;
+            color: #fff;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
         }
         .modal-btn {
-            padding: 10px 25px;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            flex: 1;
+            padding: 10px;
             border: none;
             color: #fff;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
             font-size: 14px;
-            box-scale: 1;
             transition: 0.2s;
+        }
+        .btn-submit-modal {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        .btn-close-modal {
+            background: #334155;
         }
         .modal-btn:hover {
             opacity: 0.9;
@@ -232,11 +271,11 @@
 <body>
 
     <div class="login-container">
-        <!-- Top Brand Card with BKBINGOHOUSE Logo -->
+        <!-- Top Brand Card -->
         <div class="brand-card">
             <div class="logo-img-container">
-                <!-- እባክዎ የሎጎ ምስልዎ የሚገኝበትን ትክክለኛ ሊንክ ወይም ፎልደር ስም እዚህ ያስገቡ (ለምሳሌ: /static/images/logo.png) -->
-                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='48' fill='%231e1b4b'/><text x='50' y='55' font-size='16' fill='%23fbbf24' text-anchor='middle' font-weight='bold'>BKBINGO</text></svg>" alt="BKBINGOHOUSE Logo" id="logoImage">
+                <!-- የሎጎ ምስል (ከስታቲክ ፎልደር እንዲያነብ የተደረገ) -->
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="BKBINGO HOUSE Logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'90\' height=\'90\'><circle cx=\'45\' cy=\'45\' r=\'43\' fill=\'none\' stroke=\'%23fbbf24\' stroke-width=\'2\'/><text x=\'50%\' y=\'52%\' font-size=\'13\' fill=\'%23fbbf24\' text-anchor=\'middle\' font-weight=\'bold\'>BKBINGO</text></svg>'">
             </div>
             <h2>BKBINGO HOUSE</h2>
             <p>ወደ አካውንትዎ ይግቡ ወይም ይመዝገቡ</p>
@@ -246,51 +285,109 @@
         <div class="form-card">
             <!-- Tabs -->
             <div class="auth-tabs">
-                <button class="tab-btn active" type="button">ግባ (Sign In)</button>
-                <button class="tab-btn" type="button" onclick="alert('የመመዝገቢያ ገጽ ወደፊት ይጨመራል!')">ተመዝገብ (Sign Up)</button>
+                <button class="tab-btn active" type="button" id="tabSigninBtn" onclick="switchTab('signin')">ግባ (Sign In)</button>
+                <button class="tab-btn" type="button" id="tabSignupBtn" onclick="switchTab('signup')">ተመዝገብ (Sign Up)</button>
             </div>
 
-            <!-- Flash / Error Messages -->
+            <!-- Flash / Status Messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
-                  <div class="error-msg">{{ message }}</div>
+                  <div class="msg-box {{ 'msg-success' if category == 'success' else 'msg-error' }}">{{ message }}</div>
                 {% endfor %}
               {% endif %}
             {% endwith %}
 
-            <!-- Login Form -->
-            <form method="POST">
-                <div class="input-group">
-                    <label>ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርናም</label>
-                    <input type="text" name="username" placeholder="ኢሜይል ወይም ስልክ ያስገቡ" required>
-                </div>
+            <!-- 1. Sign In Form -->
+            <div id="signinSection" class="form-section active">
+                <form method="POST" action="{{ url_for('admin_login') }}">
+                    <input type="hidden" name="action_type" value="signin">
+                    
+                    <div class="input-group">
+                        <label>ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርናም</label>
+                        <input type="text" name="username" placeholder="ኢሜይል ወይም ስልክ ያስገቡ" required>
+                    </div>
 
-                <div class="input-group">
-                    <label>የይለፍ ቃል (Password)</label>
-                    <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
-                </div>
+                    <div class="input-group">
+                        <label>የይለፍ ቃል (Password)</label>
+                        <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
 
-                <div class="forgot-link">
-                    <a href="#" id="forgotPasswordLink">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
-                </div>
+                    <div class="forgot-link">
+                        <a href="#" id="forgotPasswordLink">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
+                    </div>
 
-                <button type="submit" class="submit-btn">ግባ (Sign In)</button>
-            </form>
+                    <button type="submit" class="submit-btn">ግባ (Sign In)</button>
+                </form>
+            </div>
+
+            <!-- 2. Sign Up Form -->
+            <div id="signupSection" class="form-section">
+                <form method="POST" action="{{ url_for('admin_login') }}">
+                    <input type="hidden" name="action_type" value="signup">
+
+                    <div class="input-group">
+                        <label>ሙሉ ስም ወይም ዩዘርናም</label>
+                        <input type="text" name="new_username" placeholder="ስምዎን ያስገቡ" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>ስልክ ቁጥር ወይም ኢሜይል</label>
+                        <input type="text" name="new_contact" placeholder="ስልክ ወይም ኢሜይል ያስገቡ" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>አዲስ የይለፍ ቃል (Password)</label>
+                        <input type="password" name="new_password" placeholder="••••••••" required>
+                    </div>
+
+                    <button type="submit" class="submit-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">መዝግብ (Sign Up)</button>
+                </form>
+            </div>
+
         </div>
     </div>
 
     <!-- Forgot Password Modal (ፖፕ-አፕ) -->
     <div id="forgotModal" class="modal-overlay">
         <div class="modal-content">
-            <h3>የይለፍ ቃል ማስተካከያ</h3>
-            <p>የይለፍ ቃልዎን ዳግም ለማስጀመር ወይም ለማስተካከል እባክዎ ዋናውን ሲስተም አድሚን በቴሌግራም ወይም በዋትስአፕ በቀጥታ ያነጋግሩ።</p>
-            <button type="button" class="modal-btn" id="closeModalBtn">እሺ (Close)</button>
+            <h3>የይለፍ ቃል ማግኛ (Recovery)</h3>
+            <p>የተመዘገቡበትን ስልክ ቁጥር ወይም ኢሜይል ያስገቡ። ሲስተሙ ለአድሚን ጥያቄውን ይልካል:</p>
+            
+            <form id="forgotForm" method="POST" action="{{ url_for('admin_login') }}">
+                <input type="hidden" name="action_type" value="forgot_password">
+                <input type="text" name="recovery_identity" class="modal-input" placeholder="ስልክ ቁጥር ወይም ኢሜይል" required>
+                
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn btn-close-modal" id="closeModalBtn">ይቅር</button>
+                    <button type="submit" class="modal-btn btn-submit-modal">ላክ</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        // የፖፕ-አፕ (Modal) መስኮቱን የማስተዳደር ጃቫስክሪፕት ኮድ
+        // ታቦችን የማቀያየር ጃቫስክሪፕት
+        function switchTab(type) {
+            const signinBtn = document.getElementById('tabSigninBtn');
+            const signupBtn = document.getElementById('tabSignupBtn');
+            const signinSec = document.getElementById('signinSection');
+            const signupSec = document.getElementById('signupSection');
+
+            if (type === 'signin') {
+                signinBtn.classList.add('active');
+                signupBtn.classList.remove('active');
+                signinSec.classList.add('active');
+                signupSec.classList.remove('active');
+            } else {
+                signupBtn.classList.add('active');
+                signinBtn.classList.remove('active');
+                signupSec.classList.add('active');
+                signinSec.classList.remove('active');
+            }
+        }
+
+        // የፎርጎት ፓስወርድ ፖፕ-አፕ (Modal) መቆጣጠሪያ
         const forgotLink = document.getElementById('forgotPasswordLink');
         const forgotModal = document.getElementById('forgotModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
@@ -304,7 +401,6 @@
             forgotModal.style.display = 'none';
         });
 
-        // ከፖፕ-አፕ ውጭ ያለውን ቦታ ሲጫኑ እንዲዘጋ
         window.addEventListener('click', function(e) {
             if (e.target === forgotModal) {
                 forgotModal.style.display = 'none';
