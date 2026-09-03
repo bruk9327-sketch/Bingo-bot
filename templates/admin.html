@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Chart.js ለግራፎች -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.io ለቀጥታ (Real-time) ግንኙነት -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
             --sidebar-bg: #0f172a;
@@ -37,6 +39,7 @@
             left: 0;
             top: 0;
             overflow-y: auto;
+            z-index: 100;
         }
         .sidebar-brand {
             padding: 20px;
@@ -296,12 +299,12 @@
         <div class="top-navbar">
             <div class="search-box">
                 <span>🔍</span>
-                <input type="text" placeholder="ፈልግ...">
+                <input type="text" id="adminSearchInput" placeholder="ፈልግ (Search users, transactions)...">
             </div>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span>🔔 5</span>
                 <span>✉️ 3</span>
-                <a href="/admin/logout" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">ውጣ (Logout)</a>
+                <a href="/admin-logout" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">ውጣ (Logout)</a>
             </div>
         </div>
 
@@ -376,7 +379,7 @@
                 <canvas id="salesChart" height="120"></canvas>
             </div>
 
-            <div class="card-box">
+            <div class="card-box" id="deposits-section">
                 <div class="card-header">
                     <h3>📥 የዲፖዚት ጥያቄዎች</h3>
                     <a href="/admin/deposits">ሁሉንም እይ</a>
@@ -391,20 +394,22 @@
                                 <th>እርምጃ</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {% for tx in pending_deposits %}
-                            <tr>
-                                <td>{{ tx.user_id }}</td>
-                                <td>{{ tx.amount }} ETB</td>
-                                <td>{{ tx.reference_id }}</td>
-                                <td>
-                                    <button class="btn btn-success" onclick="updateTx({{ tx.id }}, 'approve')">ፍቀድ</button>
-                                    <button class="btn btn-danger" onclick="updateTx({{ tx.id }}, 'reject')">ሰርዝ</button>
-                                </td>
-                            </tr>
+                        <tbody id="pendingDepositsTableBody">
+                            {% if pending_deposits %}
+                                {% for tx in pending_deposits %}
+                                <tr id="tx-row-{{ tx.id }}">
+                                    <td>{{ tx.user_id }}</td>
+                                    <td>{{ tx.amount }} ETB</td>
+                                    <td>{{ tx.transaction_ref or tx.reference_id }}</td>
+                                    <td>
+                                        <button class="btn btn-success" onclick="updateTx({{ tx.id }}, 'approve')">ፍቀድ</button>
+                                        <button class="btn btn-danger" onclick="updateTx({{ tx.id }}, 'reject')">ሰርዝ</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             {% else %}
                             <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">የሚጠብቅ የዲፖዚት ጥያቄ የለም</td></tr>
-                            {% endfor %}
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -444,7 +449,11 @@
         </div>
     </div>
 
+    <!-- JavaScript for Dynamic Actions & Charts -->
     <script>
+        const socket = io();
+
+        // Sales Chart
         const ctx = document.getElementById('salesChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -465,6 +474,7 @@
             }
         });
 
+        // Weekly Activity Chart
         const ctxWeekly = document.getElementById('weeklyChart').getContext('2d');
         new Chart(ctxWeekly, {
             type: 'bar',
@@ -482,19 +492,50 @@
             }
         });
 
+        // Transaction Approve / Reject Handler Function (Functional Buttons)
         function updateTx(txId, action) {
+            const formData = new FormData();
+            formData.append('action', action);
+
             fetch('/admin/transaction/action/' + txId, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'action=' + action
-            }).then(response => response.json()).then(data => {
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
                 if(data.success) {
-                    location.reload();
+                    const row = document.getElementById(`tx-row-${txId}`);
+                    if(row) {
+                        row.style.transition = 'opacity 0.4s ease';
+                        row.style.opacity = '0';
+                        setTimeout(() => row.remove(), 400);
+                    } else {
+                        location.reload();
+                    }
                 } else {
-                    alert(data.message);
+                    alert('ስህተት ተፈጥሯል: ' + (data.message || 'እባክዎ እንደገና ይሞክሩ።'));
                 }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('የሰርቨር ግንኙነት ስህተት አጋጥሟል።');
             });
         }
+
+        // Live Search Filter Handler
+        document.getElementById('adminSearchInput').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#pendingDepositsTableBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+
+        // Real-time updates via Socket.io
+        socket.on('admin_deposits_data', function(data) {
+            // እንደ አስፈላጊነቱ በሰርቨር በኩል የሚመጡ አዳዲስ መረጃዎችን እዚህ መቀበል ይቻላል
+        });
     </script>
 </body>
 </html>
