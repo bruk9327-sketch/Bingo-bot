@@ -323,7 +323,6 @@ def handle_request_deposit(data):
     )
     db.session.add(deposit)
     
-    # Also mirror into Transaction table for enhanced admin dashboard tracking
     tx_record = Transaction(
         user_id=user_id,
         type='deposit',
@@ -384,82 +383,6 @@ def handle_request_deposit(data):
   except Exception as e:
     print('Deposit Socket Error:', e)
     emit('error_msg', {'msg': 'የሰርቨር ስህተት አጋጥሟል።'}, room=request.sid)
-
-
-@socketio.on('admin_approve_deposit')
-def handle_admin_approve_deposit(data):
-  deposit_id = int(data.get('deposit_id', 0))
-  deposit = Deposit.query.get(deposit_id)
-  if deposit and deposit.status == 'Pending':
-    deposit.status = 'Approved'
-    if deposit.transaction_ref and deposit.transaction_ref != 'N/A':
-      PROCESSED_TIDS.add(deposit.transaction_ref)
-      
-    user_id = deposit.user_id
-    amount = deposit.amount
-
-    # Update corresponding transaction record if exists
-    tx_record = Transaction.query.filter_by(user_id=user_id, type='deposit', status='pending').first()
-    if tx_record:
-      tx_record.status = 'completed'
-
-    user = User.query.filter_by(user_id=str(user_id)).first()
-    if user:
-      user.balance = float(user.balance) + float(amount)
-      db.session.commit()
-      socketio.emit(
-          'balance_update',
-          {'user_id': user_id, 'balance': user.balance},
-      )
-      send_telegram_custom_message(
-          user_id,
-          f'🎉 ክፍያዎ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።',
-      )
-
-    pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [
-        {
-            'id': d.id,
-            'user_id': d.user_id,
-            'amount': d.amount,
-            'transaction_ref': d.transaction_ref,
-            'method': d.method,
-            'status': d.status,
-        }
-        for d in pending_list
-    ]
-    socketio.emit('admin_deposits_data', {'deposits': deposits_data})
-
-
-@socketio.on('admin_reject_deposit')
-def handle_admin_reject_deposit(data):
-  deposit_id = int(data.get('deposit_id', 0))
-  deposit = Deposit.query.get(deposit_id)
-  if deposit and deposit.status == 'Pending':
-    deposit.status = 'Rejected'
-    
-    tx_record = Transaction.query.filter_by(user_id=deposit.user_id, type='deposit', status='pending').first()
-    if tx_record:
-      tx_record.status = 'rejected'
-      
-    db.session.commit()
-    send_telegram_custom_message(
-        deposit.user_id,
-        f'❌ የዲፖዚት ጥያቄዎ ({deposit.amount} ብር) ውድቅ ተደርጓል።',
-    )
-    pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [
-        {
-            'id': d.id,
-            'user_id': d.user_id,
-            'amount': d.amount,
-            'transaction_ref': d.transaction_ref,
-            'method': d.method,
-            'status': d.status,
-        }
-        for d in pending_list
-    ]
-    socketio.emit('admin_deposits_data', {'deposits': deposits_data})
 
 
 @socketio.on('request_withdrawal')
@@ -752,17 +675,12 @@ def index():
   return render_template('index.html')
 
 
-# ==========================================
-# የተስተካከለ የአድሚን ዳሽቦርድ እና ሮቶች (Admin Routes Integrated)
-# ==========================================
-
 @app.route('/admin', methods=['GET'])
 def admin_dashboard():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     
     try:
-        # 1. አጠቃላይ ማጠቃለያ (Summary Metrics) - ዳታቤዝ ባዶ ቢሆንም ስህተት እንዳይፈጥር ተደርጓል
         total_users = User.query.count() or 0
         total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
         
@@ -771,9 +689,8 @@ def admin_dashboard():
             Transaction.status == 'completed'
         ).scalar() or 0.0
         
-        total_profit = total_revenue * 0.25 # 25% ንጹህ ትርፍ
+        total_profit = total_revenue * 0.25 
         
-        # 2. የዕለት፣ ወር እና አመት ገቢዎች
         today = datetime.utcnow().date()
         current_month = today.month
         current_year = today.year
@@ -797,7 +714,6 @@ def admin_dashboard():
             func.extract('year', Transaction.created_at) == current_year
         ).scalar() or 0.0
 
-        # 3. ጥያቄዎች
         pending_deposits = Transaction.query.filter_by(type='deposit', status='pending').all() or []
         pending_withdrawals = Transaction.query.filter_by(type='withdrawal', status='pending').all() or []
 
@@ -828,71 +744,58 @@ def admin_dashboard():
 
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
+    error_msg = None
     if request.method == 'POST':
-        action_type = request.form.get('action_type', 'signin')
-        username = request.form.get('username') or request.form.get('new_username')
-        password = request.form.get('password') or request.form.get('new_password')
+        username = request.form.get('username')
+        password = request.form.get('password')
         
-        # 1. ሲግኢን (Sign In) ሎጂክ
-        if action_type == 'signin' or not action_type:
-            # Check AdminUser table
-            admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
-            if admin and admin.password == password:
-                session['admin_logged'] = True
-                session['is_admin'] = True
-                session['admin_name'] = admin.username
-                return redirect(url_for('admin_dashboard'))
-            
-            # Check environment password fallback
-            elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
-                session['admin_logged'] = True
-                session['is_admin'] = True
-                session['admin_name'] = username
-                return redirect(url_for('admin_dashboard'))
-            else:
-                user = User.query.filter(
-                    (User.email == username) | (User.phone == username) | (User.username == username) | (User.user_id == username)
-                ).first()
-                if user and user.password == password:
-                    session['user_id'] = user.user_id
-                    flash('እንኳን ደህና መጡ!', 'success')
-                    return redirect(url_for('index'))
-                else:
-                    flash('⚠️ ትክክለኛ ያልሆነ መግቢያ ስም ወይም የይለፍ ቃል!', 'error')
-                
-        # 2. ሲግአፕ (Sign Up) ሎጂክ
-        elif action_type == 'signup':
-            new_username = request.form.get('new_username')
-            new_contact = request.form.get('new_contact')
-            new_password = request.form.get('new_password')
-            
-            existing = AdminUser.query.filter_by(username=new_username).first()
-            if existing:
-                flash('⚠️ ይህ ዩዘርናም ቀደም ሲል ተይዟል!', 'error')
-            else:
-                new_admin = AdminUser(username=new_username, contact=new_contact, password=new_password)
-                db.session.add(new_admin)
-                db.session.commit()
-                flash('✅ ምዝገባው ተሳክቷል! አሁን መግባት ይችላሉ።', 'success')
-                
-        # 3. የይለፍ ቃል ማግኛ (Forgot Password) ሎጂክ
-        elif action_type == 'forgot_password':
-            identity = request.form.get('recovery_identity')
-            
-            admin = AdminUser.query.filter((AdminUser.username == identity) | (AdminUser.contact == identity)).first()
-            admin_info_str = f"አድሚን ስም: {admin.username} (ኮንታክት: {admin.contact})" if admin else "ያልተመዘገበ አድሚን አካውንት"
-            
-            send_telegram_notification(
-                f'🔑 *የይለፍ ቃል ማስተካከያ (Forgot Password) ጥያቄ*\n\n'
-                f'- የተጠቃሚ/አድሚን መረጃ: `{identity}`\n'
-                f'- የዳታቤዝ ሁኔታ: {admin_info_str}'
-            )
-            
-            flash(f'ℹ️ የይለፍ ቃል ማግኛ ጥያቄዎ ({identity}) ለአስተዳዳሪው ተልኳል!', 'success')
-            
-        return redirect(url_for('admin_login'))
+        # AdminUser ሰንጠረዥ ማረጋገጫ
+        admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
+        if admin and admin.password == password:
+            session['admin_logged'] = True
+            session['is_admin'] = True
+            session['admin_name'] = admin.username
+            return redirect(url_for('admin_dashboard'))
         
-    return render_template('admin_login.html')
+        # Admin Environment Password ማረጋገጫ
+        elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
+            session['admin_logged'] = True
+            session['is_admin'] = True
+            session['admin_name'] = username
+            return redirect(url_for('admin_dashboard'))
+        else:
+            error_msg = '⚠️ ትክክለኛ ያልሆነ የአስተዳዳሪ ስም ወይም የይለፍ ቃል!'
+            
+    return render_template('admin_login.html', error=error_msg)
+
+
+# በ admin.html ውስጥ ለሚጠራው የዲፖዚት ማስተካከያ ሮት (Action Endpoint)
+@app.route('/admin/transaction/action/<int:tx_id>', methods=['POST'])
+def admin_transaction_action(tx_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'እባክዎ መጀመሪያ ይግቡ!'})
+    
+    action = request.form.get('action')
+    tx = Transaction.query.get(tx_id)
+    if not tx:
+        return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አልተገኘም!'})
+    
+    if action == 'approve':
+        tx.status = 'completed'
+        user = User.query.filter_by(user_id=tx.user_id).first()
+        if user and tx.type == 'deposit':
+            user.balance = float(user.balance) + float(tx.amount)
+            send_telegram_custom_message(user.user_id, f'🎉 ክፍያዎ ጸድቋል! {tx.amount} ብር ተጨምሯል።')
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    elif action == 'reject':
+        tx.status = 'rejected'
+        db.session.commit()
+        send_telegram_custom_message(tx.user_id, f'❌ የክፍያ ጥያቄዎ ውድቅ ተደርጓል።')
+        return jsonify({'success': True})
+        
+    return jsonify({'success': False, 'message': 'ትክክለኛ ያልሆነ እርምጃ!'})
 
 
 @app.route('/admin-logout')
