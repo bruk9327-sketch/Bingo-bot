@@ -2,7 +2,7 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>BKBINGO PRO - Login</title>
+    <title>BKBINGO HOUSE - Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -10,7 +10,8 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            /* ከምስል 2 እና 3 የተወሰደ የጨለማ እና የከበሩ ድምቀቶች ከለር ስብጥር (Gradient) */
+            background: linear-gradient(135deg, #090d16, #1e1b4b, #3b0764);
             color: #fff;
             display: flex;
             justify-content: center;
@@ -26,56 +27,60 @@
         }
         /* Top Brand Card */
         .brand-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(251, 191, 36, 0.3);
             padding: 25px;
-            border-radius: 16px;
+            border-radius: 20px;
             text-align: center;
             margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(251, 191, 36, 0.15);
         }
-        .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #f43f5e, #8b5cf6);
-            border-radius: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        .logo-img-container {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 12px auto;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+        }
+        .logo-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .brand-card h2 {
             margin: 0;
-            font-size: 22px;
+            font-size: 24px;
             color: #fbbf24;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
         .brand-card p {
-            margin: 5px 0 0 0;
+            margin: 6px 0 0 0;
             color: #94a3b8;
             font-size: 13px;
         }
 
         /* Form Card */
         .form-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 25px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
         /* Tabs (Sign In / Sign Up) */
         .auth-tabs {
             display: flex;
-            background: #0f172a;
+            background: #090d16;
             border-radius: 10px;
             padding: 4px;
             margin-bottom: 20px;
+            border: 1px solid #1e293b;
         }
         .tab-btn {
             flex: 1;
@@ -91,14 +96,14 @@
             color: #94a3b8;
         }
         .tab-btn.active {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
             color: #fff;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
         }
 
         /* Input Fields */
         .input-group {
-            margin-bottom: 15px;
+            margin-bottom: 16px;
             text-align: left;
         }
         .input-group label {
@@ -106,46 +111,50 @@
             font-size: 13px;
             color: #cbd5e1;
             margin-bottom: 6px;
+            font-weight: 500;
         }
         .input-group input {
             width: 100%;
             padding: 12px 15px;
-            background: #0f172a;
+            background: #090d16;
             border: 1px solid #334155;
             color: #fff;
             border-radius: 10px;
             box-sizing: border-box;
             font-size: 14px;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }
         .input-group input:focus {
             outline: none;
-            border-color: #8b5cf6;
+            border-color: #fbbf24;
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
         }
 
         /* Submit Button */
         .submit-btn {
             width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            padding: 13px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
             border: none;
-            color: white;
+            color: #fff;
             font-weight: bold;
             border-radius: 10px;
             cursor: pointer;
             font-size: 15px;
             margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
-            transition: opacity 0.2s;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+            transition: opacity 0.2s, transform 0.1s;
         }
         .submit-btn:hover {
-            opacity: 0.9;
+            opacity: 0.95;
+            transform: translateY(-1px);
         }
 
         /* Forgot Password link */
         .forgot-link {
             text-align: right;
-            margin-top: 10px;
+            margin-top: 8px;
+            margin-bottom: 15px;
         }
         .forgot-link a {
             color: #38bdf8;
@@ -158,25 +167,79 @@
 
         /* Error Message */
         .error-msg {
-            background: rgba(239, 68, 68, 0.1);
+            background: rgba(239, 68, 68, 0.15);
             color: #ef4444;
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 15px;
             font-size: 13px;
-            border: 1px solid rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             text-align: center;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #0f172a;
+            padding: 30px 25px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 360px;
+            text-align: center;
+            border: 1px solid #fbbf24;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px rgba(251, 191, 36, 0.2);
+        }
+        .modal-content h3 {
+            color: #fbbf24;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .modal-content p {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+        .modal-btn {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            box-scale: 1;
+            transition: 0.2s;
+        }
+        .modal-btn:hover {
+            opacity: 0.9;
         }
     </style>
 </head>
 <body>
 
     <div class="login-container">
-        <!-- Top Brand Card -->
+        <!-- Top Brand Card with BKBINGOHOUSE Logo -->
         <div class="brand-card">
-            <div class="logo-icon">🎯</div>
-            <h2>BKBINGO PRO</h2>
-            <p>ወደ አካውንትዎ ይገቡ ወይም ይመዝገቡ</p>
+            <div class="logo-img-container">
+                <!-- እባክዎ የሎጎ ምስልዎ የሚገኝበትን ትክክለኛ ሊንክ ወይም ፎልደር ስም እዚህ ያስገቡ (ለምሳሌ: /static/images/logo.png) -->
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='48' fill='%231e1b4b'/><text x='50' y='55' font-size='16' fill='%23fbbf24' text-anchor='middle' font-weight='bold'>BKBINGO</text></svg>" alt="BKBINGOHOUSE Logo" id="logoImage">
+            </div>
+            <h2>BKBINGO HOUSE</h2>
+            <p>ወደ አካውንትዎ ይግቡ ወይም ይመዝገቡ</p>
         </div>
 
         <!-- Form Card -->
@@ -209,7 +272,7 @@
                 </div>
 
                 <div class="forgot-link">
-                    <a href="#">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
+                    <a href="#" id="forgotPasswordLink">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
                 </div>
 
                 <button type="submit" class="submit-btn">ግባ (Sign In)</button>
@@ -217,20 +280,35 @@
         </div>
     </div>
 
-    <!-- Forgot Password Modal -->
-    <div id="forgotModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:1000;">
-        <div style="background:#1e293b; padding:25px; border-radius:12px; width:90%; max-width:350px; text-align:center; border:1px solid #334155;">
-            <h3 style="color:#fbbf24; margin-top:0;">የይለፍ ቃል ማስተካከያ</h3>
-            <p style="font-size:13px; color:#94a3b8;">የይለፍ ቃልዎን ዳግም ለማስጀመር እባክዎ ዋናውን ሲስተም አድሚን በቴሌግራም ወይም በዋትስአፕ ያነጋግሩ።</p>
-            <button onclick="document.getElementById('forgotModal').style.display='none'" style="padding:8px 20px; background:#8b5cf6; border:none; color:#fff; border-radius:6px; cursor:pointer; font-weight:bold;">እሺ (Close)</button>
+    <!-- Forgot Password Modal (ፖፕ-አፕ) -->
+    <div id="forgotModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>የይለፍ ቃል ማስተካከያ</h3>
+            <p>የይለፍ ቃልዎን ዳግም ለማስጀመር ወይም ለማስተካከል እባክዎ ዋናውን ሲስተም አድሚን በቴሌግራም ወይም በዋትስአፕ በቀጥታ ያነጋግሩ።</p>
+            <button type="button" class="modal-btn" id="closeModalBtn">እሺ (Close)</button>
         </div>
     </div>
 
     <script>
-        // የፎርጎት ፓስወርድ ሊንኩን ሲጫኑ ፖፕ-አፑ እንዲመጣ
-        document.querySelector('.forgot-link a').addEventListener('click', function(e) {
+        // የፖፕ-አፕ (Modal) መስኮቱን የማስተዳደር ጃቫስክሪፕት ኮድ
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        const forgotModal = document.getElementById('forgotModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        forgotLink.addEventListener('click', function(e) {
             e.preventDefault();
-            document.getElementById('forgotModal').style.display = 'flex';
+            forgotModal.style.display = 'flex';
+        });
+
+        closeModalBtn.addEventListener('click', function() {
+            forgotModal.style.display = 'none';
+        });
+
+        // ከፖፕ-አፕ ውጭ ያለውን ቦታ ሲጫኑ እንዲዘጋ
+        window.addEventListener('click', function(e) {
+            if (e.target === forgotModal) {
+                forgotModal.style.display = 'none';
+            }
         });
     </script>
 </body>
