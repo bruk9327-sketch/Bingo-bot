@@ -32,7 +32,6 @@ TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
 
-# ድጋሚ ክፍያ እንዳይወሰድ (Duplicate Prevention) እና የተከናወኑ ቲዲዎችን ለመያዝ
 PROCESSED_TIDS = set()
 
 
@@ -151,7 +150,7 @@ def handle_login_user(data):
         'full_name': user.full_name
     }, room=request.sid)
   else:
-    emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ ወይም የይለፍ ቃል!'}, room=request.sid)
+    emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ/ዩዘርኔም ወይም የይለፍ ቃል!'}, room=request.sid)
 
 
 @socketio.on('register_user')
@@ -164,13 +163,13 @@ def handle_register_user(data):
   user_id = str(phone or email or username or f'user_{int(time.time())}')
 
   if not full_name or not password or (not email and not phone):
-    emit('auth_response', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'}, room=request.sid)
+    emit('auth_response', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ እና የይለፍ ቃል ይሙሉ!'}, room=request.sid)
     return
 
   try:
-    existing = User.query.filter((User.email == email) | (User.phone == phone) | (User.user_id == user_id)).first()
+    existing = User.query.filter((User.email == email) | (User.phone == phone) | (User.user_id == user_id) | (User.username == username)).first()
     if existing:
-      emit('auth_response', {'success': False, 'msg': 'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም መለያ አስቀድሞ ተመዝግቧል!'}, room=request.sid)
+      emit('auth_response', {'success': False, 'msg': 'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!'}, room=request.sid)
       return
 
     user = User(
@@ -192,19 +191,6 @@ def handle_register_user(data):
         'balance': user.balance,
         'full_name': user.full_name
     }, room=request.sid)
-
-    users_list = [
-        {
-            'user_id': u.user_id,
-            'phone': u.phone,
-            'username': u.username,
-            'full_name': u.full_name,
-            'email': u.email,
-            'balance': u.balance,
-        }
-        for u in User.query.all()
-    ]
-    socketio.emit('registered_users_list', {'users': users_list})
 
   except Exception as e:
     db.session.rollback()
@@ -291,60 +277,15 @@ def handle_request_deposit(data):
     method = data.get('method', 'CBE Merchant')
 
     if not user_id or not amount or (not tx_ref and not sms_text):
-      emit(
-          'error_msg',
-          {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'},
-          room=request.sid,
-      )
+      emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
       return
 
     if amount < 10:
-      emit(
-          'error_msg',
-          {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'},
-          room=request.sid,
-      )
+      emit('error_msg', {'msg': 'ቢያንስ 10 ብር እና ከዚያ በላይ መጫን ይቻላል!'}, room=request.sid)
       return
 
     if tx_ref and tx_ref in PROCESSED_TIDS:
-      emit('balance_update', {'user_id': user_id, 'msg': '⚠️ ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
       emit('error_msg', {'msg': 'ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
-      return
-
-    existing_deposit = Deposit.query.filter_by(transaction_ref=tx_ref).first() if tx_ref else None
-    if existing_deposit and existing_deposit.status in ['Approved', 'Pending']:
-      emit('error_msg', {'msg': 'ይህ የትራንዛክሽን ሬፈረንስ አስቀድሞ ተመዝግቧል ወይም ጸድቋል!'}, room=request.sid)
-      return
-
-    auto_approve = True 
-    if auto_approve and tx_ref and (len(tx_ref) > 5 or "TID=" in sms_text or "Thank you" in sms_text):
-      PROCESSED_TIDS.add(tx_ref)
-      
-      user = User.query.filter_by(user_id=user_id).first()
-      if user:
-        user.balance = float(user.balance) + float(amount)
-      else:
-        user = User(user_id=user_id, balance=float(amount) + 50.00, full_name=f'ተጫዋች {user_id}')
-        db.session.add(user)
-      
-      deposit = Deposit(
-          user_id=user_id,
-          amount=amount,
-          transaction_ref=tx_ref,
-          sms_text=sms_text,
-          method=method,
-          status='Approved',
-      )
-      db.session.add(deposit)
-      db.session.commit()
-
-      emit('balance_update', {'user_id': user_id, 'balance': user.balance}, room=request.sid)
-      socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance})
-      
-      send_telegram_custom_message(
-          user_id,
-          f'🎉 ክፍያዎ በአውቶማቲክ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።'
-      )
       return
 
     deposit = Deposit(
@@ -516,9 +457,7 @@ def handle_get_balance(data):
     return
   user = User.query.filter_by(user_id=user_id).first()
   if not user:
-    user = User(user_id=user_id, balance=50.00, full_name=f'ተጫዋች {user_id}')
-    db.session.add(user)
-    db.session.commit()
+    return
     
   balance = user.balance
   emit(
@@ -569,7 +508,6 @@ def handle_select_card(data):
   balance = user.balance
 
   if float(balance) < card_price:
-    emit('balance_update', {'user_id': user_id, 'balance': float(balance), 'msg': 'በቂ ሂሳብ የለዎትም!'})
     emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'}, room=request.sid)
     return
 
@@ -713,9 +651,6 @@ def handle_claim_bingo(data):
             'card_matrix': matrix,
         },
     )
-    socketio.emit(
-        'balance_update', {'user_id': user_id, 'balance': float(balance)}
-    )
     socketio.sleep(6)
     reset_game_state_completely()
   else:
@@ -760,28 +695,6 @@ def index():
 @app.route('/admin')
 def admin_panel():
   return render_template('admin.html')
-
-
-@app.route('/api/login', methods=['POST'])
-def api_login():
-  data = request.get_json() or {}
-  identifier = data.get('identifier') or data.get('phone') or data.get('email') or data.get('username')
-  password = data.get('password')
-
-  user = User.query.filter(
-      (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
-  ).first()
-
-  if user and user.password == password:
-    return jsonify({
-        'status': 'success',
-        'message': 'Login successful',
-        'user_id': user.user_id,
-        'balance': user.balance,
-        'full_name': user.full_name
-    }), 200
-  
-  return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
 
 
 socketio.start_background_task(background_game_loop)
