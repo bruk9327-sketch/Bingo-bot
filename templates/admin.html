@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <title>BKBINGO PRO - Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header-card {
+            background: #1e293b;
+            padding: 15px 20px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        .header-card h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #38bdf8;
+        }
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+        .broadcast-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        .broadcast-card h3 {
+            margin-top: 0;
+            color: #38bdf8;
+            font-size: 16px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+        .broadcast-btn {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .broadcast-btn:hover {
+            opacity: 0.9;
+        }
+        @media(max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header-card">
+            <h2>🔒 ADMIN CONTROL PANEL</h2>
+            <a href="/admin-logout" class="logout-btn">← ወደ ዋናው ገጽ</a>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>አጠቃላይ ተመዝጋቢዎች</h3>
+                <div class="value" id="totalUsers">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>የሀብ ገቢ (Revenue)</h3>
+                <div class="value" id="totalRevenue">0 ETB</div>
+            </div>
+            <div class="stat-card">
+                <h3>ንቁ ጨዋታዎች</h3>
+                <div class="value">1</div>
+            </div>
+        </div>
+
+        <!-- Broadcast Section -->
+        <div class="broadcast-card">
+            <h3>📢 ለሁሉም ተጫዋቾች ማስታወቂያ መላኪያ (Broadcast)</h3>
+            <textarea id="broadcastMsg" placeholder="መልዕክት አሁንም እዚህ ይጻፉ..."></textarea>
+            <button class="broadcast-btn" onclick="sendBroadcast()">መልዕክቱን ለሁሉም ልክ (Broadcast Now)</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        // ስታቲስቲክስ መረጃዎችን ከ ሰርቨር መጠየቅ
+        socket.emit('get_admin_stats', {});
+
+        socket.on('admin_stats_data', function(data) {
+            document.getElementById('totalUsers').innerText = data.total_users;
+            document.getElementById('totalRevenue').innerText = data.total_revenue + ' ETB';
+        });
+
+        function sendBroadcast() {
+            const msg = document.getElementById('broadcastMsg').value.trim();
+            if(!msg) {
+                alert('እባክዎ የሚተላለፈውን መልዕክት ይጻፉ!');
+                return;
+            }
+            socket.emit('admin_broadcast', { message: msg });
+            alert('ማስታወቂያው ለተጫዋቾቹ በተሳካ ሁኔታ ተልኳል!');
+            document.getElementById('broadcastMsg').value = '';
+        }
+    </script>
+</body>
+</html>
