@@ -44,6 +44,7 @@ class User(db.Model):
   username = db.Column(db.String(100), nullable=True)
   full_name = db.Column(db.String(150), nullable=True)
   email = db.Column(db.String(120), nullable=True)
+  password = db.Column(db.String(255), nullable=True)
   balance = db.Column(db.Float, default=50.00)
 
 
@@ -75,6 +76,9 @@ with app.app_context():
       conn.commit()
     if 'phone' not in columns:
       conn.execute(sa.text('ALTER TABLE users ADD COLUMN phone VARCHAR(50);'))
+      conn.commit()
+    if 'password' not in columns:
+      conn.execute(sa.text('ALTER TABLE users ADD COLUMN password VARCHAR(255);'))
       conn.commit()
     if 'balance' not in columns:
       conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
@@ -125,55 +129,69 @@ def handle_connect():
   )
 
 
+@socketio.on('login_user')
+def handle_login_user(data):
+  identifier = str(data.get('identifier') or '').strip()
+  password = str(data.get('password') or '').strip()
+
+  if not identifier or not password:
+    emit('auth_response', {'success': False, 'msg': 'እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
+    return
+
+  user = User.query.filter(
+      (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
+  ).first()
+
+  if user and user.password == password:
+    emit('auth_response', {
+        'success': True,
+        'msg': 'እንኳን ደህና መጡ!',
+        'user_id': user.user_id,
+        'balance': user.balance,
+        'full_name': user.full_name
+    }, room=request.sid)
+  else:
+    emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ ወይም የይለፍ ቃል!'}, room=request.sid)
+
+
 @socketio.on('register_user')
 def handle_register_user(data):
-  user_id = str(data.get('user_id') or data.get('phone') or '').strip()
   full_name = data.get('full_name')
   username = data.get('username')
   email = data.get('email')
   phone = data.get('phone')
-  balance = data.get('balance', 50.00)
+  password = data.get('password')
+  user_id = str(phone or email or username or f'user_{int(time.time())}')
 
-  if not user_id or user_id == 'None' or user_id == '':
-    if phone:
-      user_id = str(phone)
-    else:
-      user_id = f'user_{int(time.time())}'
-
-  if not user_id or not full_name:
-    emit(
-        'registration_response',
-        {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'},
-        room=request.sid,
-    )
+  if not full_name or not password or (not email and not phone):
+    emit('auth_response', {'success': False, 'msg': 'እባክዎ ትክክለኛ መረጃ ይሙሉ!'}, room=request.sid)
     return
 
   try:
-    user = User.query.filter_by(user_id=user_id).first()
-    if user:
-      user.full_name = full_name
-      user.username = username
-      user.email = email
-      user.phone = phone
-      balance = user.balance
-    else:
-      user = User(
-          user_id=user_id,
-          full_name=full_name,
-          username=username,
-          email=email,
-          phone=phone,
-          balance=float(balance),
-      )
-      db.session.add(user)
+    existing = User.query.filter((User.email == email) | (User.phone == phone) | (User.user_id == user_id)).first()
+    if existing:
+      emit('auth_response', {'success': False, 'msg': 'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም መለያ አስቀድሞ ተመዝግቧል!'}, room=request.sid)
+      return
 
+    user = User(
+        user_id=user_id,
+        full_name=full_name,
+        username=username,
+        email=email,
+        phone=phone,
+        password=password,
+        balance=50.00
+    )
+    db.session.add(user)
     db.session.commit()
 
-    emit(
-        'registration_response',
-        {'success': True, 'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል!', 'balance': float(balance)},
-        room=request.sid,
-    )
+    emit('auth_response', {
+        'success': True,
+        'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቶዎታል።',
+        'user_id': user.user_id,
+        'balance': user.balance,
+        'full_name': user.full_name
+    }, room=request.sid)
 
     users_list = [
         {
@@ -190,12 +208,7 @@ def handle_register_user(data):
 
   except Exception as e:
     db.session.rollback()
-    print(f'Error in register_user: {str(e)}')
-    emit(
-        'registration_response',
-        {'success': False, 'msg': f'ምዝገባውን ሲያጠናቅቅ ስህተት ተፈጥሯል: {str(e)}'},
-        room=request.sid,
-    )
+    emit('auth_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
 
 
 @socketio.on('get_registered_users')
@@ -293,7 +306,6 @@ def handle_request_deposit(data):
       )
       return
 
-    # 1. ዱፕሊኬት ትራንዛክሽን እንዳይኖር ማረጋገጥ (Duplicate Check)
     if tx_ref and tx_ref in PROCESSED_TIDS:
       emit('balance_update', {'user_id': user_id, 'msg': '⚠️ ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
       emit('error_msg', {'msg': 'ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል!'}, room=request.sid)
@@ -304,7 +316,6 @@ def handle_request_deposit(data):
       emit('error_msg', {'msg': 'ይህ የትራንዛክሽን ሬፈረንስ አስቀድሞ ተመዝግቧል ወይም ጸድቋል!'}, room=request.sid)
       return
 
-    # 2. አውቶማቲክ አፕሮቫል (Auto-Approval Logic)
     auto_approve = True 
     if auto_approve and tx_ref and (len(tx_ref) > 5 or "TID=" in sms_text or "Thank you" in sms_text):
       PROCESSED_TIDS.add(tx_ref)
@@ -334,11 +345,8 @@ def handle_request_deposit(data):
           user_id,
           f'🎉 ክፍያዎ በአውቶማቲክ ጸድቋል! {amount} ብር ተጨምሯል። አዲሱ ባላንስዎ: {user.balance} ብር ነው።'
       )
-      
-      print(f"Auto-approved deposit of {amount} ETB for user {user_id} with Ref: {tx_ref}")
       return
 
-    # 3. አውቶማቲክ ካልሆነ ወደ ዳታቤዝ እና ለአድሚን ዳሽቦርድ ፔንዲንግ ዝርዝር ውስጥ ማስገባት
     deposit = Deposit(
         user_id=user_id,
         amount=amount,
@@ -555,9 +563,8 @@ def handle_select_card(data):
 
   user = User.query.filter_by(user_id=user_id).first()
   if not user:
-    user = User(user_id=user_id, balance=50.00, full_name=f'ተጫዋች {user_id}')
-    db.session.add(user)
-    db.session.commit()
+    emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይግቡ (Login)!'}, room=request.sid)
+    return
 
   balance = user.balance
 
@@ -758,60 +765,23 @@ def admin_panel():
 @app.route('/api/login', methods=['POST'])
 def api_login():
   data = request.get_json() or {}
-  phone = data.get('phone')
-  username = data.get('username')
-  full_name = data.get('full_name') or data.get('fullName')
-  email = data.get('email')
-  telegram_id = data.get('telegram_id') or data.get('user_id')
+  identifier = data.get('identifier') or data.get('phone') or data.get('email') or data.get('username')
+  password = data.get('password')
 
-  user_id = str(telegram_id or phone or username or email or '')
-  if not user_id or user_id == 'None':
-    user_id = f'user_{int(time.time())}'
+  user = User.query.filter(
+      (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
+  ).first()
 
-  user = User.query.filter_by(user_id=user_id).first()
-  if user:
-    user.username = username or user.username
-    user.full_name = full_name or user.full_name
-    user.email = email or user.email
-    if phone:
-      user.phone = phone
-    balance = user.balance
-  else:
-    balance = float(data.get('balance', 50.00))
-    user = User(
-        user_id=user_id,
-        phone=phone,
-        username=username,
-        full_name=full_name,
-        email=email,
-        balance=balance,
-    )
-    db.session.add(user)
-
-  db.session.commit()
-
-  users_list = [
-      {
-          'user_id': u.user_id,
-          'phone': u.phone,
-          'username': u.username,
-          'full_name': u.full_name,
-          'email': u.email,
-          'balance': u.balance,
-      }
-      for u in User.query.all()
-  ]
-  socketio.emit('registered_users_list', {'users': users_list})
-
-  return (
-      jsonify({
-          'status': 'success',
-          'message': 'Login successful',
-          'user_id': user.user_id,
-          'balance': balance,
-      }),
-      200,
-  )
+  if user and user.password == password:
+    return jsonify({
+        'status': 'success',
+        'message': 'Login successful',
+        'user_id': user.user_id,
+        'balance': user.balance,
+        'full_name': user.full_name
+    }), 200
+  
+  return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
 
 
 socketio.start_background_task(background_game_loop)
