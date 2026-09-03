@@ -703,12 +703,72 @@ def index():
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        entered_password = request.form.get('password')
-        if entered_password == ADMIN_SECRET_PASSWORD:
-            session['is_admin'] = True
-            return redirect(url_for('admin_panel'))
-        else:
-            flash('የገባችሁት ፓስወርድ ስህተት ነው!', 'danger')
+        # በታብ (Sign In, Sign Up, Forgot Password) የተላከውን action_type መቀበል
+        action_type = request.form.get('action_type')
+        
+        # 1. ሲግኢን (Sign In) ሎጂክ
+        if action_type == 'signin':
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            # ፓስወርዱ የአድሚን መሆኑን ማረጋገጥ (ወይም በዳታቤዝ ውስጥ ያሉ ተጠቃሚዎችን ማጣራት ይቻላል)
+            if password == ADMIN_SECRET_PASSWORD:
+                session['is_admin'] = True
+                return redirect(url_for('admin_panel'))
+            else:
+                user = User.query.filter(
+                    (User.email == username) | (User.phone == username) | (User.username == username) | (User.user_id == username)
+                ).first()
+                if user and user.password == password:
+                    session['user_id'] = user.user_id
+                    flash('እንኳን ደህና መጡ!', 'success')
+                    return redirect(url_for('index'))
+                else:
+                    flash('የተሳሳተ ዩዘርናም ወይም የይለፍ ቃል!', 'error')
+            
+        # 2. ሲግአፕ (Sign Up) ሎጂክ
+        elif action_type == 'signup':
+            new_username = request.form.get('new_username')
+            new_contact = request.form.get('new_contact')
+            new_password = request.form.get('new_password')
+            
+            existing = User.query.filter((User.email == new_contact) | (User.phone == new_contact) | (User.username == new_username)).first()
+            if existing:
+                flash('ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!', 'error')
+            else:
+                user = User(
+                    user_id=new_contact,
+                    full_name=new_username,
+                    username=new_username,
+                    email=new_contact if '@' in new_contact else None,
+                    phone=new_contact if '@' not in new_contact else None,
+                    password=new_password,
+                    balance=50.00
+                )
+                db.session.add(user)
+                db.session.commit()
+                flash('በተሳካ ሁኔታ ተመዝግበዋል! አሁን መግባት (Sign In) ይችላሉ።', 'success')
+            
+        # 3. የይለፍ ቃል ማግኛ (Forgot Password) ፋንክሽናል ሎጂክ
+        elif action_type == 'forgot_password':
+            recovery_identity = request.form.get('recovery_identity')
+            
+            user = User.query.filter(
+                (User.email == recovery_identity) | (User.phone == recovery_identity) | (User.username == recovery_identity)
+            ).first()
+            
+            if user:
+                # ቴሌግራም ሎጊን በመጠቀም ለአድሚን ማሳወቂያ መላክ ይቻላል
+                send_telegram_notification(
+                    f'🔑 *የይለፍ ቃል ማስተካከያ ጥያቄ*\n\n'
+                    f'- ተጠቃሚ: `{user.full_name}`\n'
+                    f'- መለያ (ID/Contact): `{recovery_identity}`'
+                )
+            
+            flash(f'የይለፍ ቃል ማስተካከያ ጥያቄዎ ({recovery_identity}) ለሲስተም አስተዳዳሪው ተልኳል።', 'success')
+            
+        return redirect(url_for('admin_login'))
+        
     return render_template('admin_login.html')
 
 @app.route('/admin')
