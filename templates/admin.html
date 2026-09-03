@@ -274,7 +274,7 @@
                 <span>Dashboard</span>
             </div>
             <ul class="sidebar-menu">
-                <li class="active"><a href="/admin">📊 <span>ዳሽቦርድ (Dashboard)</span></a></li>
+                <li class="active"><a href="/admin/">📊 <span>ዳሽቦርድ (Dashboard)</span></a></li>
                 <li><a href="/admin/users">👥 <span>ተጠቃሚዎች (Users)</span></a></li>
                 <li><a href="/admin/transactions">💳 <span>የክፍያ ትራንዛክሽን</span></a></li>
                 <li><a href="/admin/deposits">📥 <span>የዲፖዚት ጥያቄዎች</span></a></li>
@@ -301,7 +301,7 @@
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span>🔔 5</span>
                 <span>✉️ 3</span>
-                <a href="/admin-logout" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">ውጣ (Logout)</a>
+                <a href="/admin/logout" style="color: #ef4444; text-decoration: none; font-weight: bold; font-size: 14px;">ውጣ (Logout)</a>
             </div>
         </div>
 
@@ -311,7 +311,7 @@
             <p>የዛሬውን የስርዓትዎ ሁኔታ መረጃዎች ከዚህ በታች ይመልከቱ።</p>
         </div>
 
-        <!-- Stats Cards (Connected to Flask Backend Variables) -->
+        <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="header-stat">
@@ -347,7 +347,7 @@
             </div>
         </div>
 
-        <!-- Revenue Breakdown (Daily, Monthly, Yearly) -->
+        <!-- Revenue Breakdown -->
         <div class="revenue-breakdown">
             <div class="rev-card">
                 <h5>📅 የዕለት ገቢ (Daily Revenue)</h5>
@@ -363,9 +363,8 @@
             </div>
         </div>
 
-        <!-- Dashboard Grid (Sales Chart & Pending Approvals) -->
+        <!-- Dashboard Grid -->
         <div class="dashboard-grid">
-            <!-- Sales Overview Chart -->
             <div class="card-box">
                 <div class="card-header">
                     <h3>የሽያጭ አጠቃላይ እይታ (Sales Overview)</h3>
@@ -377,7 +376,6 @@
                 <canvas id="salesChart" height="120"></canvas>
             </div>
 
-            <!-- Pending Deposits & Withdrawals Management -->
             <div class="card-box">
                 <div class="card-header">
                     <h3>📥 የዲፖዚት ጥያቄዎች</h3>
@@ -413,7 +411,7 @@
             </div>
         </div>
 
-        <!-- Bottom Grid (Top Products & Weekly Activity) -->
+        <!-- Bottom Grid -->
         <div class="bottom-grid">
             <div class="card-box">
                 <div class="card-header">
@@ -447,7 +445,6 @@
     </div>
 
     <script>
-        // Sales Overview Line Chart
         const ctx = document.getElementById('salesChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -468,7 +465,6 @@
             }
         });
 
-        // Weekly Activity Bar Chart
         const ctxWeekly = document.getElementById('weeklyChart').getContext('2d');
         new Chart(ctxWeekly, {
             type: 'bar',
@@ -486,7 +482,6 @@
             }
         });
 
-        // Transaction Approval / Rejection Handler
         function updateTx(txId, action) {
             fetch('/admin/transaction/action/' + txId, {
                 method: 'POST',
