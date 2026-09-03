@@ -34,7 +34,7 @@ TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
 )
 
 # የአድሚን ፓስወርድ ከ Environment Variable (Render) ማንበብ
-ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'DefaultSecurePass123')
+ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 
 PROCESSED_TIDS = set()
 
