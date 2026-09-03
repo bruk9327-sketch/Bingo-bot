@@ -2,89 +2,217 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>አድሚን መግቢያ - BKBINGO PRO</title>
+    <title>BKBINGO PRO - Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background: #0f172a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
             color: #fff;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-        }
-        .login-card {
-            background: #1e293b;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-        h2 {
-            margin-bottom: 20px;
-            color: #38bdf8;
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #fff;
-            border-radius: 6px;
+            padding: 20px;
             box-sizing: border-box;
-            font-size: 16px;
         }
-        input:focus {
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+        }
+        /* Top Brand Card */
+        .brand-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #f43f5e, #8b5cf6);
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+        .brand-card h2 {
+            margin: 0;
+            font-size: 22px;
+            color: #fbbf24;
+            letter-spacing: 0.5px;
+        }
+        .brand-card p {
+            margin: 5px 0 0 0;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        /* Form Card */
+        .form-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Tabs (Sign In / Sign Up) */
+        .auth-tabs {
+            display: flex;
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Input Fields */
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #fff;
+            border-radius: 10px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
             outline: none;
-            border-color: #38bdf8;
+            border-color: #8b5cf6;
         }
-        button {
+
+        /* Submit Button */
+        .submit-btn {
             width: 100%;
             padding: 12px;
-            background: #10b981;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
             border: none;
             color: white;
             font-weight: bold;
-            border-radius: 6px;
+            border-radius: 10px;
             cursor: pointer;
+            font-size: 15px;
             margin-top: 10px;
-            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            transition: opacity 0.2s;
         }
-        button:hover {
-            background: #059669;
+        .submit-btn:hover {
+            opacity: 0.9;
         }
-        .error {
+
+        /* Forgot Password link */
+        .forgot-link {
+            text-align: right;
+            margin-top: 10px;
+        }
+        .forgot-link a {
+            color: #38bdf8;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .forgot-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Error Message */
+        .error-msg {
             background: rgba(239, 68, 68, 0.1);
             color: #ef4444;
             padding: 10px;
-            border-radius: 6px;
+            border-radius: 8px;
             margin-bottom: 15px;
-            font-size: 14px;
+            font-size: 13px;
             border: 1px solid rgba(239, 68, 68, 0.2);
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <h2>BKBINGO PRO Admin</h2>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="error">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
 
-        <form method="POST">
-            <input type="password" name="password" placeholder="የአድሚን የለፍ ቃል (Password)" required autocomplete="current-password">
-            <button type="submit">ግባ (Login)</button>
-        </form>
+    <div class="login-container">
+        <!-- Top Brand Card -->
+        <div class="brand-card">
+            <div class="logo-icon">🎯</div>
+            <h2>BKBINGO PRO</h2>
+            <p>ወደ አካውንትዎ ይገቡ ወይም ይመዝገቡ</p>
+        </div>
+
+        <!-- Form Card -->
+        <div class="form-card">
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="tab-btn active" type="button">ግባ (Sign In)</button>
+                <button class="tab-btn" type="button" onclick="alert('የመመዝገቢያ ገጽ ወደፊት ይጨመራል!')">ተመዝገብ (Sign Up)</button>
+            </div>
+
+            <!-- Flash / Error Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="error-msg">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- Login Form -->
+            <form method="POST">
+                <div class="input-group">
+                    <label>ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርናም</label>
+                    <input type="text" name="password" placeholder="ኢሜይል ወይም ስልክ ያስገቡ" required>
+                </div>
+
+                <div class="input-group">
+                    <label>የይለፍ ቃል (Password)</label>
+                    <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+
+                <div class="forgot-link">
+                    <a href="#" onclick="alert('የይለፍ ቃልዎን ለማስተካከል እባክዎ አድሚን ያነጋግሩ!')">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
+                </div>
+
+                <button type="submit" class="submit-btn">ግባ (Sign In)</button>
+            </form>
+        </div>
     </div>
+
 </body>
 </html>
