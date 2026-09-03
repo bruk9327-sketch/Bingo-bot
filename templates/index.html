@@ -55,13 +55,17 @@
             <!-- Sign In Form -->
             <div id="form-signin" class="space-y-3 pt-2">
                 <div>
-                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ዩዘርኔም ወይም ስልክ ቁጥር</label>
-                    <input type="text" id="signin-identifier" placeholder="Username ወይም 09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-xs text-white focus:border-purple-500 outline-none">
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም</label>
+                    <input type="text" id="signin-identifier" placeholder="ኢሜይል ወይም ስልክ ያስገቡ" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-xs text-white focus:border-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የይለፍ ቃል (Password)</label>
+                    <input type="password" id="signin-password" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
                 <button type="button" onclick="submitSignIn()" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer active:scale-95 transition-all">ግባ (Sign In)</button>
             </div>
 
-            <!-- Sign Up Form -->
+            <!-- Sign Up Form (በይለፍ ቃል እና ኮንፎርም ፓስወርድ የተስተካከለ) -->
             <div id="form-signup" class="space-y-3 pt-2 hidden">
                 <div>
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ሙሉ ስም (Full Name)</label>
@@ -78,6 +82,14 @@
                 <div>
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
                     <input type="text" id="reg-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የይለፍ ቃል (Password)</label>
+                    <input type="password" id="reg-password" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የይለፍ ቃል ማረጋገጫ (Confirm Password)</label>
+                    <input type="password" id="reg-confirm-password" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
                 <button type="button" onclick="submitRegister()" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer active:scale-95 transition-all">ምዝገባውን አጠናቅ (Sign Up)</button>
             </div>
@@ -374,11 +386,6 @@
     </div>
 
     <script>
-        // የድሮውን የተሳሳተ ቋሚ ID ከlocalStorage እናስወግዳለን
-        if (localStorage.getItem('user_id') === '855985673') {
-            localStorage.removeItem('user_id');
-        }
-
         let soundEnabled = false;
         function toggleAudio() {
             soundEnabled = !soundEnabled;
@@ -394,9 +401,7 @@
             reconnectionDelay: 1000
         });
 
-        // የተጠቃሚ መለያ (User ID) አያያዝ ከLocalStorage ወይም ከTelegram WebApp
-        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        let userId = localStorage.getItem('bk_user_id') || (tgUser ? String(tgUser.id) : null);
+        let userId = localStorage.getItem('bk_user_id') || null;
         window.userId = userId;
 
         let takenCards = [];
@@ -410,7 +415,6 @@
             window.Telegram.WebApp.expand();
         }
 
-        // ገጽ ሲከፈት ዩዘሩ አስቀድሞ ገብቶ ከሆነ በቀጥታ ወደ ዋናው ዳሽቦርድ መውሰድ
         document.addEventListener("DOMContentLoaded", () => {
             if (userId) {
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -421,27 +425,13 @@
         });
 
         socket.on('connect', () => {
-            console.log("Connected to server via socket ID:", socket.id, "User ID:", userId);
+            console.log("Connected to server via socket ID:", socket.id);
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
             initCartelaGrid();
         });
 
-        socket.on('connect_error', (err) => {
-            console.error("Socket connection error:", err);
-        });
-
-        // አፕሊኬሽኑን ሚኒማይዝ አድርጎ ሲመለስ የባላንስ ማስተካከያ
-        document.addEventListener("visibilitychange", function() {
-            if (document.visibilityState === 'visible') {
-                if (typeof socket !== 'undefined' && window.userId) {
-                    socket.emit('get_user_balance', { user_id: window.userId });
-                }
-            }
-        });
-
-        // Sign In / Sign Up Tab Switcher
         function switchAuthMode(mode) {
             const btnSignIn = document.getElementById('auth-tab-signin');
             const btnSignUp = document.getElementById('auth-tab-signup');
@@ -463,18 +453,54 @@
 
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
-            if (!identifier) {
-                return alert("⚠️ እባክዎ ዩዘርኔም ወይም ስልክ ቁጥር ያስገቡ!");
-            }
-            // ዩዘሩን በማረጋገጥ ወደ ዋናው ዳሽቦርድ ማሸጋገር
-            userId = 'usr_' + identifier.replace(/[^a-zA-Z0-9]/g, '');
-            window.userId = userId;
-            localStorage.setItem('bk_user_id', userId);
+            const password = document.getElementById('signin-password').value.trim();
 
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('menu-dashboard').classList.remove('hidden');
-            socket.emit('get_user_balance', { user_id: userId });
+            if (!identifier || !password) {
+                return alert("⚠️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
+            }
+
+            socket.emit('login_user', { identifier: identifier, password: password });
         }
+
+        function submitRegister() {
+            const fname = document.getElementById('reg-fullname').value.trim();
+            const uname = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const confirmPassword = document.getElementById('reg-confirm-password').value.trim();
+
+            if (!fname || !uname || !email || !phone || !password || !confirmPassword) { 
+                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!"); 
+            }
+
+            if (password !== confirmPassword) {
+                return alert("⚠️ የentered ያደረጓቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
+            }
+
+            const userData = {
+                full_name: fname,
+                username: uname,
+                email: email,
+                phone: phone,
+                password: password
+            };
+
+            socket.emit('register_user', userData);
+        }
+
+        socket.on('auth_response', (data) => {
+            alert((data.success ? "✅ " : "⚠️ ") + data.msg);
+            if (data.success) {
+                userId = data.user_id;
+                window.userId = userId;
+                localStorage.setItem('bk_user_id', userId);
+
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('menu-dashboard').classList.remove('hidden');
+                socket.emit('get_user_balance', { user_id: userId });
+            }
+        });
 
         function logoutToAuth() {
             localStorage.removeItem('bk_user_id');
@@ -617,41 +643,6 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
         }
-
-        function submitRegister() {
-            const fname = document.getElementById('reg-fullname').value.trim();
-            const uname = document.getElementById('reg-username').value.trim();
-            const email = document.getElementById('reg-email').value.trim();
-            const phone = document.getElementById('reg-phone').value.trim();
-
-            if (!fname || !uname || !email || !phone) { 
-                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!"); 
-            }
-
-            userId = 'usr_' + uname.toLowerCase();
-            window.userId = userId;
-            localStorage.setItem('bk_user_id', userId);
-
-            const userData = {
-                user_id: userId,
-                full_name: fname,
-                username: uname,
-                email: email,
-                phone: phone,
-                balance: 50.00
-            };
-
-            socket.emit('register_user', userData);
-        }
-
-        socket.on('registration_response', (data) => {
-            alert("✅ " + (data.msg || "ምዝገባው በተሳካ ሁኔታ ተጠናቋል!"));
-            if (data.success || true) {
-                document.getElementById('auth-screen').classList.add('hidden');
-                document.getElementById('menu-dashboard').classList.remove('hidden');
-                socket.emit('get_user_balance', { user_id: userId });
-            }
-        });
 
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
