@@ -63,8 +63,11 @@ def apply_fabric_token():
     
     try:
         response = requests.post(url, json=payload, headers=headers, verify=True)
+        print("Telebirr Token Response:", response.status_code, response.text)
+        response.raise_for_status()
         return response.json()
     except Exception as e:
+        print("Telebirr Token API Error:", str(e))
         return {"error": str(e)}
 
 def create_telebirr_order(amount, user_phone, out_trade_no):
@@ -102,8 +105,11 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     
     try:
         response = requests.post(url, json=payload, headers=headers, verify=True)
+        print("Telebirr Order Response:", response.status_code, response.text)
+        response.raise_for_status()
         return response.json()
     except Exception as e:
+        print("Telebirr Order API Error:", str(e))
         return {"error": str(e)}
 
 def create_telebirr_order_with_merchant(amount, user_phone, out_trade_no):
