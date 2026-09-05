@@ -40,6 +40,72 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 PROCESSED_TIDS = set()
 
 
+# ==========================================
+# Telebirr Integration Functions
+# ==========================================
+def apply_fabric_token():
+    url = "https://developerportal.ethiotelecom.et:18443/payment/v1/token"
+    
+    app_id = os.environ.get("FABRIC_APP_ID")
+    app_secret = os.environ.get("APP_SECRET")
+    
+    headers = {
+        "Content-Type": "application/json",
+        "X-APP-Key": app_id
+    }
+    
+    payload = {
+        "appId": app_id,
+        "appSecret": app_secret
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, verify=True)
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def create_telebirr_order(amount, user_phone, out_trade_no):
+    """
+    ደረጃ 3: CreateOrder - የክፍያ ትዕዛዝ መፍጠር
+    """
+    token_response = apply_fabric_token()
+    
+    if "code" in token_response and token_response["code"] == "0":
+        access_token = token_response.get("data", {}).get("accessToken")
+    else:
+        return {"error": "Token generation failed", "details": token_response}
+
+    url = "https://developerportal.ethiotelecom.et:18443/payment/v1/order"
+    
+    merchant_app_id = os.environ.get("MERCHANT_APP_ID")
+    short_code = os.environ.get("SHORT_CODE")
+    
+    # ሬንደር ላይ ያለው የአፕሊኬሽኑ ዶሜይን በራስሰር እንዲያነብ ማድረግ ይቻላል (ወይም ትክክለኛ ዩአርኤል ማስገባት)
+    base_url = request.host_url.rstrip('/')
+    
+    headers = {
+        "Content-Type": "application/json",
+        "X-Auth-Token": access_token
+    }
+    
+    payload = {
+        "merchantAppId": merchant_app_id,
+        "merchCode": short_code,
+        "amount": str(amount),
+        "outTradeNo": out_trade_no,
+        "subject": "BKBINGO PRO Deposit",
+        "notifyUrl": f"{base_url}/telebirr-callback",
+        "returnUrl": "https://t.me/your_telegram_bot"
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, verify=True)
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 class User(db.Model):
   __tablename__ = 'users'
   id = db.Column(db.Integer, primary_key=True)
@@ -749,7 +815,6 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # AdminUser ሰንጠረዥ ማረጋገጫ
         admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
         if admin and admin.password == password:
             session['admin_logged'] = True
@@ -757,7 +822,6 @@ def admin_login():
             session['admin_name'] = admin.username
             return redirect(url_for('admin_dashboard'))
         
-        # Admin Environment Password ማረጋገጫ
         elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
             session['admin_logged'] = True
             session['is_admin'] = True
@@ -769,7 +833,6 @@ def admin_login():
     return render_template('admin_login.html', error=error_msg)
 
 
-# በ admin.html ውስጥ ለሚጠራው የዲፖዚት ማስተካከያ ሮት (Action Endpoint)
 @app.route('/admin/transaction/action/<int:tx_id>', methods=['POST'])
 def admin_transaction_action(tx_id):
     if not session.get('is_admin') and not session.get('admin_logged'):
@@ -796,6 +859,18 @@ def admin_transaction_action(tx_id):
         return jsonify({'success': True})
         
     return jsonify({'success': False, 'message': 'ትክክለኛ ያልሆነ እርምጃ!'})
+
+
+# Telebirr Callback Endpoint
+@app.route('/telebirr-callback', methods=['POST'])
+def telebirr_callback():
+    try:
+        data = request.get_json() or request.form.to_dict()
+        # የቴሌኮም ኖቲፊኬሽን ሎጂክ እዚህ ይከናወናል
+        # ክፍያው ስኬታማ ሲሆን የ ተጠቃሚውን ባላንስ ማስተካከል ይቻላል
+        return jsonify({"code": "0", "message": "success"})
+    except Exception as e:
+        return jsonify({"code": "1", "message": str(e)})
 
 
 @app.route('/admin-logout')
