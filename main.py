@@ -875,7 +875,7 @@ def admin_transaction_action(tx_id):
 # ==========================================
 # Telebirr Payment & Callback Routes
 # ==========================================
-@app.route('/create-telebirr-payment', methods=['POST'])
+   @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
     try:
         data = request.get_json() or {}
@@ -889,9 +889,11 @@ def create_telebirr_payment():
         user_phone = user.phone if user and user.phone else "251900000000"
         out_trade_no = f"BK_{int(time.time())}_{random.randint(1000, 9999)}"
 
+        print(f"[+] Attempting Telebirr payment for User: {user_id}, Amount: {amount}, TradeNo: {out_trade_no}")
         payment_response = create_telebirr_order_with_merchant(amount=amount, user_phone=user_phone, out_trade_no=out_trade_no)
+        print(f"[+] Telebirr payment response received: {payment_response}")
         
-        if payment_response and (payment_response.get("code") == "0" or payment_response.get("code") == 0):
+        if payment_response and (str(payment_response.get("code")) == "0" or payment_response.get("code") == 0):
             checkout_url = payment_response.get("data", {}).get("toUrl") or payment_response.get("toUrl")
             
             deposit = Deposit(
@@ -914,24 +916,15 @@ def create_telebirr_payment():
 
             return jsonify({"success": True, "checkout_url": checkout_url})
         else:
-            print(f"[-] Telebirr Order Failed Response: {payment_response}")
-            return jsonify({"success": False, "msg": "የክፍያ ሊንክ ማመንጨት አልተቻለም።", "details": payment_response}), 500
-
-    except ValueError as ve:
-        print(f"[-] ValueError detected: {str(ve)}")
-        traceback.print_exc()
-        return jsonify({"success": False, "msg": f"የግቤት ስህተት: {str(ve)}"}), 400
-
-    except requests.exceptions.RequestException as re:
-        print(f"[-] Network/API Connection Error: {str(re)}")
-        traceback.print_exc()
-        return jsonify({"success": False, "msg": "የክፍያ ሰርቨር (Telebirr API) ማግኘት አልተቻለም።"}), 503
+            error_msg = payment_response.get("msg") or payment_response.get("message") or "የክፍያ ሊንክ ማመንጨት አልተቻለም።"
+            print(f"[-] Telebirr Order Failed: {payment_response}")
+            return jsonify({"success": False, "msg": error_msg, "details": payment_response}), 400
 
     except Exception as e:
-        print("[-] UNEXPECTED ERROR OCCURRED IN create_telebirr_payment:")
+        print("[-] UNEXPECTED ERROR IN create_telebirr_payment:")
         traceback.print_exc()
-        return jsonify({"success": False, "msg": f"የክፍያ ሊንክ ማመንጨት አልተቻለም። (ሲስተም ስህተት: {str(e)})"}), 500
-
+        return jsonify({"success": False, "msg": f"ሰርቨር ስህተት አጋጥሟል: {str(e)}"}), 500
+ 
 
 @app.route('/telebirr-callback', methods=['POST'])
 def telebirr_callback():
