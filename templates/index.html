@@ -299,14 +299,14 @@
             </div>
             <div class="space-y-3 text-left">
                 <div class="mb-3">
-                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant ID: 609446)</label>
+                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant Code: 642077)</label>
                     <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="telebirr_merchant">Telebirr Merchant (ቁጥር: 642077)</option>
+                        <option value="telebirr_merchant">Telebirr Merchant (ኮድ: 642077)</option>
                         <option value="cbe_merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
-                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ራሱ ከደረሰኙ ያነብልዎታል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ወይም የክፍያ ሊንክ (TID) እዚህ ፖስት ያድርጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
+                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
                 <div class="flex gap-2">
                     <button type="button" onclick="submitDeposit()" class="w-1/2 py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
