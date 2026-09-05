@@ -83,7 +83,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     merchant_app_id = os.environ.get("MERCHANT_APP_ID")
     short_code = os.environ.get("SHORT_CODE")
     
-    # ሬንደር ላይ ያለው የአፕሊኬሽኑ ዶሜይን በራስሰር እንዲያነብ ማድረግ ይቻላል (ወይም ትክክለኛ ዩአርኤል ማስገባት)
     base_url = request.host_url.rstrip('/')
     
     headers = {
@@ -863,16 +862,95 @@ def admin_transaction_action(tx_id):
     return jsonify({'success': False, 'message': 'ትክክለኛ ያልሆነ እርምጃ!'})
 
 
-# Telebirr Callback Endpoint
+# ==========================================
+# Updated Telebirr Payment & Callback Routes
+# ==========================================
+@app.route('/create-telebirr-payment', methods=['POST'])
+def create_telebirr_payment():
+    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    amount = data.get('amount')
+
+    if not user_id or not amount:
+        return jsonify({"success": False, "msg": "እባክዎ የተጠቃሚ መታወቂያ (user_id) እና የብር መጠን (amount) ይላኩ!"}), 400
+
+    try:
+        user = User.query.filter_by(user_id=user_id).first()
+        user_phone = user.phone if user and user.phone else "251900000000"
+        out_trade_no = f"BK_{int(time.time())}_{random.randint(1000, 9999)}"
+
+        payment_response = create_telebirr_order(amount=amount, user_phone=user_phone, out_trade_no=out_trade_no)
+        
+        if payment_response and "code" in payment_response and payment_response["code"] == "0":
+            checkout_url = payment_response.get("data", {}).get("toUrl")
+            
+            # Save pending deposit transaction record
+            deposit = Deposit(
+                user_id=str(user_id),
+                amount=float(amount),
+                transaction_ref=out_trade_no,
+                method='Telebirr API',
+                status='Pending'
+            )
+            db.session.add(deposit)
+            
+            tx_record = Transaction(
+                user_id=str(user_id),
+                type='deposit',
+                amount=float(amount),
+                status='pending'
+            )
+            db.session.add(tx_record)
+            db.session.commit()
+
+            return jsonify({
+                "success": True, 
+                "checkout_url": checkout_url
+            })
+        else:
+            return jsonify({"success": False, "msg": "የክፍያ ሊንክ ማመንጨት አልተቻለም።", "details": payment_response}), 500
+
+    except Exception as e:
+        return jsonify({"success": False, "msg": str(e)}), 500
+
+
 @app.route('/telebirr-callback', methods=['POST'])
 def telebirr_callback():
-    try:
-        data = request.get_json() or request.form.to_dict()
-        # የቴሌኮም ኖቲፊኬሽን ሎጂክ እዚህ ይከናወናል
-        # ክፍያው ስኬታማ ሲሆን የ ተጠቃሚውን ባላንስ ማስተካከል ይቻላል
-        return jsonify({"code": "0", "message": "success"})
-    except Exception as e:
-        return jsonify({"code": "1", "message": str(e)})
+    """ቴሌብር ክፍያው ሲጠናቀቅ የሚልክለትን ማረጋገጫ ተቀብሎ የተጠቃሚውን ባላንስ በራስ-ሰር የሚያሳድግ ራውት"""
+    callback_data = request.get_json() or request.form.to_dict()
+    
+    status = callback_data.get('status') or callback_data.get('transaction_status') or callback_data.get('tradeStatus')
+    out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref')
+    amount = callback_data.get('amount') or callback_data.get('total_amount')
+
+    if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3'] and out_trade_no:
+        try:
+            deposit = Deposit.query.filter_by(transaction_ref=out_trade_no, status='Pending').first()
+            if deposit:
+                deposit.status = 'Completed'
+                user_id = deposit.user_id
+                numeric_amount = float(deposit.amount)
+
+                user = User.query.filter_by(user_id=user_id).first()
+                if user:
+                    user.balance = float(user.balance) + numeric_amount
+                
+                tx = Transaction.query.filter_by(user_id=user_id, status='pending', type='deposit').order_by(Transaction.id.desc()).first()
+                if tx:
+                    tx.status = 'completed'
+
+                db.session.commit()
+                
+                # ለተጠቃሚው በ Socket.io በኩል የባላንስ ለውጡን ማሳወቅ
+                socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance if user else 0})
+                send_telegram_custom_message(user_id, f'🎉 የቴሌብር ክፍያዎ በሳካ ሁኔታ ጸድቋል! {numeric_amount} ብር አካውንትዎ ላይ ተጨምሯል።')
+
+                return jsonify({"code": "0", "message": "success"}), 200
+        except Exception as e:
+            return jsonify({"code": "1", "message": str(e)}), 500
+
+    return jsonify({"code": "1", "msg": "ክፍያው አልተሳካም ወይም መረጃው ጎድሏል።"}), 400
 
 
 @app.route('/admin-logout')
