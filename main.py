@@ -40,10 +40,10 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Production URL Fixed)
+# Telebirr Integration Functions (Production URL Fixed & Updated to ethiotelecom.et)
 # ==========================================
 def apply_fabric_token():
-    # ትክክለኛው የፕሮዳክሽን/ጌትዌይ ዩአርኤል (ፖርት 38443 ተወግዷል፤ እንደ አስፈላጊነቱ በ Environment Variable መቀየር ይቻላል)
+    # ትክክለኛው የፕሮዳክሽን/ጌትዌይ ዩአርኤል (ethiotelecom.et ተብሎ ተስተካክሏል)
     base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://api.ethiotelecom.et/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/token"
     
