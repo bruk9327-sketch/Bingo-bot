@@ -308,7 +308,10 @@
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ራሱ ከደረሰኙ ያነብልዎታል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ወይም የክፍያ ሊንክ (TID) እዚህ ፖስት ያድርጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
-                <button type="button" onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="submitDeposit()" class="w-1/2 py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
+                    <button type="button" onclick="submitTelebirrPayment()" class="w-1/2 py-3 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">በቴሌብር ክፍያ (API)</button>
+                </div>
             </div>
         </div>
     </div>
@@ -551,6 +554,39 @@
             document.getElementById('sms_text_input').value = '';
         }
 
+        function submitTelebirrPayment() {
+            const amount = parseFloat(document.getElementById('deposit_amount').value);
+            
+            if (!amount || amount <= 0) {
+                return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
+            }
+
+            // ወደ ባክኤንድ የክፍያ ራውት ጥያቄ መላክ
+            fetch('/create-telebirr-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: window.userId,
+                    amount: amount
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.checkout_url) {
+                    // ተጠቃሚውን ወደ ቴሌብር ክፍያ ገጽ መውሰድ (Redirect ማድረግ)
+                    window.location.href = data.checkout_url;
+                } else {
+                    alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("⚠️ የኔትወርክ ስህተት አጋጥሟል።");
+            });
+        }
+
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
@@ -779,7 +815,7 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             const previewContainer = document.getElementById('preview-cards-container');
-            if(previewContainer) previewContainer.innerHTML = '';
+            if(previewContainer) previewContainer.innerHTML = 'ο';
             initCartelaGrid();
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
