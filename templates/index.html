@@ -561,28 +561,41 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
             }
 
-            fetch('/create-telebirr-payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    user_id: window.userId,
-                    amount: amount
+            // Try-Catch በ JavaScript ፕራሚስ/ፌች ላይ
+            try {
+                fetch('/create-telebirr-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: window.userId,
+                        amount: amount
+                    })
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.checkout_url) {
-                    window.location.href = data.checkout_url;
-                } else {
-                    alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("⚠️ የኔትወርክ ስህተት አጋጥሟል።");
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.checkout_url) {
+                        window.location.href = data.checkout_url;
+                    } else {
+                        // ሰቨሩ የላከውን ትክክለኛ የሰቨር ስህተት መልእክት እዚህ ያሳያል
+                        alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
+                    }
+                })
+                .catch(fetchError => {
+                    console.error('Fetch Catch Error:', fetchError);
+                    alert("⚠️ የኔትወርክ ወይም የሰቨር ችግር አጋጥሟል። እባክዎ ተርሚናል (Terminal) ሎግ ይዩ።");
+                });
+
+            } catch (err) {
+                console.error('Frontend Script Error:', err);
+                alert("⚠️ በሲስተሙ ላይ ያልተጠበቀ ችግር ተፈጥሯል።");
+            }
         }
 
         function submitWithdraw() {
