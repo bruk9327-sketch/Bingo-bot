@@ -255,7 +255,7 @@
                 <div class="text-[8px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
                 <div id="derash-amount" class="text-sm font-black text-emerald-400">0.00 ETB</div>
             </div>
-            <div class="glass-panel p-2 rounded-xl border border-purple-500/50 flex items-center justify-between px-3">
+            <div class="glass-panel p-2.5 rounded-xl border border-purple-500/50 flex items-center justify-between px-3">
                 <div>
                     <div class="text-[7px] text-slate-400">የተጠራው ቁጥር</div>
                     <div class="text-[9px] text-purple-300 font-bold">የወጣ</div>
@@ -298,11 +298,11 @@
                 <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
-                <div>
-                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የክፍያ አማራጭ (Merchant ID: 1287375)</label>
+                <div class="mb-3">
+                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant ID: 609446)</label>
                     <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="CBE_Merchant">CBE Merchant (ቁጥር: 1287375)</option>
-                        <option value="Telebirr_Merchant">Telebirr Merchant (ቁጥር: 1287375)</option>
+                        <option value="telebirr_merchant">Telebirr Merchant (ቁጥር: 609446)</option>
+                        <option value="cbe_merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ራሱ ከደረሰኙ ያነብልዎታል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
@@ -561,7 +561,6 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
             }
 
-            // ወደ ባክኤንድ የክፍያ ራውት ጥያቄ መላክ
             fetch('/create-telebirr-payment', {
                 method: 'POST',
                 headers: {
@@ -575,7 +574,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.checkout_url) {
-                    // ተጠቃሚውን ወደ ቴሌብር ክፍያ ገጽ መውሰድ (Redirect ማድረግ)
                     window.location.href = data.checkout_url;
                 } else {
                     alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
@@ -815,7 +813,7 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             const previewContainer = document.getElementById('preview-cards-container');
-            if(previewContainer) previewContainer.innerHTML = 'ο';
+            if(previewContainer) previewContainer.innerHTML = '';
             initCartelaGrid();
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
