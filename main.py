@@ -6,6 +6,7 @@ import random
 import re
 import threading
 import time
+import traceback
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -68,6 +69,7 @@ def apply_fabric_token():
         return response.json()
     except Exception as e:
         print("Telebirr Token API Error:", str(e))
+        traceback.print_exc()
         return {"error": str(e)}
 
 def create_telebirr_order(amount, user_phone, out_trade_no):
@@ -81,7 +83,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     url = "https://developerportal.ethiotelecom.et:18443/payment/v1/order"
     
     merchant_app_id = os.environ.get("MERCHANT_APP_ID")
-    short_code = os.environ.get("MERCHANT_SHORT_CODE", "642077")  # ከ환경 variable እንዲነበብ ተደርጓል፣ ነባሩም 642077 ሆኗል
+    short_code = os.environ.get("MERCHANT_SHORT_CODE", "642077")
     
     base_url = request.host_url.rstrip('/')
     
@@ -101,7 +103,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     }
     
     try:
-        # ለምርት (Production) አካባቢ verify=True እንዲሆን ተደርጓል (SSL ደህንነት እንዲጠበቅ)
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
         print("Telebirr Order Response:", response.status_code, response.text)
@@ -109,6 +110,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         return response.json()
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
+        traceback.print_exc()
         return {"error": str(e)}
 
 def create_telebirr_order_with_merchant(amount, user_phone, out_trade_no):
@@ -150,9 +152,9 @@ class Transaction(db.Model):
   __tablename__ = 'transactions'
   id = db.Column(db.Integer, primary_key=True)
   user_id = db.Column(db.String(100), nullable=False)
-  type = db.Column(db.String(50), nullable=False) # e.g., 'deposit', 'withdrawal', 'game_bet'
+  type = db.Column(db.String(50), nullable=False)
   amount = db.Column(db.Float, nullable=False)
-  status = db.Column(db.String(20), default='pending') # e.g., 'pending', 'completed', 'rejected'
+  status = db.Column(db.String(20), default='pending')
   created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -875,24 +877,23 @@ def admin_transaction_action(tx_id):
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
-    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት (አዲሱ መርቻንት 642077)"""
-    data = request.get_json() or {}
-    user_id = data.get('user_id')
-    amount = data.get('amount')
-
-    if not user_id or not amount:
-        return jsonify({"success": False, "msg": "እባክዎ የተጠቃሚ መታወቂያ እና የብር መጠን ያስገቡ!"}), 400
-
+    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት ከትክክለኛ የኢረር ሀንድለር እና ሎግ ጋር"""
     try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        amount = data.get('amount')
+
+        if not user_id or not amount:
+            return jsonify({"success": False, "msg": "እባክዎ የተጠቃሚ መታወቂያ እና የብር መጠን ያስገቡ!"}), 400
+
         user = User.query.filter_by(user_id=user_id).first()
         user_phone = user.phone if user and user.phone else "251900000000"
         out_trade_no = f"BK_{int(time.time())}_{random.randint(1000, 9999)}"
 
-        # እዚህ ጋር አዲሱ መርቻንት ኮድ (642077) በመጠቀም የክፍያ ትዕዛዝ ይፈጠራል
         payment_response = create_telebirr_order_with_merchant(amount=amount, user_phone=user_phone, out_trade_no=out_trade_no)
         
-        if payment_response and payment_response.get("code") == "0":
-            checkout_url = payment_response.get("data", {}).get("toUrl")
+        if payment_response and (payment_response.get("code") == "0" or payment_response.get("code") == 0):
+            checkout_url = payment_response.get("data", {}).get("toUrl") or payment_response.get("toUrl")
             
             deposit = Deposit(
                 user_id=str(user_id),
@@ -914,23 +915,34 @@ def create_telebirr_payment():
 
             return jsonify({"success": True, "checkout_url": checkout_url})
         else:
+            print(f"[-] Telebirr Order Failed Response: {payment_response}")
             return jsonify({"success": False, "msg": "የክፍያ ሊንክ ማመንጨት አልተቻለም።", "details": payment_response}), 500
 
+    except ValueError as ve:
+        print(f"[-] ValueError detected: {str(ve)}")
+        return jsonify({"success": False, "msg": f"የግቤት ስህተት: {str(ve)}"}), 400
+
+    except requests.exceptions.RequestException as re:
+        print(f"[-] Network/API Connection Error: {str(re)}")
+        return jsonify({"success": False, "msg": "የክፍያ ሰርቨር (Telebirr API) ማግኘት አልተቻለም።"}), 503
+
     except Exception as e:
-        return jsonify({"success": False, "msg": str(e)}), 500
+        print("[-] UNEXPECTED ERROR OCCURRED IN create_telebirr_payment:")
+        traceback.print_exc()
+        return jsonify({"success": False, "msg": f"የክፍያ ሊንክ ማመንጨት አልተቻለም። (ሲስተም ስህተት: {str(e)})"}), 500
 
 
 @app.route('/telebirr-callback', methods=['POST'])
 def telebirr_callback():
     """ቴሌብር ክፍያው ሲጠናቀቅ የሚልክለትን ማረጋገጫ ተቀብሎ የተጠቃሚውን ባላንስ በራስ-ሰር የሚያሳድግ ራውት"""
-    callback_data = request.get_json() or request.form.to_dict()
-    
-    status = callback_data.get('status') or callback_data.get('transaction_status') or callback_data.get('tradeStatus')
-    out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref')
-    amount = callback_data.get('amount') or callback_data.get('total_amount')
+    try:
+        callback_data = request.get_json() or request.form.to_dict()
+        
+        status = callback_data.get('status') or callback_data.get('transaction_status') or callback_data.get('tradeStatus')
+        out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref')
+        amount = callback_data.get('amount') or callback_data.get('total_amount')
 
-    if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3'] and out_trade_no:
-        try:
+        if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3'] and out_trade_no:
             deposit = Deposit.query.filter_by(transaction_ref=out_trade_no, status='Pending').first()
             if deposit:
                 deposit.status = 'Completed'
@@ -947,15 +959,16 @@ def telebirr_callback():
 
                 db.session.commit()
                 
-                # ለተጠቃሚው በ Socket.io በኩል የባላንስ ለውጡን ማሳወቅ
                 socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance if user else 0})
                 send_telegram_custom_message(user_id, f'🎉 የቴሌብር ክፍያዎ በተሳካ ሁኔታ ጸድቋል! {numeric_amount} ብር አካውንትዎ ላይ ተጨምሯል።')
 
                 return jsonify({"code": "0", "message": "success"}), 200
-        except Exception as e:
-            return jsonify({"code": "1", "message": str(e)}), 500
 
-    return jsonify({"code": "1", "msg": "ክፍያው አልተሳካም ወይም መረጃው ጎድሏል።"}), 400
+        return jsonify({"code": "1", "msg": "ክፍያው አልተሳካም ወይም መረጃው ጎድሏል።"}), 400
+    except Exception as e:
+        print("[-] Telebirr Callback Error:")
+        traceback.print_exc()
+        return jsonify({"code": "1", "message": str(e)}), 500
 
 
 @app.route('/admin-logout')
