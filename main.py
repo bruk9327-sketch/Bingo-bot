@@ -71,20 +71,17 @@ def apply_fabric_token():
         return {"error": str(e)}
 
 def create_telebirr_order(amount, user_phone, out_trade_no):
-    """
-    ደረጃ 3: CreateOrder - የክፍያ ትዕዛዝ መፍጠር (ባለ አዲሱ መርቻንት ኮድ 609446)
-    """
     token_response = apply_fabric_token()
     
-    if "code" in token_response and token_response["code"] == "0":
-        access_token = token_response.get("data", {}).get("accessToken")
+    if isinstance(token_response, dict) and (token_response.get("code") == "0" or token_response.get("code") == 0):
+        access_token = token_response.get("data", {}).get("accessToken") or token_response.get("accessToken")
     else:
         return {"error": "Token generation failed", "details": token_response}
 
     url = "https://developerportal.ethiotelecom.et:18443/payment/v1/order"
     
     merchant_app_id = os.environ.get("MERCHANT_APP_ID")
-    short_code = "609446"  # አዲሱ ትክክለኛ የቴሌብር መርቻንት ቁጥርዎ
+    short_code = "642077"  # ከምስሉ ላይ የተወሰደው ትክክለኛው የሸርት ኮድዎ
     
     base_url = request.host_url.rstrip('/')
     
@@ -104,7 +101,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, verify=True)
+        response = requests.post(url, json=payload, headers=headers, verify=False)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
@@ -876,7 +873,7 @@ def admin_transaction_action(tx_id):
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
-    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት (አዲሱ መርቻንት 609446)"""
+    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት (አዲሱ መርቻንት 642077)"""
     data = request.get_json() or {}
     user_id = data.get('user_id')
     amount = data.get('amount')
@@ -889,7 +886,7 @@ def create_telebirr_payment():
         user_phone = user.phone if user and user.phone else "251900000000"
         out_trade_no = f"BK_{int(time.time())}_{random.randint(1000, 9999)}"
 
-        # እዚህ ጋር አዲሱ መርቻንት ኮድ (609446) በመጠቀም የክፍያ ትዕዛዝ ይፈጠራል
+        # እዚህ ጋር አዲሱ መርቻንት ኮድ (642077) በመጠቀም የክፍያ ትዕዛዝ ይፈጠራል
         payment_response = create_telebirr_order_with_merchant(amount=amount, user_phone=user_phone, out_trade_no=out_trade_no)
         
         if payment_response and payment_response.get("code") == "0":
@@ -899,7 +896,7 @@ def create_telebirr_payment():
                 user_id=str(user_id),
                 amount=float(amount),
                 transaction_ref=out_trade_no,
-                method='Telebirr API (609446)',
+                method='Telebirr API (642077)',
                 status='Pending'
             )
             db.session.add(deposit)
