@@ -34,20 +34,21 @@ TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
     'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
 )
 
-# የአድሚን ፓስወርድ ከ Environment Variable (Render) ማንበብ
 ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 
 PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Fixed & Secured)
+# Telebirr Integration Functions (Updated to Portal Spec)
 # ==========================================
 def apply_fabric_token():
-    url = "https://developerportal.ethiotelecom.et:18443/payment/v1/token"
+    # ከፖርታልዎ ዳሽቦርድ እንደታየው ትክክለኛው የኢትዮ ቴሌኮም ኤፒአይ ዩአርኤል እና ፖርት (38443)
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et:38443/apiaccess/payment/gateway")
+    url = f"{base_gateway}/payment/v1/token"
     
-    app_id = os.environ.get("FABRIC_APP_ID")
-    app_secret = os.environ.get("APP_SECRET")
+    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
+    app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b901639")
     
     headers = {
         "Content-Type": "application/json",
@@ -60,7 +61,8 @@ def apply_fabric_token():
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, verify=True, timeout=10)
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=10)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
@@ -77,9 +79,10 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     else:
         return {"error": "Token generation failed", "details": token_response}
 
-    url = "https://developerportal.ethiotelecom.et:18443/payment/v1/order"
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et:38443/apiaccess/payment/gateway")
+    url = f"{base_gateway}/payment/v1/order"
     
-    merchant_app_id = os.environ.get("MERCHANT_APP_ID")
+    merchant_app_id = os.environ.get("MERCHANT_APP_ID", "1688972571494400")
     short_code = os.environ.get("MERCHANT_SHORT_CODE", "642077")
     
     base_url = request.host_url.rstrip('/')
@@ -874,7 +877,6 @@ def admin_transaction_action(tx_id):
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
-    """ተጠቃሚው የሚፈልገውን የብር መጠን ተቀብሎ የክፍያ ሊንክ የሚያመነጭ ራውት ከትክክለኛ የኢረር ሀንድለር እና ሎግ ጋር"""
     try:
         data = request.get_json() or {}
         user_id = data.get('user_id')
@@ -933,7 +935,6 @@ def create_telebirr_payment():
 
 @app.route('/telebirr-callback', methods=['POST'])
 def telebirr_callback():
-    """ቴሌብር ክፍያው ሲጠናቀቅ የሚልክለትን ማረጋገጫ ተቀብሎ የተጠቃሚውን ባላንስ በራስ-ሰር የሚያሳድግ ራውት"""
     try:
         callback_data = request.get_json() or request.form.to_dict()
         
