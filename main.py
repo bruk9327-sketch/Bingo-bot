@@ -10,12 +10,9 @@ import traceback
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
-from gevent import monkey
 import sqlalchemy as sa
 from sqlalchemy import func
 import requests
-
-monkey.patch_all(all=True)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
@@ -920,10 +917,12 @@ def create_telebirr_payment():
 
     except ValueError as ve:
         print(f"[-] ValueError detected: {str(ve)}")
+        traceback.print_exc()
         return jsonify({"success": False, "msg": f"የግቤት ስህተት: {str(ve)}"}), 400
 
     except requests.exceptions.RequestException as re:
         print(f"[-] Network/API Connection Error: {str(re)}")
+        traceback.print_exc()
         return jsonify({"success": False, "msg": "የክፍያ ሰርቨር (Telebirr API) ማግኘት አልተቻለም።"}), 503
 
     except Exception as e:
