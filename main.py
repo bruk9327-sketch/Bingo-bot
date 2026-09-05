@@ -40,10 +40,11 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Updated to Portal Spec)
+# Telebirr Integration Functions (Production URL Fixed)
 # ==========================================
 def apply_fabric_token():
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et:38443/apiaccess/payment/gateway")
+    # ትክክለኛው የፕሮዳክሽን/ጌትዌይ ዩአርኤል (ፖርት 38443 ተወግዷል፤ እንደ አስፈላጊነቱ በ Environment Variable መቀየር ይቻላል)
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://api.ethiotelecom.et/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
@@ -60,7 +61,7 @@ def apply_fabric_token():
     }
     
     try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'True').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=10)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -73,12 +74,12 @@ def apply_fabric_token():
 def create_telebirr_order(amount, user_phone, out_trade_no):
     token_response = apply_fabric_token()
     
-    if isinstance(token_response, dict) and (token_response.get("code") == "0" or token_response.get("code") == 0):
+    if isinstance(token_response, dict) and (str(token_response.get("code")) == "0" or token_response.get("code") == 0):
         access_token = token_response.get("data", {}).get("accessToken") or token_response.get("accessToken")
     else:
         return {"error": "Token generation failed", "details": token_response}
 
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et:38443/apiaccess/payment/gateway")
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://api.ethiotelecom.et/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/order"
     
     merchant_app_id = os.environ.get("MERCHANT_APP_ID", "1688972571494400")
@@ -102,7 +103,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     }
     
     try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'True').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
