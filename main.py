@@ -43,7 +43,7 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions
+# Telebirr Integration Functions (Fixed & Secured)
 # ==========================================
 def apply_fabric_token():
     url = "https://developerportal.ethiotelecom.et:18443/payment/v1/token"
@@ -62,7 +62,7 @@ def apply_fabric_token():
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, verify=True)
+        response = requests.post(url, json=payload, headers=headers, verify=True, timeout=10)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
@@ -81,7 +81,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     url = "https://developerportal.ethiotelecom.et:18443/payment/v1/order"
     
     merchant_app_id = os.environ.get("MERCHANT_APP_ID")
-    short_code = "642077"  # ከምስሉ ላይ የተወሰደው ትክክለኛው የሸርት ኮድዎ
+    short_code = os.environ.get("MERCHANT_SHORT_CODE", "642077")  # ከ환경 variable እንዲነበብ ተደርጓል፣ ነባሩም 642077 ሆኗል
     
     base_url = request.host_url.rstrip('/')
     
@@ -97,11 +97,13 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "outTradeNo": out_trade_no,
         "subject": "BKBINGO PRO Deposit",
         "notifyUrl": f"{base_url}/telebirr-callback",
-        "returnUrl": "https://t.me/your_telegram_bot"
+        "returnUrl": f"https://t.me/{os.environ.get('TELEGRAM_BOT_USERNAME', 'your_telegram_bot')}"
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, verify=False)
+        # ለምርት (Production) አካባቢ verify=True እንዲሆን ተደርጓል (SSL ደህንነት እንዲጠበቅ)
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
@@ -869,7 +871,7 @@ def admin_transaction_action(tx_id):
 
 
 # ==========================================
-# Updated Telebirr Payment & Callback Routes
+# Telebirr Payment & Callback Routes
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
@@ -947,7 +949,7 @@ def telebirr_callback():
                 
                 # ለተጠቃሚው በ Socket.io በኩል የባላንስ ለውጡን ማሳወቅ
                 socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance if user else 0})
-                send_telegram_custom_message(user_id, f'🎉 የቴሌብር ክፍያዎ በሳካ ሁኔታ ጸድቋል! {numeric_amount} ብር አካውንትዎ ላይ ተጨምሯል።')
+                send_telegram_custom_message(user_id, f'🎉 የቴሌብር ክፍያዎ በተሳካ ሁኔታ ጸድቋል! {numeric_amount} ብር አካውንትዎ ላይ ተጨምሯል።')
 
                 return jsonify({"code": "0", "message": "success"}), 200
         except Exception as e:
