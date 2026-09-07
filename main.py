@@ -13,6 +13,10 @@ from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa
 from sqlalchemy import func
 import requests
+import urllib3
+
+# የ SSL ማስጠንቀቂያዎችን ማጥፋት (በ IP አድራሻ ለሚሰሩ ጌትዌዮች አስፈላጊ ነው)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
@@ -40,28 +44,28 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Production URL Fixed & Updated to ethiotelecom.et)
+# Telebirr Integration Functions (Updated to match Postman OpenAPI & Production Spec)
 # ==========================================
 def apply_fabric_token():
-    # ትክክለኛው የፕሮዳክሽን/ጌትዌይ ዩአርኤል (ethiotelecom.et ተብሎ ተስተካክሏል)
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://api.ethiotelecom.et/apiaccess/payment/gateway")
+    # ከ Postman Environment የተወሰደው ትክክለኛው የጌትዌይ URL
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b901639")
+    app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
     
     headers = {
         "Content-Type": "application/json",
         "X-APP-Key": app_id
     }
     
+    # በ Postman Collection (GenerateAppToken) መሰረት body የሚጠበቀው appSecret ብቻ ነው
     payload = {
-        "appId": app_id,
         "appSecret": app_secret
     }
     
     try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'True').lower() == 'true'
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=10)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -74,36 +78,60 @@ def apply_fabric_token():
 def create_telebirr_order(amount, user_phone, out_trade_no):
     token_response = apply_fabric_token()
     
-    if isinstance(token_response, dict) and (str(token_response.get("code")) == "0" or token_response.get("code") == 0):
-        access_token = token_response.get("data", {}).get("accessToken") or token_response.get("accessToken")
-    else:
+    # ቶከኑን ከዩአርኤል ምላሽ በትክክል መውሰድ (በ Postman test script መሰረት token field)
+    access_token = None
+    if isinstance(token_response, dict):
+        access_token = token_response.get("token") or token_response.get("access_token") or token_response.get("data", {}).get("token")
+        
+    if not access_token:
         return {"error": "Token generation failed", "details": token_response}
 
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://api.ethiotelecom.et/apiaccess/payment/gateway")
-    url = f"{base_gateway}/payment/v1/order"
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
+    url = f"{base_gateway}/payment/v1/merchant/preOrder"
     
-    merchant_app_id = os.environ.get("MERCHANT_APP_ID", "1688972571494400")
-    short_code = os.environ.get("MERCHANT_SHORT_CODE", "642077")
+    merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
+    merchant_code = os.environ.get("MERCHANT_CODE", "101011")
+    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
     
     base_url = request.host_url.rstrip('/')
+    timestamp = str(int(time.time() * 1000))
+    nonce_str = f"bkbingo_{int(time.time())}_{random.randint(1000, 9999)}"
     
     headers = {
         "Content-Type": "application/json",
-        "X-Auth-Token": access_token
+        "Authorization": access_token,
+        "x-app-key": app_id
+    }
+    
+    # በ Postman Collection (CreateOrder / payment.preorder) መዋቅር መሰረት የተዘጋጀ payload
+    biz_content = {
+        "trans_currency": "ETB",
+        "total_amount": str(amount),
+        "merch_order_id": out_trade_no,
+        "appid": merchant_id,
+        "merch_code": merchant_code,
+        "timeout_express": "120m",
+        "trade_type": "InApp",
+        "notify_url": f"{base_url}/telebirr-callback",
+        "title": "BKBINGO PRO Deposit",
+        "business_type": "BuyGoods",
+        "payee_identifier": merchant_code,
+        "payee_identifier_type": "04",
+        "payee_type": "5000"
     }
     
     payload = {
-        "merchantAppId": merchant_app_id,
-        "merchCode": short_code,
-        "amount": str(amount),
-        "outTradeNo": out_trade_no,
-        "subject": "BKBINGO PRO Deposit",
-        "notifyUrl": f"{base_url}/telebirr-callback",
-        "returnUrl": f"https://t.me/{os.environ.get('TELEGRAM_BOT_USERNAME', 'your_telegram_bot')}"
+        "nonce_str": nonce_str,
+        "biz_content": biz_content,
+        "method": "payment.preorder",
+        "version": "1.0",
+        "sign_type": "SHA256WithRSA",
+        "timestamp": timestamp,
+        "sign": "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA" # ትክክለኛ ፕራይቬት ከይ ካለ በ RSA የተፈረመ ፊርማ እዚህ ይገባል
     }
     
     try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'True').lower() == 'true'
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -894,13 +922,13 @@ def create_telebirr_payment():
       print(f"[+] Telebirr payment response received: {payment_response}")
       
       if payment_response and (str(payment_response.get("code")) == "0" or payment_response.get("code") == 0):
-          checkout_url = payment_response.get("data", {}).get("toUrl") or payment_response.get("toUrl")
+          checkout_url = payment_response.get("data", {}).get("toUrl") or payment_response.get("toUrl") or payment_response.get("data", {}).get("checkoutUrl")
           
           deposit = Deposit(
               user_id=str(user_id),
               amount=float(amount),
               transaction_ref=out_trade_no,
-              method='Telebirr API (642077)',
+              method='Telebirr API',
               status='Pending'
           )
           db.session.add(deposit)
@@ -932,10 +960,10 @@ def telebirr_callback():
         callback_data = request.get_json() or request.form.to_dict()
         
         status = callback_data.get('status') or callback_data.get('transaction_status') or callback_data.get('tradeStatus')
-        out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref')
+        out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref') or callback_data.get('merch_order_id')
         amount = callback_data.get('amount') or callback_data.get('total_amount')
 
-        if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3'] and out_trade_no:
+        if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3', '0'] and out_trade_no:
             deposit = Deposit.query.filter_by(transaction_ref=out_trade_no, status='Pending').first()
             if deposit:
                 deposit.status = 'Completed'
