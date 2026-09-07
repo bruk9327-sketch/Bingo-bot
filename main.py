@@ -901,10 +901,6 @@ def admin_transaction_action(tx_id):
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
-  pass # Placeholder for syntax correctness
-
-@app.route('/create-telebirr-payment', methods=['POST'])
-def create_telebirr_payment():
   try:
       data = request.get_json() or {}
       user_id = data.get('user_id')
