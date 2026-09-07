@@ -44,12 +44,11 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Updated with IP Gateway URL)
+# Telebirr Integration Functions (Updated with Correct IP Gateway Path)
 # ==========================================
 def apply_fabric_token():
-    # ትክክለኛውን የ IP ጌትዌይ URL ብቻ መጠቀም (ዶሜይን ሙሉ በሙሉ ተወግዷል)
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
-    url = f"{base_gateway}/payment/v1/token"
+    # ትክክለኛው የቶከን ዩአርኤል ፓዝ (Path) ተስተካክሏል
+    url = "https://196.188.120.3:38443/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
     app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
@@ -900,6 +899,10 @@ def admin_transaction_action(tx_id):
 # ==========================================
 # Telebirr Payment & Callback Routes
 # ==========================================
+@app.route('/create-telebirr-payment', methods=['POST'])
+def create_telebirr-payment():
+  pass # Placeholder for syntax correctness
+
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
   try:
