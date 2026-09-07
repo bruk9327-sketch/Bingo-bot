@@ -44,10 +44,9 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Updated with Correct IP Gateway Path)
+# Telebirr Integration Functions
 # ==========================================
 def apply_fabric_token():
-    # ትክክለኛው የቶከን ዩአርኤል ፓዝ (Path) ተስተካክሏል
     url = "https://196.188.120.3:38443/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
@@ -854,7 +853,7 @@ def admin_login():
         if admin and admin.password == password:
             session['admin_logged'] = True
             session['is_admin'] = True
-            session['admin_name'] = admin.username
+            session['admin_name'] = username
             return redirect(url_for('admin_dashboard'))
         
         elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
@@ -863,141 +862,12 @@ def admin_login():
             session['admin_name'] = username
             return redirect(url_for('admin_dashboard'))
         else:
-            error_msg = '⚠️ ትክክለኛ ያልሆነ የአስተዳዳሪ ስም ወይም የይለፍ ቃል!'
+            error_msg = 'የተሳሳተ መግቢያ ስም ወይም የይለፍ ቃል!'
             
-    return render_template('admin_login.html', error=error_msg)
+    return render_template('admin_login.html', error_msg=error_msg)
 
-
-@app.route('/admin/transaction/action/<int:tx_id>', methods=['POST'])
-def admin_transaction_action(tx_id):
-    if not session.get('is_admin') and not session.get('admin_logged'):
-        return jsonify({'success': False, 'message': 'እባክዎ መጀመሪያ ይግቡ!'})
-    
-    action = request.form.get('action')
-    tx = Transaction.query.get(tx_id)
-    if not tx:
-        return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አልተገኘም!'})
-    
-    if action == 'approve':
-        tx.status = 'completed'
-        user = User.query.filter_by(user_id=tx.user_id).first()
-        if user and tx.type == 'deposit':
-            user.balance = float(user.balance) + float(tx.amount)
-            send_telegram_custom_message(user.user_id, f'🎉 ክፍያዎ ጸድቋል! {tx.amount} ብር ተጨምሯል።')
-        db.session.commit()
-        return jsonify({'success': True})
-        
-    elif action == 'reject':
-        tx.status = 'rejected'
-        db.session.commit()
-        send_telegram_custom_message(tx.user_id, f'❌ የክፍያ ጥያቄዎ ውድቅ ተደርጓል።')
-        return jsonify({'success': True})
-        
-    return jsonify({'success': False, 'message': 'ትክክለኛ ያልሆነ እርምጃ!'})
-
-
-# ==========================================
-# Telebirr Payment & Callback Routes
-# ==========================================
-@app.route('/create-telebirr-payment', methods=['POST'])
-def create_telebirr_payment():
-  try:
-      data = request.get_json() or {}
-      user_id = data.get('user_id')
-      amount = data.get('amount')
-
-      if not user_id or not amount:
-          return jsonify({"success": False, "msg": "እባክዎ የተጠቃሚ መታወቂያ እና የብር መጠን ያስገቡ!"}), 400
-
-      user = User.query.filter_by(user_id=user_id).first()
-      user_phone = user.phone if user and user.phone else "251900000000"
-      out_trade_no = f"BK_{int(time.time())}_{random.randint(1000, 9999)}"
-
-      print(f"[+] Attempting Telebirr payment for User: {user_id}, Amount: {amount}, TradeNo: {out_trade_no}")
-      payment_response = create_telebirr_order_with_merchant(amount=amount, user_phone=user_phone, out_trade_no=out_trade_no)
-      print(f"[+] Telebirr payment response received: {payment_response}")
-      
-      if payment_response and (str(payment_response.get("code")) == "0" or payment_response.get("code") == 0):
-          checkout_url = payment_response.get("data", {}).get("toUrl") or payment_response.get("toUrl") or payment_response.get("data", {}).get("checkoutUrl")
-          
-          deposit = Deposit(
-              user_id=str(user_id),
-              amount=float(amount),
-              transaction_ref=out_trade_no,
-              method='Telebirr API',
-              status='Pending'
-          )
-          db.session.add(deposit)
-          
-          tx_record = Transaction(
-              user_id=str(user_id),
-              type='deposit',
-              amount=float(amount),
-              status='pending'
-          )
-          db.session.add(tx_record)
-          db.session.commit()
-
-          return jsonify({"success": True, "checkout_url": checkout_url})
-      else:
-          error_msg = payment_response.get("msg") or payment_response.get("message") or "የክፍያ ሊንክ ማመንጨት አልተቻለም።"
-          print(f"[-] Telebirr Order Failed: {payment_response}")
-          return jsonify({"success": False, "msg": error_msg, "details": payment_response}), 400
-
-  except Exception as e:
-      print("[-] UNEXPECTED ERROR IN create_telebirr_payment:")
-      traceback.print_exc()
-      return jsonify({"success": False, "msg": f"ሰርቨር ስህተት አጋጥሟል: {str(e)}"}), 500
- 
-
-@app.route('/telebirr-callback', methods=['POST'])
-def telebirr_callback():
-    try:
-        callback_data = request.get_json() or request.form.to_dict()
-        
-        status = callback_data.get('status') or callback_data.get('transaction_status') or callback_data.get('tradeStatus')
-        out_trade_no = callback_data.get('outTradeNo') or callback_data.get('transaction_ref') or callback_data.get('merch_order_id')
-        amount = callback_data.get('amount') or callback_data.get('total_amount')
-
-        if status in ['SUCCESS', 'COMPLETED', 'SUCCESSFUL', '3', '0'] and out_trade_no:
-            deposit = Deposit.query.filter_by(transaction_ref=out_trade_no, status='Pending').first()
-            if deposit:
-                deposit.status = 'Completed'
-                user_id = deposit.user_id
-                numeric_amount = float(deposit.amount)
-
-                user = User.query.filter_by(user_id=user_id).first()
-                if user:
-                    user.balance = float(user.balance) + numeric_amount
-                
-                tx = Transaction.query.filter_by(user_id=user_id, status='pending', type='deposit').order_by(Transaction.id.desc()).first()
-                if tx:
-                    tx.status = 'completed'
-
-                db.session.commit()
-                
-                socketio.emit('balance_update', {'user_id': user_id, 'balance': user.balance if user else 0})
-                send_telegram_custom_message(user_id, f'🎉 የቴሌብር ክፍያዎ በተሳካ ሁኔታ ጸድቋል! {numeric_amount} ብር አካውንትዎ ላይ ተጨምሯል።')
-
-                return jsonify({"code": "0", "message": "success"}), 200
-
-        return jsonify({"code": "1", "msg": "ክፍያው አልተሳካም ወይም መረጃው ጎድሏል።"}), 400
-    except Exception as e:
-        print("[-] Telebirr Callback Error:")
-        traceback.print_exc()
-        return jsonify({"code": "1", "message": str(e)}), 500
-
-
-@app.route('/admin-logout')
-def admin_logout():
-    session.pop('admin_logged', None)
-    session.pop('is_admin', None)
-    session.pop('admin_name', None)
-    return redirect(url_for('admin_login'))
-
-
-socketio.start_background_task(background_game_loop)
 
 if __name__ == '__main__':
+  threading.Thread(target=background_game_loop, daemon=True).start()
   port = int(os.environ.get('PORT', 10000))
-  socketio.run(app, host='0.0.0.0', port=port, debug=False)
+  socketio.run(app, host='0.0.0.0', port=port)
