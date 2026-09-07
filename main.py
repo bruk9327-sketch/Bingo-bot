@@ -44,11 +44,11 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Updated with 'https://')
+# Telebirr Integration Functions (Updated with IP Gateway URL)
 # ==========================================
 def apply_fabric_token():
-    # 'https://' መኖሩን እርግጠኛ ይሁኑ
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et")
+    # ትክክለኛውን የ IP ጌትዌይ URL መጠቀም
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
@@ -86,7 +86,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     if not access_token:
         return {"error": "Token generation failed", "details": token_response}
 
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://developerportal.ethiotelebr.et")
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/merchant/preOrder"
     
     merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
