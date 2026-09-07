@@ -900,7 +900,7 @@ def admin_transaction_action(tx_id):
 # Telebirr Payment & Callback Routes
 # ==========================================
 @app.route('/create-telebirr-payment', methods=['POST'])
-def create_telebirr-payment():
+def create_telebirr_payment():
   pass # Placeholder for syntax correctness
 
 @app.route('/create-telebirr-payment', methods=['POST'])
