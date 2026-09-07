@@ -47,7 +47,7 @@ PROCESSED_TIDS = set()
 # Telebirr Integration Functions (Updated with IP Gateway URL)
 # ==========================================
 def apply_fabric_token():
-    # ትክክለኛውን የ IP ጌትዌይ URL መጠቀም
+    # ትክክለኛውን የ IP ጌትዌይ URL ብቻ መጠቀም (ዶሜይን ሙሉ በሙሉ ተወግዷል)
     base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
     url = f"{base_gateway}/payment/v1/token"
     
@@ -59,7 +59,6 @@ def apply_fabric_token():
         "X-APP-Key": app_id
     }
     
-    # በ Postman Collection (GenerateAppToken) መሰረት body የሚጠበቀው appSecret ብቻ ነው
     payload = {
         "appSecret": app_secret
     }
@@ -78,7 +77,6 @@ def apply_fabric_token():
 def create_telebirr_order(amount, user_phone, out_trade_no):
     token_response = apply_fabric_token()
     
-    # ቶከኑን ከዩአርኤል ምላሽ በትክክል መውሰድ (በ Postman test script መሰረት token field)
     access_token = None
     if isinstance(token_response, dict):
         access_token = token_response.get("token") or token_response.get("access_token") or token_response.get("data", {}).get("token")
@@ -103,7 +101,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "x-app-key": app_id
     }
     
-    # በ Postman Collection (CreateOrder / payment.preorder) መዋቅር መሰረት የተዘጋጀ payload
     biz_content = {
         "trans_currency": "ETB",
         "total_amount": str(amount),
@@ -127,7 +124,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "version": "1.0",
         "sign_type": "SHA256WithRSA",
         "timestamp": timestamp,
-        "sign": "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA" # ትክክለኛ ፕራይቬት ከይ ካለ በ RSA የተፈረመ ፊርማ እዚህ ይገባል
+        "sign": "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
     }
     
     try:
