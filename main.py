@@ -775,6 +775,20 @@ def index():
   return render_template('index.html')
 
 
+@app.route('/create-telebirr-payment', methods=['POST'])
+def create_telebirr_payment():
+    data = request.get_json() or {}
+    amount = data.get('amount')
+    user_phone = data.get('phone') or data.get('user_phone')
+    out_trade_no = data.get('out_trade_no') or f"bk_{int(time.time())}_{random.randint(1000, 9999)}"
+    
+    if not amount or not user_phone:
+        return jsonify({"success": False, "msg": "እባክዎ መጠኑን እና ስልክ ቁጥሩን በትክክል ያስገቡ!"}), 400
+        
+    result = create_telebirr_order(amount, user_phone, out_trade_no)
+    return jsonify(result)
+
+
 @app.route('/admin', methods=['GET'])
 def admin_dashboard():
     if not session.get('is_admin') and not session.get('admin_logged'):
