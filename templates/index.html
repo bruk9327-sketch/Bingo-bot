@@ -539,6 +539,10 @@
             const smsInput = document.getElementById('sms_text_input').value.trim();
             const method = document.getElementById('deposit-method').value;
 
+            if (!window.userId) {
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            }
+
             if (!amount || amount <= 0 || !smsInput) { 
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
             }
@@ -547,7 +551,7 @@
             const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
             if (tidMatch && tidMatch[1]) txRef = tidMatch[1];
 
-            socket.emit('request_deposit', { user_id: userId, amount: amount, tx_ref: txRef, sms_text: smsInput, method: method });
+            socket.emit('request_deposit', { user_id: window.userId, amount: amount, tx_ref: txRef, sms_text: smsInput, method: method });
             closeDepositModal();
             alert("📥 የዲፖዚት ጥያቄዎ ተልኳል!");
             document.getElementById('deposit_amount').value = '';
@@ -557,11 +561,14 @@
         function submitTelebirrPayment() {
             const amount = parseFloat(document.getElementById('deposit_amount').value);
             
+            if (!window.userId) {
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            }
+
             if (!amount || amount <= 0) {
                 return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
             }
 
-            // Try-Catch በ JavaScript ፕራሚስ/ፌች ላይ
             try {
                 fetch('/create-telebirr-payment', {
                     method: 'POST',
@@ -583,7 +590,6 @@
                     if (data.success && data.checkout_url) {
                         window.location.href = data.checkout_url;
                     } else {
-                        // ሰቨሩ የላከውን ትክክለኛ የሰቨር ስህተት መልእክት እዚህ ያሳያል
                         alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
                     }
                 })
@@ -602,8 +608,13 @@
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
+
+            if (!window.userId) {
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            }
+
             if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
-            socket.emit('request_withdrawal', { user_id: userId, amount: amount, account: account, method: method });
+            socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
         }
@@ -622,12 +633,13 @@
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
                 } else if (isSelected) {
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
-                    btn.onclick = () => socket.emit('select_card', { user_id: userId, card_id: i });
+                    btn.onclick = () => socket.emit('select_card', { user_id: window.userId, card_id: i });
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
                     btn.onclick = () => {
+                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                        socket.emit('select_card', { user_id: userId, card_id: i });
+                        socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
                 }
                 btn.innerText = i;
@@ -657,7 +669,7 @@
         }
 
         socket.on('balance_update', (data) => {
-            if(String(data.user_id) === String(userId)) updateBalanceDisplays(data.balance);
+            if(String(data.user_id) === String(window.userId)) updateBalanceDisplays(data.balance);
         });
 
         socket.on('timer_update', (data) => {
@@ -785,10 +797,11 @@
                 claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1';
                 claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
                 claimBtn.onclick = () => {
+                    if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
                     let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+                    socket.emit('claim_bingo', { user_id: window.userId, card_id: cid, board: boardValidationMatrix });
                 };
                 cardDiv.appendChild(claimBtn);
             }
