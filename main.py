@@ -44,10 +44,12 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions
+# Telebirr Integration Functions (Updated)
 # ==========================================
 def apply_fabric_token():
-    url = "https://196.188.120.3:38443/payment/v1/token"
+    # ከምስሎቹ እና ከፖርታሉ መሠረት ትክክለኛው የቶከን ማግኛ ዩአርኤል
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
+    url = f"{base_gateway}/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
     app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
@@ -66,23 +68,23 @@ def apply_fabric_token():
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=10)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
-        return response.json()
+        res_data = response.json()
+        
+        # ከምስሉ መዋቅር አንጻር ቶከኑ የሚገኝበትን ቦታ ማስተካከል
+        if isinstance(res_data, dict):
+            return res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
+        return None
     except Exception as e:
         print("Telebirr Token API Error:", str(e))
         traceback.print_exc()
-        return {"error": str(e)}
+        return None
 
 def create_telebirr_order(amount, user_phone, out_trade_no):
-    token_response = apply_fabric_token()
-    
-    access_token = None
-    if isinstance(token_response, dict):
-        access_token = token_response.get("token") or token_response.get("access_token") or token_response.get("data", {}).get("token")
-        
+    access_token = apply_fabric_token()
     if not access_token:
-        return {"error": "Token generation failed", "details": token_response}
+        return {"error": "Token generation failed"}
 
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
     url = f"{base_gateway}/payment/v1/merchant/preOrder"
     
     merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
@@ -96,7 +98,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     headers = {
         "Content-Type": "application/json",
         "Authorization": access_token,
-        "x-app-key": app_id
+        "X-APP-Key": app_id
     }
     
     biz_content = {
@@ -108,6 +110,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "timeout_express": "120m",
         "trade_type": "InApp",
         "notify_url": f"{base_url}/telebirr-callback",
+        "return_url": f"{base_url}/",
         "title": "BKBINGO PRO Deposit",
         "business_type": "BuyGoods",
         "payee_identifier": merchant_code,
@@ -787,6 +790,21 @@ def create_telebirr_payment():
         
     result = create_telebirr_order(amount, user_phone, out_trade_no)
     return jsonify(result)
+
+
+@app.route('/telebirr-callback', methods=['POST'])
+def telebirr_callback():
+    try:
+        data = request.get_json() or request.form.to_dict()
+        print("Telebirr Callback Received:", data)
+        
+        # ከቴሌብር የሚመጣውን መረጃ ማጣራት (Biz content ወይም Trade status)
+        # ክፍያው የተሳካ መሆኑን ካረጋገጠ በኋላ ለተጠቃሚው አካውንት ባላንስ መጨመር ይቻላል
+        
+        return jsonify({"code": 0, "msg": "success", "data": {}})
+    except Exception as e:
+        print("Callback Error:", e)
+        return jsonify({"code": -1, "msg": str(e)}), 400
 
 
 @app.route('/admin', methods=['GET'])
