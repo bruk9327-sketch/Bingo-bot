@@ -878,7 +878,7 @@ def admin_dashboard():
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
-def admin_login':
+def admin_login():
     error_msg = None
     if request.method == 'POST':
         username = request.form.get('username')
