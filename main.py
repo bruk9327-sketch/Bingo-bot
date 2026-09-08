@@ -18,7 +18,7 @@ from sqlalchemy import func
 import requests
 import urllib3
 
-# cryptography ሞጁል በትክکلی መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
+# cryptography ሞጁል በትክክል መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
 try:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding
@@ -193,9 +193,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
 
 
 def query_telebirr_order(out_trade_no):
-    """
-    የተፈጠረ ትዕዛዝ ሁኔታን (Check Order / Query Order) ከቴሌብር ሰርቨር ማረጋገጫ ዲስፓርች ማድረግ።
-    """
     access_token = apply_fabric_token()
     if not access_token:
         return {"error": "Token generation failed"}
@@ -940,9 +937,6 @@ def create_telebirr_payment():
 
 @app.route('/check-telebirr-order/<out_trade_no>', methods=['GET'])
 def check_telebirr_order_route(out_trade_no):
-    """
-    የትዕዛዙን ሁኔታ ከቴሌብር ሰርቨር በቀጥታ ለመመልከት (Check Order Endpoint)።
-    """
     result = query_telebirr_order(out_trade_no)
     return jsonify(result)
 
