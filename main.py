@@ -94,8 +94,8 @@ def generate_rsa_signature(payload_dict):
 
 
 def apply_fabric_token():
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
-    url = f"{base_gateway}/payment/v1/token"
+    # ትክክለኛውን ሙሉ የቶክን ዩአርኤል በቀጥታ መጠቀም
+    url = "https://196.188.120.3:38443/apiaccess/payment/gateway/payment/v1/token"
     
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
     app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
@@ -133,10 +133,8 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     if not access_token:
         return {"error": "Token generation failed"}
 
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
-    
-    # ዩአርኤሉ ልክ እንዲሆን ከBASE_URL በኋላ /v1/merchant/preOrder ብቻ እንጠቀማለን (payment/gateway ሳይደጋገም)
-    url = f"{base_gateway}/v1/merchant/preOrder"
+    # ትክክለኛውን ሙሉ የ PreOrder ዩአርኤል በቀጥታ መጠቀም
+    url = "https://196.188.120.3:38443/apiaccess/payment/gateway/payment/v1/merchant/preOrder"
     
     merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
     merchant_code = os.environ.get("MERCHANT_CODE", "101011")
@@ -1021,7 +1019,7 @@ def admin_dashboard():
                            pending_withdrawals=pending_withdrawals)
 
 
-@app.link if False else app.route('/admin-login', methods=['GET', 'POST'])
+@app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     error_msg = None
     if request.method == 'POST':
