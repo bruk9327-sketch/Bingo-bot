@@ -180,12 +180,18 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        print("Telebirr Order Response:", response.status_code, response.text)
+        
+        print("Telebirr Response Status:", response.status_code)
+        print("Telebirr Response Body:", response.text)
+        
         response.raise_for_status()
         return response.json()
     except requests.exceptions.Timeout:
         print("Telebirr Order API Timeout Error")
         return {"error": "የክፍያ አገልግሎቱ አልመለሰም::"}
+    except requests.exceptions.HTTPError as e:
+        print("HTTP Error Details:", e.response.text)
+        return {"error": f"Telebirr Error: {e.response.text}"}
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
         traceback.print_exc()
