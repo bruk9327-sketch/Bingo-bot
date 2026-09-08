@@ -1,5 +1,6 @@
 from gevent import monkey
-monkey.patch_all(all=True)
+monkey.patch_all()
+
 from datetime import datetime
 import os
 import random
@@ -47,7 +48,6 @@ PROCESSED_TIDS = set()
 # Telebirr Integration Functions (Updated)
 # ==========================================
 def apply_fabric_token():
-    # ከምስሎቹ እና ከፖርታሉ መሠረት ትክክለኛው የቶከን ማግኛ ዩአርኤል
     base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
     url = f"{base_gateway}/payment/v1/token"
     
@@ -65,14 +65,16 @@ def apply_fabric_token():
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
         res_data = response.json()
         
-        # ከምስሉ መዋቅር አንጻር ቶከኑ የሚገኝበትን ቦታ ማስተካከል
         if isinstance(res_data, dict):
             return res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
+        return None
+    except requests.exceptions.Timeout:
+        print("Telebirr Token API Timeout Error")
         return None
     except Exception as e:
         print("Telebirr Token API Error:", str(e))
@@ -134,6 +136,9 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.Timeout:
+        print("Telebirr Order API Timeout Error")
+        return {"error": "የክፍያ አገልግሎቱ አልመለሰም::"}
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
         traceback.print_exc()
@@ -797,10 +802,6 @@ def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
         print("Telebirr Callback Received:", data)
-        
-        # ከቴሌብር የሚመጣውን መረጃ ማጣራት (Biz content ወይም Trade status)
-        # ክፍያው የተሳካ መሆኑን ካረጋገጠ በኋላ ለተጠቃሚው አካውንት ባላንስ መጨመር ይቻላል
-        
         return jsonify({"code": 0, "msg": "success", "data": {}})
     except Exception as e:
         print("Callback Error:", e)
