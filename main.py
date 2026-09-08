@@ -65,6 +65,7 @@ def apply_fabric_token():
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        # TIMEOUT ወደ 30 ሰከንድ ከፍ እንዲል ተደርጓል
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -132,6 +133,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        # TIMEOUT ወደ 30 ሰከንድ ከፍ እንዲል ተደርጓል
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -876,7 +878,7 @@ def admin_dashboard():
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
-def admin_login():
+def admin_login':
     error_msg = None
     if request.method == 'POST':
         username = request.form.get('username')
