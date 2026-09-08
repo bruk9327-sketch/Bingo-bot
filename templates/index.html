@@ -569,39 +569,35 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
             }
 
-            try {
-                fetch('/create-telebirr-payment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        user_id: window.userId,
-                        amount: amount
-                    })
+            fetch('/create-telebirr-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: window.userId,
+                    amount: amount
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.checkout_url) {
-                        window.location.href = data.checkout_url;
-                    } else {
-                        alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
-                    }
-                })
-                .catch(fetchError => {
-                    console.error('Fetch Catch Error:', fetchError);
-                    alert("⚠️ የኔትወርክ ወይም የሰቨር ችግር አጋጥሟል። እባክዎ ተርሚናል (Terminal) ሎግ ይዩ።");
-                });
-
-            } catch (err) {
-                console.error('Frontend Script Error:', err);
-                alert("⚠️ በሲስተሙ ላይ ያልተጠበቀ ችግር ተፈጥሯል።");
-            }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // ቴሌብር ከሚመልሰው መዋቅር ውስጥ የክፍያ ማገናኛውን (Checkout/H5 URL) መቀበል
+                const checkoutUrl = data.data?.toPayUrl || data.checkout_url || data.url;
+                if (checkoutUrl) {
+                    window.location.href = checkoutUrl;
+                } else {
+                    alert("⚠️ " + (data.msg || data.error || "ክፍያ መጀመር አልተቻለም።"));
+                }
+            })
+            .catch(err => {
+                console.error('Telebirr Payment Error:', err);
+                alert("⚠️ የኔትወርክ ችግር አጋጥሟል።");
+            });
         }
 
         function submitWithdraw() {
