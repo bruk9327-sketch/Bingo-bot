@@ -8,6 +8,8 @@ import re
 import threading
 import time
 import traceback
+import base64
+import json
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -15,6 +17,10 @@ import sqlalchemy as sa
 from sqlalchemy import func
 import requests
 import urllib3
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
 
 # የ SSL ማስጠንቀቂያዎችን ማጥፋት (በ IP አድራሻ ለሚሰሩ ጌትዌዮች አስፈላጊ ነው)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -45,8 +51,43 @@ PROCESSED_TIDS = set()
 
 
 # ==========================================
-# Telebirr Integration Functions (Updated)
+# Telebirr Integration & RSA Signing Functions
 # ==========================================
+def generate_rsa_signature(payload_dict):
+    """
+    የቴሌብር ፔይሎድ (Payload) በ RSA Private Key በመፈረም SHA256WithRSA ፊርማ ማመንጨት።
+    """
+    private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
+    if not private_key_str:
+        # ፕራይቬት ከይ ከሌለ በ ENV ውስጥ፣ ዱሚ ፊርማ ይመልሳል (ለሙከራ)
+        return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
+    
+    try:
+        if "-----BEGIN" not in private_key_str:
+            private_key_str = f"-----BEGIN PRIVATE KEY-----\n{private_key_str}\n-----END PRIVATE KEY-----"
+            
+        private_key = serialization.load_pem_private_key(
+            private_key_str.encode('utf-8'),
+            password=None,
+            backend=default_backend()
+        )
+        
+        # ቴሌብር የሚፈልገው ኪ-ቫልዩዎችን በፊደል ተከታተል (Alphabetical order) አሰናድቶ መፈረም ነው።
+        # ወይም የቀረበውን ዲክሽነሪ ሼር በማድረግ ኬቶችን በቅደም ተከተል በመያዝ ኬን መፍጠር ይቻላል።
+        # እዚህ ጋር ለቀላል አጠቃቀም JSON string ወይም የተወሰኑ አካላትን እንፈርማለን።
+        canonical_content = json.dumps(payload_dict, sort_keys=True, separators=(',', ':'))
+        
+        signature = private_key.sign(
+            canonical_content.encode('utf-8'),
+            padding.PKCS1v15(),
+            hashes.SHA256()
+        )
+        return base64.b64encode(signature).decode('utf-8')
+    except Exception as e:
+        print("RSA Signing Error:", str(e))
+        return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
+
+
 def apply_fabric_token():
     base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
     url = f"{base_gateway}/payment/v1/token"
@@ -65,7 +106,6 @@ def apply_fabric_token():
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        # TIMEOUT ወደ 30 ሰከንድ ከፍ እንዲል ተደርጓል
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -81,6 +121,7 @@ def apply_fabric_token():
         print("Telebirr Token API Error:", str(e))
         traceback.print_exc()
         return None
+
 
 def create_telebirr_order(amount, user_phone, out_trade_no):
     access_token = apply_fabric_token()
@@ -128,12 +169,14 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "version": "1.0",
         "sign_type": "SHA256WithRSA",
         "timestamp": timestamp,
-        "sign": "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
+        "sign": ""
     }
+    
+    # ፊርማ ማመንጨት
+    payload["sign"] = generate_rsa_signature(biz_content)
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        # TIMEOUT ወደ 30 ሰከንድ ከፍ እንዲል ተደርጓል
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
@@ -145,6 +188,100 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         print("Telebirr Order API Error:", str(e))
         traceback.print_exc()
         return {"error": str(e)}
+
+
+def query_telebirr_order(out_trade_no):
+    """
+    የተፈጠረ ትዕዛዝ ሁኔታን (Check Order / Query Order) ከቴሌብር ሰርቨር ማረጋገጫ ዲስፓርች ማድረግ።
+    """
+    access_token = apply_fabric_token()
+    if not access_token:
+        return {"error": "Token generation failed"}
+
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
+    url = f"{base_gateway}/payment/v1/merchant/queryOrder"
+    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
+    
+    timestamp = str(int(time.time() * 1000))
+    nonce_str = f"query_{int(time.time())}"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": access_token,
+        "X-APP-Key": app_id
+    }
+    
+    biz_content = {
+        "merch_order_id": out_trade_no
+    }
+    
+    payload = {
+        "nonce_str": nonce_str,
+        "biz_content": biz_content,
+        "method": "payment.queryorder",
+        "version": "1.0",
+        "sign_type": "SHA256WithRSA",
+        "timestamp": timestamp,
+        "sign": generate_rsa_signature(biz_content)
+    }
+    
+    try:
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print("Query Order Error:", str(e))
+        return {"error": str(e)}
+
+
+def refund_telebirr_order(out_trade_no, refund_amount, refund_reason="User Request"):
+    """
+    የተሳሳተ ክፍያ ሲኖር ገንዘብን ለመመለስ (Refund API) የሚያገለግል ተግባር።
+    """
+    access_token = apply_fabric_token()
+    if not access_token:
+        return {"error": "Token generation failed"}
+
+    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
+    url = f"{base_gateway}/payment/v1/merchant/refund"
+    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
+    
+    timestamp = str(int(time.time() * 1000))
+    nonce_str = f"ref_{int(time.time())}"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": access_token,
+        "X-APP-Key": app_id
+    }
+    
+    biz_content = {
+        "merch_order_id": out_trade_no,
+        "refund_amount": str(refund_amount),
+        "refund_reason": refund_reason,
+        "currency": "ETB"
+    }
+    
+    payload = {
+        "nonce_str": nonce_str,
+        "biz_content": biz_content,
+        "method": "payment.refund",
+        "version": "1.0",
+        "sign_type": "SHA256WithRSA",
+        "timestamp": timestamp,
+        "sign": generate_rsa_signature(biz_content)
+    }
+    
+    try:
+        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print("Refund Error:", str(e))
+        return {"error": str(e)}
+
 
 def create_telebirr_order_with_merchant(amount, user_phone, out_trade_no):
     return create_telebirr_order(amount, user_phone, out_trade_no)
@@ -799,11 +936,24 @@ def create_telebirr_payment():
     return jsonify(result)
 
 
+@app.route('/check-telebirr-order/<out_trade_no>', methods=['GET'])
+def check_telebirr_order_route(out_trade_no):
+    """
+    የትዕዛዙን ሁኔታ ከቴሌብር ሰርቨር በቀጥታ ለመመልከት (Check Order Endpoint)።
+    """
+    result = query_telebirr_order(out_trade_no)
+    return jsonify(result)
+
+
 @app.route('/telebirr-callback', methods=['POST'])
 def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
         print("Telebirr Callback Received:", data)
+        
+        # እዚህ ጋር የቴሌብርን ኮልባክ ዳታ ማረጋገጥ እና 
+        # ክፍያው ከተሳካ ለተጠቃሚው አካውንት ባላንስ በራስ-ሰር መሙላት ይቻላል።
+        
         return jsonify({"code": 0, "msg": "success", "data": {}})
     except Exception as e:
         print("Callback Error:", e)
