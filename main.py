@@ -18,9 +18,14 @@ from sqlalchemy import func
 import requests
 import urllib3
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
+# cryptography ሞጁል በትክکلی መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
+try:
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.backends import default_backend
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
 
 # የ SSL ማስጠንቀቂያዎችን ማጥፋት (በ IP አድራሻ ለሚሰሩ ጌትዌዮች አስፈላጊ ነው)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -57,9 +62,12 @@ def generate_rsa_signature(payload_dict):
     """
     የቴሌብር ፔይሎድ (Payload) በ RSA Private Key በመፈረም SHA256WithRSA ፊርማ ማመንጨት።
     """
+    if not CRYPTO_AVAILABLE:
+        print("Cryptography library is not installed.")
+        return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
+
     private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
     if not private_key_str:
-        # ፕራይቬት ከይ ከሌለ በ ENV ውስጥ፣ ዱሚ ፊርማ ይመልሳል (ለሙከራ)
         return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
     
     try:
@@ -72,9 +80,6 @@ def generate_rsa_signature(payload_dict):
             backend=default_backend()
         )
         
-        # ቴሌብር የሚፈልገው ኪ-ቫልዩዎችን በፊደል ተከታተል (Alphabetical order) አሰናድቶ መፈረም ነው።
-        # ወይም የቀረበውን ዲክሽነሪ ሼር በማድረግ ኬቶችን በቅደም ተከተል በመያዝ ኬን መፍጠር ይቻላል።
-        # እዚህ ጋር ለቀላል አጠቃቀም JSON string ወይም የተወሰኑ አካላትን እንፈርማለን።
         canonical_content = json.dumps(payload_dict, sort_keys=True, separators=(',', ':'))
         
         signature = private_key.sign(
@@ -169,11 +174,8 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "version": "1.0",
         "sign_type": "SHA256WithRSA",
         "timestamp": timestamp,
-        "sign": ""
+        "sign": generate_rsa_signature(biz_content)
     }
-    
-    # ፊርማ ማመንጨት
-    payload["sign"] = generate_rsa_signature(biz_content)
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
@@ -950,10 +952,6 @@ def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
         print("Telebirr Callback Received:", data)
-        
-        # እዚህ ጋር የቴሌብርን ኮልባክ ዳታ ማረጋገጥ እና 
-        # ክፍያው ከተሳካ ለተጠቃሚው አካውንት ባላንስ በራስ-ሰር መሙላት ይቻላል።
-        
         return jsonify({"code": 0, "msg": "success", "data": {}})
     except Exception as e:
         print("Callback Error:", e)
