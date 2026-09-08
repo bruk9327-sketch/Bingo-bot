@@ -65,7 +65,7 @@ def apply_fabric_token():
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
         res_data = response.json()
@@ -132,7 +132,7 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=15)
+        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
