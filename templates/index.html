@@ -579,14 +579,22 @@
                     amount: amount
                 })
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            .then(async response => {
+                const contentType = response.headers.get("content-type");
+                let data = {};
+                if (contentType && contentType.includes("application/json")) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    throw new Error(text || `HTTP error! status: ${response.status}`);
                 }
-                return response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.msg || data.error || `HTTP error! status: ${response.status}`);
+                }
+                return data;
             })
             .then(data => {
-                // ቴሌብር ከሚመልሰው መዋቅር ውስጥ የክፍያ ማገናኛውን (Checkout/H5 URL) መቀበል
                 const checkoutUrl = data.data?.toPayUrl || data.checkout_url || data.url;
                 if (checkoutUrl) {
                     window.location.href = checkoutUrl;
@@ -596,7 +604,7 @@
             })
             .catch(err => {
                 console.error('Telebirr Payment Error:', err);
-                alert("⚠️ የኔትወርክ ችግር አጋጥሟል።");
+                alert("⚠️ ክፍያ መፈጸም አልተቻለም: " + err.message);
             });
         }
 
@@ -809,7 +817,7 @@
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => container.className && container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
         socket.on('winner_announced', (data) => {
