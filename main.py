@@ -251,60 +251,6 @@ def query_telebirr_order(out_trade_no):
         return {"error": str(e)}
 
 
-def refund_telebirr_order(out_trade_no, refund_amount, refund_reason="User Request"):
-    access_token = apply_fabric_token()
-    if not access_token:
-        return {"error": "Token generation failed"}
-
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443/apiaccess/payment/gateway")
-    url = f"{base_gateway}/v1/merchant/refund"
-    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    
-    timestamp = str(int(time.time() * 1000))
-    nonce_str = f"ref_{int(time.time())}"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": access_token,
-        "X-APP-Key": app_id
-    }
-    
-    biz_content = {
-        "merch_order_id": out_trade_no,
-        "refund_amount": str(refund_amount),
-        "refund_reason": refund_reason,
-        "currency": "ETB"
-    }
-    
-    payload_to_sign = {
-        "nonce_str": nonce_str,
-        "biz_content": biz_content,
-        "method": "payment.refund",
-        "version": "1.0",
-        "timestamp": timestamp,
-        **biz_content
-    }
-    
-    payload = {
-        "nonce_str": nonce_str,
-        "biz_content": biz_content,
-        "method": "payment.refund",
-        "version": "1.0",
-        "sign_type": "SHA256WithRSA",
-        "timestamp": timestamp,
-        "sign": generate_rsa_signature(payload_to_sign)
-    }
-    
-    try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print("Refund Error:", str(e))
-        return {"error": str(e)}
-
-
 # ==========================================
 # Database Models
 # ==========================================
@@ -653,6 +599,8 @@ def index():
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
     data = request.get_json() or {}
+    print("DEBUG - /create-telebirr-payment request.json data:", data)
+    
     amount = data.get('amount')
     user_phone = data.get('phone') or data.get('user_phone')
     out_trade_no = data.get('out_trade_no') or f"bk_{int(time.time())}_{random.randint(1000, 9999)}"
@@ -674,7 +622,7 @@ def check_telebirr_order_route(out_trade_no):
 def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
-        print("Telebirr Callback Received:", data)
+        print("DEBUG - Telebirr Callback Received Data:", data)
         
         merch_order_id = data.get("merch_order_id") or data.get("biz_content", {}).get("merch_order_id")
         trade_status = data.get("trade_status") or data.get("biz_content", {}).get("trade_status")
