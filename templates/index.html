@@ -305,6 +305,10 @@
                         <option value="cbe_merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
+                    <input type="text" id="deposit-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
@@ -560,6 +564,7 @@
 
         function submitTelebirrPayment() {
             const amount = parseFloat(document.getElementById('deposit_amount').value);
+            const phoneInput = document.getElementById('deposit-phone').value.trim();
             
             if (!window.userId) {
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
@@ -569,6 +574,10 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
             }
 
+            if (!phoneInput) {
+                return alert("⚠️ እባክዎ ስልክ ቁጥርዎን (Phone Number) ያስገቡ!");
+            }
+
             fetch('/create-telebirr-payment', {
                 method: 'POST',
                 headers: {
@@ -576,7 +585,8 @@
                 },
                 body: JSON.stringify({
                     user_id: window.userId,
-                    amount: amount
+                    amount: amount,
+                    phone: phoneInput
                 })
             })
             .then(async response => {
