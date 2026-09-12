@@ -18,7 +18,7 @@ from sqlalchemy import func
 import requests
 import urllib3
 
-# cryptography ሞጁል በትክکلی መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
+# cryptography ሞጁል በትክክለኛ መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
 try:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding
@@ -126,7 +126,8 @@ def apply_fabric_token():
         res_data = response.json()
         
         if isinstance(res_data, dict):
-            return res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
+            token = res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
+            return token
         return None
     except Exception as e:
         print("Telebirr Token API Error:", str(e))
@@ -180,6 +181,8 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         **biz_content
     }
     
+    signature_val = generate_rsa_signature(payload_to_sign)
+
     payload = {
         "nonce_str": nonce_str,
         "biz_content": biz_content,
@@ -187,14 +190,25 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "version": "1.0",
         "sign_type": "SHA256WithRSA",
         "timestamp": timestamp,
-        "sign": generate_rsa_signature(payload_to_sign)
+        "sign": signature_val
     }
     
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
         response.raise_for_status()
-        return response.json()
+        res_json = response.json()
+        
+        # እንደ ፎቶዎቹ ማሳያ raw_request ወይም prepay_id ሲመጣ ማስተናገድ እና ማሟላት
+        if str(res_json.get("code")) == "0":
+            data_content = res_json.get("data", {})
+            prepay_id = data_content.get("prepay_id") if isinstance(data_content, dict) else res_json.get("prepay_id")
+            
+            # የተጠየቀው የ rawRequest ቅርጸት እዚህ ጋር በቋሚነት ይዘጋጃል
+            raw_request = f"appid={merchant_id}&merch_code={merchant_code}&nonce_str={nonce_str}&prepay_id={prepay_id}&sign={signature_val}&sign_type=SHA256WithRSA&timestamp={timestamp}"
+            res_json["raw_request"] = raw_request
+            
+        return res_json
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
         return {"error": str(e)}
@@ -605,7 +619,6 @@ def create_telebirr_payment():
     user_phone = data.get('phone') or data.get('user_phone')
     user_id = data.get('user_id') or 'unknown'
     
-    # out_trade_no ሲፈጠር የ user_id መረጃን አብሮ በመያዝ እንሰራለን (bk_{user_id}_{timestamp})
     out_trade_no = data.get('out_trade_no') or f"bk_{user_id}_{int(time.time())}_{random.randint(1000, 9999)}"
     
     if not amount or not user_phone:
@@ -627,7 +640,6 @@ def telebirr_callback():
         data = request.get_json() or request.form.to_dict()
         print("DEBUG - Telebirr Callback Received Data:", data)
         
-        # ከቴሌብር የሚመጡትን መረጃዎች በተለያዩ ፎርማቶች ለመያዝ
         biz_content = data.get("biz_content", {})
         if isinstance(biz_content, str):
             try:
@@ -639,7 +651,6 @@ def telebirr_callback():
         trade_status = data.get("trade_status") or biz_content.get("trade_status")
         total_amount = float(data.get("total_amount") or biz_content.get("total_amount") or 0)
         
-        # ድርብ ክፍያ እንዳይፈጸም መፈተሽ
         if merch_order_id and merch_order_id in PROCESSED_TIDS:
             return jsonify({"code": 0, "msg": "Already processed"})
 
@@ -647,14 +658,12 @@ def telebirr_callback():
             if merch_order_id:
                 PROCESSED_TIDS.add(merch_order_id)
             
-            # የትዕዛዝ ቁጥሩን (bk_{user_id}_{timestamp}) በመንተን user_id ማግኘት
             target_user_id = None
             if merch_order_id and merch_order_id.startswith("bk_"):
                 parts = merch_order_id.split("_")
                 if len(parts) >= 3:
                     target_user_id = parts[1]
             
-            # ተጠቃሚውን በመፈለግ ባላንሱን በዳታቤዝ ውስጥ ማዘመን እና ሪከርድ ማስቀመጥ
             if target_user_id:
                 user = User.query.filter_by(user_id=target_user_id).first()
                 if user and total_amount > 0:
@@ -670,7 +679,6 @@ def telebirr_callback():
                     db.session.add(tx_record)
                     db.session.commit()
                     
-                    # ለተጠቃሚው በ Socket.io በኩል የባላንስ ማሻሻያ መላክ (የተከፈተ ሴክሽን ካለ)
                     socketio.emit('balance_update', {'user_id': target_user_id, 'balance': float(user.balance)})
             
             send_telegram_notification(f"✅ *የቴሌብር ክፍያ ተሳካ!*\n- ትዕዛዝ ID: `{merch_order_id}`\n- ተጠቃሚ ID: `{target_user_id}`\n- መጠን: *{total_amount} ብር*")
