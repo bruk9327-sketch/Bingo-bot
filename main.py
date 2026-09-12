@@ -18,7 +18,7 @@ from sqlalchemy import func
 import requests
 import urllib3
 
-# cryptography ሞጁል በትክክል መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
+# cryptography ሞጁል በትክکلی መጫኑን በማረጋገጥ ስህተት እንዳይፈጥር በጥንቃቄ መያዝ
 try:
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding
@@ -603,7 +603,10 @@ def create_telebirr_payment():
     
     amount = data.get('amount')
     user_phone = data.get('phone') or data.get('user_phone')
-    out_trade_no = data.get('out_trade_no') or f"bk_{int(time.time())}_{random.randint(1000, 9999)}"
+    user_id = data.get('user_id') or 'unknown'
+    
+    # out_trade_no ሲፈጠር የ user_id መረጃን አብሮ በመያዝ እንሰራለን (bk_{user_id}_{timestamp})
+    out_trade_no = data.get('out_trade_no') or f"bk_{user_id}_{int(time.time())}_{random.randint(1000, 9999)}"
     
     if not amount or not user_phone:
         return jsonify({"success": False, "msg": "እባክዎ መጠኑን እና ስልክ ቁጥሩን በትክክል ያስገቡ!"}), 400
@@ -624,10 +627,19 @@ def telebirr_callback():
         data = request.get_json() or request.form.to_dict()
         print("DEBUG - Telebirr Callback Received Data:", data)
         
-        merch_order_id = data.get("merch_order_id") or data.get("biz_content", {}).get("merch_order_id")
-        trade_status = data.get("trade_status") or data.get("biz_content", {}).get("trade_status")
-        total_amount = float(data.get("total_amount") or data.get("biz_content", {}).get("total_amount") or 0)
+        # ከቴሌብር የሚመጡትን መረጃዎች በተለያዩ ፎርማቶች ለመያዝ
+        biz_content = data.get("biz_content", {})
+        if isinstance(biz_content, str):
+            try:
+                biz_content = json.loads(biz_content)
+            except:
+                biz_content = {}
+                
+        merch_order_id = data.get("merch_order_id") or biz_content.get("merch_order_id")
+        trade_status = data.get("trade_status") or biz_content.get("trade_status")
+        total_amount = float(data.get("total_amount") or biz_content.get("total_amount") or 0)
         
+        # ድርብ ክፍያ እንዳይፈጸም መፈተሽ
         if merch_order_id and merch_order_id in PROCESSED_TIDS:
             return jsonify({"code": 0, "msg": "Already processed"})
 
@@ -635,11 +647,38 @@ def telebirr_callback():
             if merch_order_id:
                 PROCESSED_TIDS.add(merch_order_id)
             
-            send_telegram_notification(f"✅ *የቴሌብር ክፍያ ተሳካ!*\n- ትዕዛዝ ID: `{merch_order_id}`\n- መጠን: *{total_amount} ብር*")
+            # የትዕዛዝ ቁጥሩን (bk_{user_id}_{timestamp}) በመንተን user_id ማግኘት
+            target_user_id = None
+            if merch_order_id and merch_order_id.startswith("bk_"):
+                parts = merch_order_id.split("_")
+                if len(parts) >= 3:
+                    target_user_id = parts[1]
+            
+            # ተጠቃሚውን በመፈለግ ባላንሱን በዳታቤዝ ውስጥ ማዘመን እና ሪከርድ ማስቀመጥ
+            if target_user_id:
+                user = User.query.filter_by(user_id=target_user_id).first()
+                if user and total_amount > 0:
+                    user.balance = float(user.balance) + float(total_amount)
+                    
+                    tx_record = Transaction(
+                        user_id=target_user_id,
+                        type='deposit',
+                        amount=float(total_amount),
+                        status='completed',
+                        transaction_ref=merch_order_id
+                    )
+                    db.session.add(tx_record)
+                    db.session.commit()
+                    
+                    # ለተጠቃሚው በ Socket.io በኩል የባላንስ ማሻሻያ መላክ (የተከፈተ ሴክሽን ካለ)
+                    socketio.emit('balance_update', {'user_id': target_user_id, 'balance': float(user.balance)})
+            
+            send_telegram_notification(f"✅ *የቴሌብር ክፍያ ተሳካ!*\n- ትዕዛዝ ID: `{merch_order_id}`\n- ተጠቃሚ ID: `{target_user_id}`\n- መጠን: *{total_amount} ብር*")
 
         return jsonify({"code": 0, "msg": "success", "data": {}})
     except Exception as e:
         print("Callback Error:", e)
+        db.session.rollback()
         return jsonify({"code": -1, "msg": str(e)}), 400
 
 
