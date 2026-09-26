@@ -59,10 +59,6 @@ PROCESSED_TIDS = set()
 # Telebirr Integration & RSA Signing Functions
 # ==========================================
 def generate_rsa_signature(payload_dict):
-    """
-    የቴሌብር ፔይሎድ (Payload) በ RSA Private Key በመፈረም SHA256WithRSA ፊርማ ማመንጨት።
-    ከ sign እና sign_type ውጭ ያሉትን መለኪያዎች በፊደል ቅደም ተከተል (Alphabetical Order) አቀናጅቶ መፈረም።
-    """
     if not CRYPTO_AVAILABLE:
         print("Cryptography library is not installed.")
         return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
@@ -110,7 +106,6 @@ def generate_rsa_signature(payload_dict):
 
 def apply_fabric_token():
     url = "https://196.188.120.3:38443/apiaccess/payment/gateway/payment/v1/token"
-    
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
     app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
     
@@ -118,7 +113,6 @@ def apply_fabric_token():
         "Content-Type": "application/json",
         "X-APP-Key": app_id
     }
-    
     payload = {
         "appSecret": app_secret,
         "method": "payment.applyh5token"
@@ -145,7 +139,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         return {"error": "Token generation failed"}
 
     url = "https://196.188.120.3:38443/apiaccess/payment/gateway/payment/v1/merchant/preOrder"
-    
     merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
     merchant_code = os.environ.get("MERCHANT_CODE", "101011")
     app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
@@ -187,7 +180,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     }
     
     signature_val = generate_rsa_signature(payload_to_sign)
-
     payload = {
         "nonce_str": nonce_str,
         "biz_content": biz_content,
@@ -207,7 +199,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         if str(res_json.get("code")) == "0":
             data_content = res_json.get("data", {})
             prepay_id = data_content.get("prepay_id") if isinstance(data_content, dict) else res_json.get("prepay_id")
-            
             raw_request = f"appid={merchant_id}&merch_code={merchant_code}&nonce_str={nonce_str}&prepay_id={prepay_id}&sign={signature_val}&sign_type=SHA256WithRSA&timestamp={timestamp}"
             res_json["raw_request"] = raw_request
             
@@ -235,10 +226,7 @@ def query_telebirr_order(out_trade_no):
         "X-APP-Key": app_id
     }
     
-    biz_content = {
-        "merch_order_id": out_trade_no
-    }
-    
+    biz_content = {"merch_order_id": out_trade_no}
     payload_to_sign = {
         "nonce_str": nonce_str,
         "biz_content": biz_content,
@@ -269,7 +257,7 @@ def query_telebirr_order(out_trade_no):
 
 
 # ==========================================
-# Database Models
+# Database Models (Updated with Status Flags)
 # ==========================================
 class User(db.Model):
     __tablename__ = 'users'
@@ -281,6 +269,12 @@ class User(db.Model):
     email = db.Column(db.String(120), nullable=True)
     password = db.Column(db.String(255), nullable=True)
     balance = db.Column(db.Float, default=50.00)
+    
+    # አዳዲስ የተጠቃሚ ስታተስ ማስተዳደሪያ ፊልዶች
+    is_active = db.Column(db.Boolean, default=True)
+    is_suspended = db.Column(db.Boolean, default=False)
+    kyc_verified = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class AdminUser(db.Model):
@@ -360,16 +354,22 @@ def handle_login_user(data):
         (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
     ).first()
 
-    if user and user.password == password:
-        emit('auth_response', {
-            'success': True,
-            'msg': 'እንኳን ደህና መጡ!',
-            'user_id': user.user_id,
-            'balance': user.balance,
-            'full_name': user.full_name
-        }, room=request.sid)
-    else:
-        emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ/ዩዘርኔም ወይም የይለፍ ቃል!'}, room=request.sid)
+    if user:
+        if user.is_suspended:
+            emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል! እባክዎ አስተዳዳሪውን ያነጋግሩ።'}, room=request.sid)
+            return
+
+        if user.password == password:
+            emit('auth_response', {
+                'success': True,
+                'msg': 'እንኳን ደህና መጡ!',
+                'user_id': user.user_id,
+                'balance': user.balance,
+                'full_name': user.full_name
+            }, room=request.sid)
+            return
+
+    emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ/ዩዘርኔም ወይም የይለፍ ቃል!'}, room=request.sid)
 
 
 @socketio.on('register_user')
@@ -398,7 +398,10 @@ def handle_register_user(data):
             email=email,
             phone=phone,
             password=password,
-            balance=50.00
+            balance=50.00,
+            is_active=True,
+            is_suspended=False,
+            kyc_verified=False
         )
         db.session.add(user)
         db.session.commit()
@@ -431,13 +434,9 @@ def handle_select_card(data):
         pass
 
     card_price = 10.00
-    if not user_id or user_id == 'None':
-        emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይመዝገቡ።'}, room=request.sid)
-        return
-
     user = User.query.filter_by(user_id=user_id).first()
-    if not user:
-        emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይግቡ (Login)!'}, room=request.sid)
+    if not user or user.is_suspended:
+        emit('error_msg', {'msg': 'አካውንትዎ ታግዷል ወይም አልተገኘም!'}, room=request.sid)
         return
 
     if float(user.balance) < card_price:
@@ -449,27 +448,16 @@ def handle_select_card(data):
         return
 
     user.balance = float(user.balance) - card_price
-    
-    tx_record = Transaction(
-        user_id=user_id,
-        type='game_bet',
-        amount=card_price,
-        status='completed'
-    )
+    tx_record = Transaction(user_id=user_id, type='game_bet', amount=card_price, status='completed')
     db.session.add(tx_record)
     db.session.commit()
 
     taken_cards_global.append(card_id)
     sold_cards_in_round.append({'user_id': user_id, 'card_id': card_id})
-
     matrix = generate_bingo_matrix(card_id)
 
     emit('balance_update', {'user_id': user_id, 'balance': float(user.balance)}, room=request.sid)
-    emit('card_confirmed', {
-        'card_id': card_id,
-        'matrix': matrix,
-        'new_balance': float(user.balance),
-    }, room=request.sid)
+    emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': float(user.balance)}, room=request.sid)
     
     socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
     socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
@@ -526,7 +514,6 @@ def background_game_loop():
                     if not game_active:
                         break
                     drawn_balls.append(ball)
-
                     socketio.emit('number_drawn', {'number': ball})
                     socketio.sleep(10)
 
@@ -559,7 +546,6 @@ def handle_claim_bingo(data):
             full_name = f'ተጫዋች {user_id}'
 
         send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize_amount} ብር')
-
         matrix = generate_bingo_matrix(card_id)
         
         emit('balance_update', {'user_id': user_id, 'balance': float(balance)}, room=request.sid)
@@ -617,12 +603,9 @@ def index():
 @app.route('/create-telebirr-payment', methods=['POST'])
 def create_telebirr_payment():
     data = request.get_json() or {}
-    print("DEBUG - /create-telebirr-payment request.json data:", data)
-    
     amount = data.get('amount')
     user_phone = data.get('phone') or data.get('user_phone')
     user_id = data.get('user_id') or 'unknown'
-    
     out_trade_no = data.get('out_trade_no') or f"bk_{user_id}_{int(time.time())}_{random.randint(1000, 9999)}"
     
     if not amount or not user_phone:
@@ -642,8 +625,6 @@ def check_telebirr_order_route(out_trade_no):
 def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
-        print("DEBUG - Telebirr Callback Received Data:", data)
-        
         biz_content = data.get("biz_content", {})
         if isinstance(biz_content, str):
             try:
@@ -672,7 +653,6 @@ def telebirr_callback():
                 user = User.query.filter_by(user_id=target_user_id).first()
                 if user and total_amount > 0:
                     user.balance = float(user.balance) + float(total_amount)
-                    
                     tx_record = Transaction(
                         user_id=target_user_id,
                         type='deposit',
@@ -682,7 +662,6 @@ def telebirr_callback():
                     )
                     db.session.add(tx_record)
                     db.session.commit()
-                    
                     socketio.emit('balance_update', {'user_id': target_user_id, 'balance': float(user.balance)})
             
             send_telegram_notification(f"✅ *የቴሌብር ክፍያ ተሳካ!*\n- ትዕዛዝ ID: `{merch_order_id}`\n- ተጠቃሚ ID: `{target_user_id}`\n- መጠን: *{total_amount} ብር*")
@@ -760,11 +739,56 @@ def admin_dashboard():
                            pending_withdrawals=pending_withdrawals)
 
 
+# ==========================================
+# New Admin Routes for Users Management (All, KYC, Active, Suspended)
+# ==========================================
+@app.route('/admin/users', methods=['GET'])
+def admin_users_management():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    
+    status_filter = request.args.get('status', 'all')
+    
+    if status_filter == 'active':
+        users_list = User.query.filter_by(is_active=True, is_suspended=False).all()
+    elif status_filter == 'suspended':
+        users_list = User.query.filter_by(is_suspended=True).all()
+    elif status_filter == 'kyc':
+        users_list = User.query.filter_by(kyc_verified=True).all()
+    else:
+        users_list = User.query.all()
+
+    return render_template('admin_users.html', users=users_list, current_filter=status_filter)
+
+
+@app.route('/admin/users/<int:user_id>/update-status', methods=['POST'])
+def admin_update_user_status(user_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    user = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+    new_status = data.get('status')
+    
+    try:
+        if new_status == 'suspended':
+            user.is_suspended = True
+            user.is_active = False
+        elif new_status == 'active':
+            user.is_suspended = False
+            user.is_active = True
+        elif new_status == 'kyc_verify':
+            user.kyc_verified = True
+            
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'የተጠቃሚው ስታተስ በተሳካ ሁኔታ ተስተካክሏል።'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/admin/transaction/<int:tx_id>/action', methods=['POST'])
 def admin_transaction_action(tx_id):
-    """
-    በ admin.html ውስጥ ለሚገኙ ዲፖዚት እና ዊዝድሮዋል ጥያቄዎች ማጽደቂያ/መሰረዣ ራውት
-    """
     if not session.get('is_admin') and not session.get('admin_logged'):
         flash("እባክዎ መጀመሪያ እንደ አድሚን ይግቡ!", "error")
         return redirect(url_for('admin_login'))
@@ -794,7 +818,6 @@ def admin_transaction_action(tx_id):
             elif action == 'reject':
                 if tx.status != 'rejected':
                     tx.status = 'rejected'
-                    # ጥያቄው ከተሰረዘ የተቀነሰውን ገንዘብ ለተጠቃሚው መመለስ (Refund)
                     if user:
                         user.balance = float(user.balance) + float(tx.amount)
                         socketio.emit('balance_update', {'user_id': user.user_id, 'balance': float(user.balance)})
