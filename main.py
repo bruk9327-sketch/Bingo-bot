@@ -60,7 +60,6 @@ PROCESSED_TIDS = set()
 # ==========================================
 def generate_rsa_signature(payload_dict):
     if not CRYPTO_AVAILABLE:
-        print("Cryptography library is not installed.")
         return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
 
     private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
@@ -257,7 +256,7 @@ def query_telebirr_order(out_trade_no):
 
 
 # ==========================================
-# Database Models (Updated with Status Flags)
+# Database Models (Fully Synced with Columns)
 # ==========================================
 class User(db.Model):
     __tablename__ = 'users'
@@ -315,6 +314,7 @@ with app.app_context():
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;'))
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
+            conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;'))
             conn.commit()
     except Exception as migration_err:
         print("Auto migration check note:", migration_err)
