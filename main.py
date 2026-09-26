@@ -309,6 +309,7 @@ class Transaction(db.Model):
     type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')
+    transaction_ref = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -757,6 +758,55 @@ def admin_dashboard():
                            yearly_revenue=yearly_revenue,
                            pending_deposits=pending_deposits,
                            pending_withdrawals=pending_withdrawals)
+
+
+@app.route('/admin/transaction/<int:tx_id>/action', methods=['POST'])
+def admin_transaction_action(tx_id):
+    """
+    በ admin.html ውስጥ ለሚገኙ ዲፖዚት እና ዊዝድሮዋል ጥያቄዎች ማጽደቂያ/መሰረዣ ራውት
+    """
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        flash("እባክዎ መጀመሪያ እንደ አድሚን ይግቡ!", "error")
+        return redirect(url_for('admin_login'))
+
+    action = request.form.get('action')
+    tx = Transaction.query.get_or_404(tx_id)
+    user = User.query.filter_by(user_id=tx.user_id).first()
+
+    try:
+        if tx.type == 'deposit':
+            if action == 'approve':
+                if tx.status != 'completed':
+                    tx.status = 'completed'
+                    if user:
+                        user.balance = float(user.balance) + float(tx.amount)
+                        socketio.emit('balance_update', {'user_id': user.user_id, 'balance': float(user.balance)})
+                    flash(f"የዲፖዚት ጥያቄው (ID: {tx.id}) ጸድቋል!", "success")
+            elif action == 'reject':
+                tx.status = 'rejected'
+                flash(f"የዲፖዚት ጥያቄው (ID: {tx.id}) ተሰርዟል!", "info")
+
+        elif tx.type == 'withdrawal':
+            if action == 'approve':
+                if tx.status != 'completed':
+                    tx.status = 'completed'
+                    flash(f"የገንዘብ ማውጣት (Withdrawal) ጥያቄው (ID: {tx.id}) ጸድቋል!", "success")
+            elif action == 'reject':
+                if tx.status != 'rejected':
+                    tx.status = 'rejected'
+                    # ጥያቄው ከተሰረዘ የተቀነሰውን ገንዘብ ለተጠቃሚው መመለስ (Refund)
+                    if user:
+                        user.balance = float(user.balance) + float(tx.amount)
+                        socketio.emit('balance_update', {'user_id': user.user_id, 'balance': float(user.balance)})
+                    flash(f"የገንዘብ ማውጣት ጥያቄው (ID: {tx.id}) ተሰርዞ ገንዘቡ ተመልሷል!", "info")
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Transaction Action Error: {e}")
+        flash(f"ስህተት ተፈጥሯል: {str(e)}", "error")
+
+    return redirect(url_for('admin_dashboard'))
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
