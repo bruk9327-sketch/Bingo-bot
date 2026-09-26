@@ -14,7 +14,7 @@ from flask import Flask, jsonify, render_template, request, redirect, url_for, s
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa
-from sqlalchemy import func
+from sqlalchemy import func, text
 import requests
 import urllib3
 
@@ -270,7 +270,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=True)
     balance = db.Column(db.Float, default=50.00)
     
-    # አዳዲስ የተጠቃሚ ስታተስ ማስተዳደሪያ ፊልዶች
+    # የተጠቃሚ ስታተስ ማስተዳደሪያ ፊልዶች
     is_active = db.Column(db.Boolean, default=True)
     is_suspended = db.Column(db.Boolean, default=False)
     kyc_verified = db.Column(db.Boolean, default=False)
@@ -309,6 +309,15 @@ class Transaction(db.Model):
 
 with app.app_context():
     db.create_all()
+    # የጠፉ አምዶች ካሉ በራስ-ሰር እንዲጨምር (Auto-Fix Missing Columns)
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
+            conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;'))
+            conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
+            conn.commit()
+    except Exception as migration_err:
+        print("Auto migration check note:", migration_err)
 
 taken_cards_global = []
 game_timer = 15
@@ -740,7 +749,7 @@ def admin_dashboard():
 
 
 # ==========================================
-# New Admin Routes for Users Management (All, KYC, Active, Suspended)
+# Admin Routes for Users Management
 # ==========================================
 @app.route('/admin/users', methods=['GET'])
 def admin_users_management():
@@ -749,14 +758,18 @@ def admin_users_management():
     
     status_filter = request.args.get('status', 'all')
     
-    if status_filter == 'active':
-        users_list = User.query.filter_by(is_active=True, is_suspended=False).all()
-    elif status_filter == 'suspended':
-        users_list = User.query.filter_by(is_suspended=True).all()
-    elif status_filter == 'kyc':
-        users_list = User.query.filter_by(kyc_verified=True).all()
-    else:
-        users_list = User.query.all()
+    try:
+        if status_filter == 'active':
+            users_list = User.query.filter_by(is_active=True, is_suspended=False).all()
+        elif status_filter == 'suspended':
+            users_list = User.query.filter_by(is_suspended=True).all()
+        elif status_filter == 'kyc':
+            users_list = User.query.filter_by(kyc_verified=True).all()
+        else:
+            users_list = User.query.all()
+    except Exception as e:
+        print("Users query filter error:", e)
+        users_list = []
 
     return render_template('admin_users.html', users=users_list, current_filter=status_filter)
 
