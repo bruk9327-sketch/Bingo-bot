@@ -45,21 +45,36 @@ button,input{font:inherit}
 .stat label{font-size:11px;font-weight:600}.stat h3{font-size:21px;margin:7px 0 3px}.change{font-size:11px;font-weight:800}.up{color:#67ffb5}.down{color:#ff9aa8}.muted{color:#d6def0;font-weight:500}
 .stat small{font-size:9px;color:#d0d9eb}
 .body-grid{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:13px;margin-top:13px}
-.card{background:linear-gradient(180deg,#0e1d42,#0b1837);border:1px solid #2a4274;border-radius:9px;box-shadow:0 12px 28px #0002;overflow:hidden}
+.card{background:linear-gradient(180deg,#0e1d42,#0b1837);border:1px solid #2a4274;border-radius:9px;box-shadow:0 12px 28px #0002;overflow:hidden;padding: 15px;}
 .card-title{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;font-size:14px;font-weight:800}
 .side-card .card-title{padding-bottom:10px}.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 12px 14px}.quick button{border:1px solid #2b4270;background:#12234a;color:#e9efff;border-radius:8px;padding:10px 7px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:7px;cursor:pointer}.quick button:hover{background:#1b3263}.qicon{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:#2c63ff}
 .activity{border-top:1px solid #23365f}.activity-item{display:flex;gap:9px;padding:10px 12px;border-bottom:1px solid #1d3159}.activity-item:last-child{border-bottom:0}.aicon{width:30px;height:30px;border-radius:50%;background:#16345e;display:grid;place-items:center;font-size:14px;flex:0 0 auto}.activity-item strong{font-size:10px}.activity-item small{display:block;color:#92a1bf;font-size:9px;margin-top:3px}.ago{margin-left:auto;color:#7f8da9;font-size:8px;white-space:nowrap}
-.tables{display:grid;grid-template-columns:1fr 1.1fr 1.1fr;gap:13px;margin-top:13px;padding-bottom:14px}.table-card{min-width:0}.table{width:100%;border-collapse:collapse;font-size:9px}.table th{color:#8998b6;font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid #243961}.table td{padding:7px 10px;border-bottom:1px solid #1b2d53;color:#dce4f5;white-space:nowrap}.table tr:last-child td{border-bottom:0}.game-name{display:flex;align-items:center;gap:7px}.game-icon{width:22px;height:22px;border-radius:6px;background:#3b55d9;display:grid;place-items:center}.view{color:#7e8cff;font-size:9px;cursor:pointer}
+.tables{display:grid;grid-template-columns:1fr 1.1fr 1.1fr;gap:13px;margin-top:13px;padding-bottom:14px}.table-card{min-width:0}.table{width:100%;border-collapse:collapse;font-size:11px}
+.table th{color:#8998b6;font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid #243961}
+.table td{padding:9px 10px;border-bottom:1px solid #1b2d53;color:#dce4f5;white-space:nowrap}
+.table tr:last-child td{border-bottom:0}
+.game-name{display:flex;align-items:center;gap:7px}.game-icon{width:22px;height:22px;border-radius:6px;background:#3b55d9;display:grid;place-items:center}
+.view{color:#7e8cff;font-size:9px;cursor:pointer}
 .footer{border-top:1px solid #233863;padding:12px 17px;color:#9aa9c6;font-size:9px;display:flex;justify-content:space-between}.footer b{color:#cfd8ed}
 .menu-toggle{display:none;background:none;border:0;color:#fff;font-size:24px}
+.btn-sm{padding:4px 8px;font-size:10px;border-radius:4px;cursor:pointer;border:none;font-weight:bold;}
+.btn-outline-light{background:transparent;border:1px solid #aab7d4;color:#f4f7ff;}
+.btn-outline-success{background:transparent;border:1px solid #20d49b;color:#20d49b;}
+.btn-outline-danger{background:transparent;border:1px solid #ef5367;color:#ef5367;}
+.btn-outline-info{background:transparent;border:1px solid #16bde8;color:#16bde8;}
+.btn-primary{background:#3157ff;color:#fff;}
+.btn-success{background:#20d49b;color:#000;}
+.btn-danger{background:#ef5367;color:#fff;}
+.badge{padding:3px 6px;border-radius:4px;font-size:9px;font-weight:bold;}
+.bg-danger{background:#ef5367;color:#fff;}
+.bg-success{background:#20d49b;color:#000;}
+.bg-warning{background:#f5ad23;color:#000;}
+.bg-info{background:#16bde8;color:#000;}
 @media(max-width:1150px){
  .grid{grid-template-columns:repeat(2,1fr)}.body-grid{grid-template-columns:1fr}.side-card{display:grid;grid-template-columns:1fr 1fr;gap:13px;background:none;border:0;box-shadow:none}.side-card .card{background:linear-gradient(180deg,#0e1d42,#0b1837);border:1px solid #2a4274}.tables{grid-template-columns:1fr}
 }
 @media(max-width:800px){
  .sidebar{transform:translateX(-100%);transition:.25s}.sidebar.open{transform:translateX(0)}.main{margin-left:0;width:100%}.menu-toggle{display:block}.topbar{padding:0 13px}.search{width:180px}.top-title{display:none}.content{padding:12px}.hero{height:90px}.grid{grid-template-columns:1fr 1fr}.side-card{display:block}.tables{grid-template-columns:1fr}
-}
-@media(max-width:520px){
- .grid{grid-template-columns:1fr}.search{width:130px}.admin>div:last-child{display:none}.hero h2{font-size:18px}.hero p{font-size:10px}.body-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -68,8 +83,19 @@ button,input{font:inherit}
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo">🎯</div><div><h1>BK<span>BINGO</span></h1><small>Admin Panel</small></div></div>
   <nav class="nav">
-    <div class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span>Dashboard</div></div>
-    <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users</div><span class="chev">⌄</span></div><div class="sub"><div>• &nbsp;All Users</div><div>• &nbsp;KYC</div><div>• &nbsp;Active Users</div><div>• &nbsp;Suspended Users</div></div></div>
+    <div class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span><a href="/admin" style="color:inherit; text-decoration:none;">Dashboard</a></div></div>
+    
+    <!-- Users Management Section -->
+    <div class="nav-section">
+      <div class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users</div><span class="chev">⌄</span></div>
+      <div class="sub">
+        <div><a href="/admin/users?status=all" style="color:inherit; text-decoration:none;">• &nbsp;All Users</a></div>
+        <div><a href="/admin/users?status=kyc" style="color:inherit; text-decoration:none;">• &nbsp;KYC</a></div>
+        <div><a href="/admin/users?status=active" style="color:inherit; text-decoration:none;">• &nbsp;Active Users</a></div>
+        <div><a href="/admin/users?status=suspended" style="color:inherit; text-decoration:none;">• &nbsp;Suspended Users</a></div>
+      </div>
+    </div>
+
     <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">🎮</span>Games</div><span class="chev">⌄</span></div><div class="sub"><div>• &nbsp;All Games</div><div>• &nbsp;Bingo</div><div>• &nbsp;Game Rounds</div><div>• &nbsp;Results</div><div>• &nbsp;Winners</div></div></div>
     <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">💰</span>Finance</div><span class="chev">⌄</span></div><div class="sub"><div>• &nbsp;Deposits</div><div>• &nbsp;Withdrawals</div><div>• &nbsp;Wallets</div><div>• &nbsp;Transactions</div><div>• &nbsp;Revenue</div></div></div>
     <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">▣</span>Payments</div><span class="chev">⌄</span></div><div class="sub"><div>• &nbsp;Telebirr</div><div>• &nbsp;Banks</div><div>• &nbsp;Gateways</div><div>• &nbsp;Payment Logs</div></div></div>
@@ -92,72 +118,98 @@ button,input{font:inherit}
 <section class="content">
   <div class="hero"><div class="hero-crown">👑</div><div class="hero-text"><h2>Welcome Back, Admin!</h2><p>Here's what's happening with your platform today.</p></div></div>
 
-  <!-- የስታቲስቲክስ ሳጥኖች (Dynamic Stat Cards ከዳታቤዝ የሚመጡ) -->
+  <!-- የስታቲስቲክስ ሳጥኖች (Dynamic Stat Cards) -->
   <div class="grid">
-    <!-- ጠቅላላ ተጠቃሚዎች -->
     <div class="stat blue">
       <div class="stat-head"><div class="stat-icon">👥</div><label>Total Users</label></div>
       <h3>{{ total_users | default(0) }}</h3>
       <div class="change up">↑ Active</div><small>registered users</small>
     </div>
 
-    <!-- ንቁ ተጠቃሚዎች -->
     <div class="stat green">
       <div class="stat-head"><div class="stat-icon">👥</div><label>Active Users</label></div>
       <h3>{{ active_users | default(0) }}</h3>
       <div class="change up">↑ Online</div><small>vs. last week</small>
     </div>
 
-    <!-- ጠቅላላ ገቢ (Total Revenue) -->
     <div class="stat gold">
       <div class="stat-head"><div class="stat-icon">💰</div><label>Total Revenue</label></div>
       <h3>{{ total_revenue | round(2) if total_revenue is defined else 0.00 }} ETB</h3>
       <div class="change up">Total</div><small>all-time deposits</small>
     </div>
 
-    <!-- ጠቅላላ ክፍያ (Total Withdrawals) -->
     <div class="stat purple">
       <div class="stat-head"><div class="stat-icon">💳</div><label>Total Withdrawals</label></div>
       <h3>{{ total_withdrawals | round(2) if total_withdrawals is defined else 0.00 }} ETB</h3>
       <div class="change up">Paid out</div><small>vs. last week</small>
     </div>
+  </div>
 
-    <!-- ጠቅላላ ትርፍ (Total Profit - 25%) -->
-    <div class="stat pink">
-      <div class="stat-head"><div class="stat-icon">♕</div><label>Total Profit</label></div>
-      <h3>{{ total_profit | round(2) if total_profit is defined else 0.00 }} ETB</h3>
-      <div class="change up">25% Cut</div><small>platform share</small>
+  <!-- የተጠቃሚዎች ማስተዳደሪያ ክፍል (Users Management Section) -->
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-title" style="padding-left:0; padding-right:0;">
+      <span>የተጠቃሚዎች ዝርዝር (Users Management)</span>
+    </div>
+    
+    <!-- ማጣሪያ አዝራሮች (Filter Buttons) -->
+    <div class="mb-3" style="margin-bottom: 15px; display: flex; gap: 8px;">
+        <a href="/admin/users?status=all" class="btn btn-outline-light btn-sm">All Users</a>
+        <a href="/admin/users?status=active" class="btn btn-outline-success btn-sm">Active Users</a>
+        <a href="/admin/users?status=suspended" class="btn btn-outline-danger btn-sm">Suspended Users</a>
+        <a href="/admin/users?status=kyc" class="btn btn-outline-info btn-sm">KYC Verified</a>
     </div>
 
-    <!-- ጠቅላላ ጨዋታዎች (Games Played) -->
-    <div class="stat cyan">
-      <div class="stat-head"><div class="stat-icon">🎮</div><label>Total Orders</label></div>
-      <h3>{{ total_orders | default(0) }}</h3>
-      <div class="change up">Games</div><small>played rounds</small>
-    </div>
-
-    <!-- የሚጠብቁ ጥያቄዎች (Pending Requests) -->
-    <div class="stat red">
-      <div class="stat-head"><div class="stat-icon">◷</div><label>Pending Requests</label></div>
-      <h3>{{ pending_count | default(0) }}</h3>
-      <div class="change down">Action needed</div><small>deposits/withdrawals</small>
-    </div>
-
-    <!-- የስርዓት ማስጠንቀቂያዎች (System Alerts) -->
-    <div class="stat navy">
-      <div class="stat-head"><div class="stat-icon">🔔</div><label>System Alerts</label></div>
-      <h3>3</h3><div style="margin-top:12px;color:#9faed0;font-size:10px">View Details →</div>
+    <div style="overflow-x: auto;">
+      <table class="table table-dark table-striped">
+          <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>ስም / Username</th>
+                  <th>ኢሜል / ስልክ</th>
+                  <th>ስታተስ (Status)</th>
+                  <th>እርምጃ (Action)</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% if users %}
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email or user.phone }}</td>
+                    <td>
+                        {% if user.is_suspended %}
+                            <span class="badge bg-danger">Suspended</span>
+                        {% elif user.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-warning">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewUser('{{ user.id }}')">ዕይት</button>
+                        {% if user.is_suspended %}
+                            <button class="btn btn-sm btn-success" onclick="changeStatus('{{ user.id }}', 'active')">አንቃ (Activate)</button>
+                        {% else %}
+                            <button class="btn btn-sm btn-danger" onclick="changeStatus('{{ user.id }}', 'suspended')">አግድ (Suspend)</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #aab7d4; padding: 20px;">ምንም ተጠቃሚ አልተገኘም።</td>
+                </tr>
+              {% endif %}
+          </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- የሰንጠረዥ እና የጥያቄዎች ክፍሎች (Tables & Pending Requests) -->
+  <!-- የገንዘብ ማስቀመጫ ጥያቄዎች እና ሌሎች ሰንጠረዦች -->
   <div class="tables" style="margin-top: 16px;">
-    <div class="card table-card"><div class="card-title">Top Games <span class="view">View All →</span></div><table class="table"><thead><tr><th>#</th><th>Game</th><th>Players</th><th>Revenue</th></tr></thead><tbody>
-      <tr><td>1</td><td><div class="game-name"><span class="game-icon">⑧</span>Bingo</div></td><td>24,560</td><td>18,450 ETB</td></tr><tr><td>2</td><td><div class="game-name"><span class="game-icon">🎰</span>Slots</div></td><td>18,230</td><td>12,870 ETB</td></tr><tr><td>3</td><td><div class="game-name"><span class="game-icon">🃏</span>Card Games</div></td><td>9,842</td><td>7,230 ETB</td></tr><tr><td>4</td><td><div class="game-name"><span class="game-icon">🚀</span>Crash</div></td><td>6,321</td><td>5,120 ETB</td></tr><tr><td>5</td><td><div class="game-name"><span class="game-icon">★</span>Others</div></td><td>3,976</td><td>3,060 ETB</td></tr>
-    </tbody></table></div>
-
     <!-- የገንዘብ ማስቀመጫ ጥያቄዎች (Pending Deposits Table) -->
-    <div class="card table-card">
+    <div class="card table-card" style="grid-column: span 3;">
       <div class="card-title">Pending Deposits <span class="view">View All →</span></div>
       <table class="table">
         <thead>
@@ -173,11 +225,11 @@ button,input{font:inherit}
               <td>
                 <form action="{{ url_for('admin_transaction_action', tx_id=tx.id) if url_for else '#' }}" method="POST" style="display:inline;">
                   <input type="hidden" name="action" value="approve">
-                  <button type="submit" style="background:#20d49b; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:8px;">ፍቀድ</button>
+                  <button type="submit" class="btn btn-sm" style="background:#20d49b; color:#fff;">ፍቀድ</button>
                 </form>
                 <form action="{{ url_for('admin_transaction_action', tx_id=tx.id) if url_for else '#' }}" method="POST" style="display:inline;">
                   <input type="hidden" name="action" value="reject">
-                  <button type="submit" style="background:#ef5367; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:8px;">ሰርዝ</button>
+                  <button type="submit" class="btn btn-sm" style="background:#ef5367; color:#fff;">ሰርዝ</button>
                 </form>
               </td>
             </tr>
@@ -188,37 +240,50 @@ button,input{font:inherit}
         </tbody>
       </table>
     </div>
-
-    <div class="card table-card"><div class="card-title">Recent Withdrawals <span class="view">View All →</span></div><table class="table"><thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Time</th></tr></thead><tbody>
-      <tr><td>user_4579</td><td>120.00 ETB</td><td>🏦 Bank</td><td>5m ago</td></tr><tr><td>user_4578</td><td>75.00 ETB</td><td>🔵 Telebirr</td><td>12m ago</td></tr><tr><td>user_4577</td><td>200.00 ETB</td><td>🏦 Bank</td><td>18m ago</td></tr><tr><td>user_4576</td><td>50.00 ETB</td><td>▣ Gateway</td><td>27m ago</td></tr><tr><td>user_4575</td><td>90.00 ETB</td><td>🔵 Telebirr</td><td>35m ago</td></tr>
-    </tbody></table></div>
   </div>
 
-  <div class="body-grid">
-    <div class="card side-card">
-      <div><div class="card-title">Quick Actions</div><div class="quick"><button onclick="alert('Add User')"><span class="qicon">👤</span>Add User</button><button onclick="alert('Create Game')"><span class="qicon" style="background:#17c18e">🎮</span>Create Game</button><button onclick="alert('New Deposit')"><span class="qicon" style="background:#e7a31c">💰</span>New Deposit</button><button onclick="alert('New Withdrawal')"><span class="qicon" style="background:#ec5165">💸</span>New Withdrawal</button><button onclick="alert('Send Notification')"><span class="qicon" style="background:#8050dc">🔔</span>Send Notification</button><button onclick="alert('Create Campaign')"><span class="qicon" style="background:#17aebc">📣</span>Create Campaign</button></div></div>
-      <div><div class="card-title">Recent Activities <span class="view">View All →</span></div><div class="activity">
-        <div class="activity-item"><div class="aicon">👤</div><div><strong>New user registered</strong><small>john_doe123</small></div><span class="ago">2m ago</span></div>
-        <div class="activity-item"><div class="aicon">💰</div><div><strong>Deposit successful</strong><small>+ 50.00 ETB (Telebirr)</small></div><span class="ago">5m ago</span></div>
-        <div class="activity-item"><div class="aicon">💸</div><div><strong>Withdrawal requested</strong><small>- 120.00 ETB (Bank)</small></div><span class="ago">12m ago</span></div>
-        <div class="activity-item"><div class="aicon">⑧</div><div><strong>Game round completed</strong><small>Bingo #4587</small></div><span class="ago">15m ago</span></div>
-        <div class="activity-item"><div class="aicon">💬</div><div><strong>Support ticket created</strong><small>User #4581</small></div><span class="ago">20m ago</span></div>
-        <div class="activity-item"><div class="aicon">🤝</div><div><strong>New affiliate registered</strong><small>affiliate01</small></div><span class="ago">25m ago</span></div>
-      </div></div>
-    </div>
-  </div>
 </section>
 <footer class="footer"><span>BKBINGO Admin Panel &nbsp; v1.0.0</span><span>🛡 Secure &nbsp;•&nbsp; Fast &nbsp;•&nbsp; Reliable</span></footer>
 </main>
 </div>
+
 <script>
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('open')}
+
 document.querySelectorAll('.nav-section > .nav-item').forEach(item=>{
   item.addEventListener('click',()=>{const sub=item.nextElementSibling;if(sub) sub.style.display=sub.style.display==='none'?'block':'none'})
 });
+
 function searchData(){
   const q=document.getElementById('search').value.toLowerCase();
   document.querySelectorAll('.table tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none');
+}
+
+function viewUser(userId) {
+    alert('የተጠቃሚው መታወቂያ: ' + userId);
+    // እዚህ ላይ የዩዘሩን ሙሉ መረጃ የሚያሳይ ሞዳል (Modal) ወይም ወደ ገጽ ማዘዋወሪያ መጻፍ ይቻላል
+}
+
+function changeStatus(userId, status) {
+    fetch(`/admin/users/${userId}/update-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // ገጹን በማደስ አዲሱን መረጃ ማሳየት
+        } else {
+            alert('ኦፕሬሽኑ አልተሳካም!');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('የኔትወርክ ስህተት አጋጥሟል!');
+    });
 }
 </script>
 </body>
