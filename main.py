@@ -316,6 +316,7 @@ with app.app_context():
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;'))
             conn.commit()
+            print("Successfully verified or added missing columns to database tables.")
     except Exception as migration_err:
         print("Auto migration check note:", migration_err)
 
@@ -849,7 +850,7 @@ def admin_transaction_action(tx_id):
 def admin_login():
     error_msg = None
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username`') if False else request.form.get('username')
         password = request.form.get('password')
         
         admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
