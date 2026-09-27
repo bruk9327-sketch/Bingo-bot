@@ -2,105 +2,141 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>የደንበኞች ድጋፍ አስተዳደር - BKBINGO</title>
+    <title>የደንበኞች ድጋፍ እና እርዳታ - BKBINGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0b132b;
+            color: #f4f7ff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .card-custom {
+            background-color: #1c2541;
+            border: 1px solid #3a506b;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-control, .form-control:focus {
+            background-color: #0b132b;
+            color: #fff;
+            border-color: #3a506b;
+        }
+        .form-control::placeholder {
+            color: #8d99ae;
+        }
+    </style>
 </head>
-<body class="bg-dark text-white p-4">
+<body>
     <div class="container">
-        <h2>🎧 የደንበኞች ቅሬታዎች እና ጥያቄዎች (Support Tickets)</h2>
-        <a href="/admin" class="btn btn-secondary btn-sm mb-3">← ወደ ዳሽቦርድ ተመለስ</a>
-        
-        <div class="table-responsive">
-            <table class="table table-dark table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>ተጠቃሚ ID</th>
-                        <th>ርዕስ</th>
-                        <th>መልዕክት</th>
-                        <th>ፋይል/ደረሰኝ</th>
-                        <th>ስታተስ</th>
-                        <th>የአድሚን ምላሽ</th>
-                        <th>ድርጊት</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if tickets %}
-                        {% for t in tickets %}
-                        <tr>
-                            <td>{{ t.id }}</td>
-                            <td><code>{{ t.user_id }}</code></td>
-                            <td>{{ t.subject }}</td>
-                            <td>{{ t.message }}</td>
-                            <td>
-                                {% if t.attachment %}
-                                    <a href="{{ url_for('static', filename='uploads/' + t.attachment) }}" target="_blank" class="btn btn-sm btn-info">ይዩ</a>
-                                {% else %}
-                                    የለም
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if t.status == 'Answered' %}
-                                    <span class="badge bg-success">ተመልሷል</span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark">በመጠበቅ ላይ</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ t.admin_reply or 'ምላሽ አልተሰጠም' }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="openReplyModal('{{ t.id }}')">ምላሽ ስጥ</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr><td colspan="8" class="text-center text-muted">ምንም ጥያቄዎች የሉም።</td></tr>
-                    {% endif %}
-                </tbody>
-            </table>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>🎧 የደንበኞች ድጋፍ እና ቅሬታዎች</h2>
+            <a href="/" class="btn btn-outline-light btn-sm">← ወደ ዋናው ገጽ ተመለስ</a>
         </div>
-    </div>
 
-    <!-- Reply Modal -->
-    <div class="modal fade" id="replyModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content bg-secondary text-white">
-          <div class="modal-header">
-            <h5 class="modal-title">ለተጠቃሚው ምላሽ መስጫ</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <input type="hidden" id="current_ticket_id">
-            <textarea id="admin_reply_text" class="form-control" rows="4" placeholder="መልዕክትዎን እዚህ ይጻፉ..."></textarea>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="sendReply()">ላክ</button>
-          </div>
+        <!-- አዲስ ጥያቄ መላኪያ ፎርም -->
+        <div class="card-custom mb-5">
+            <h4 class="mb-3">አዲስ ጥያቄ ወይም ቅሬታ ላክ</h4>
+            <form id="supportForm" onsubmit="submitTicket(event)">
+                <input type="hidden" id="user_id" value=""> <!-- በ JavaScript ወይም በ session ይሞላል -->
+                <div class="mb-3">
+                    <label for="subject" class="form-label">ርዕስ (Subject)</label>
+                    <input type="text" class="form-control" id="subject" placeholder="ለምሳሌ፦ የዲፖዚት ክፍያ አልገባም አለ" required>
+                </div>
+                <div class="mb-3">
+                    <label for="message" class="form-label">መልዕክትዎ</label>
+                    <textarea class="form-control" id="message" rows="4" placeholder="እባክዎ ችግርዎን በዝርዝር ይጻፉ..." required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="attachment" class="form-label">ፋይል ወይም ደረሰኝ (Screenshot - አማራጭ)</label>
+                    <input type="file" class="form-control" id="attachment">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">ጥያቄውን ላክ</button>
+            </form>
         </div>
-      </div>
+
+        <!-- የተጠቃሚው የድጋፍ ጥያቄዎች ታሪክ እና የአድሚን ምላሾች -->
+        <div class="user-tickets-container">
+            <h3 class="mb-3">የእኔ የድጋፍ ጥያቄዎች ታሪክ</h3>
+            {% if tickets %}
+                {% for ticket in tickets %}
+                <div class="ticket-card" style="background: #101f46; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #3a506b;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="mb-1"><strong>ርዕስ:</strong> {{ ticket.subject }}</p>
+                        <span class="badge {{ 'bg-success' if ticket.status == 'Answered' else 'bg-warning text-dark' }}">
+                            {{ 'ተመልሷል' if ticket.status == 'Answered' else 'በመጠበቅ ላይ' }}
+                        </span>
+                    </div>
+                    <p class="mb-2 text-muted" style="font-size: 13px;">ቀን: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}</p>
+                    <p class="mb-2"><strong>መልዕክትዎ:</strong> {{ ticket.message }}</p>
+                    
+                    {% if ticket.attachment %}
+                    <p class="mb-2"><strong>ፋይል:</strong> <a href="{{ url_for('static', filename='uploads/' + ticket.attachment) }}" target="_blank" class="text-info">የተያያዘውን ፋይል ይዩ</a></p>
+                    {% endif %}
+                    
+                    <!-- የአድሚን ምላሽ የሚታይበት ቦታ -->
+                    {% if ticket.admin_reply %}
+                    <div class="admin-reply-box" style="background: #1a3068; padding: 10px; margin-top: 10px; border-left: 4px solid #20d49b; border-radius: 4px;">
+                        <small style="color: #20d49b; font-weight: bold;">የአድሚን ምላሽ:</small>
+                        <p style="margin: 5px 0 0; color: #f4f7ff;">{{ ticket.admin_reply }}</p>
+                    </div>
+                    {% else %}
+                    <p style="color: #aab7d4; font-style: italic; font-size: 12px; margin-top: 8px;">አስተዳዳሪው ገና ምላሽ አልሰጠም፣ በመጠበቅ ላይ...</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card-custom text-center text-muted">
+                    <p class="mb-0">ምንም የተላከ የድጋፍ ጥያቄ የለም።</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let modal = new bootstrap.Modal(document.getElementById('replyModal'));
-        function openReplyModal(id) {
-            document.getElementById('current_ticket_id').value = id;
-            modal.show();
-        }
-        function sendReply() {
-            let id = document.getElementById('current_ticket_id').value;
-            let reply = document.getElementById('admin_reply_text').value;
+        // ገጹ ሲከፈት ከ localStorage ወይም ከ session የተጠቃሚውን ID መውሰድ
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedUserId = localStorage.getItem('bk_user_id') || 'guest_user';
+            document.getElementById('user_id').value = savedUserId;
+        });
+
+        function submitTicket(event) {
+            event.preventDefault();
             
-            fetch('/admin/support/' + id + '/reply', {
+            let userId = document.getElementById('user_id').value;
+            let subject = document.getElementById('subject').value;
+            let message = document.getElementById('message').value;
+            let attachmentFile = document.getElementById('attachment').files[0];
+
+            let formData = new FormData();
+            formData.append('user_id', userId);
+            formData.append('subject', subject);
+            formData.append('message', message);
+            if (attachmentFile) {
+                formData.append('attachment', attachmentFile);
+            }
+
+            fetch('/api/support/submit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ admin_reply: reply })
-            }).then(res => res.json()).then(data => {
-                if(data.success) {
-                    alert('ምላሹ ተልኳል!');
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.msg);
                     location.reload();
                 } else {
-                    alert('ስህተት ተፈጥሯል');
+                    alert(data.msg || 'ስህተት ተፈጥሯል!');
                 }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('የኔትወርክ ስህተት አጋጥሟል!');
             });
         }
     </script>
