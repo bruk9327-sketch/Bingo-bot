@@ -306,6 +306,19 @@ class Transaction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+# አዲስ የተጨመረው የደንበኞች ድጋፍ እና ቅሬታ ሞዴል (Support Ticket Model)
+class SupportTicket(db.Model):
+    __tablename__ = 'support_tickets'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False)
+    subject = db.Column(db.String(150), nullable=True)
+    message = db.Column(db.Text, nullable=False)
+    attachment = db.Column(db.String(255), nullable=True)  # የፋይል ወይም የስክሪንሻት ዱካ (Path)
+    status = db.Column(db.String(20), default='Pending')     # Pending, Answered
+    admin_reply = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 with app.app_context():
     db.create_all()
     # የጠፉ አምዶች ካሉ በራስ-ሰር እንዲጨምር (Auto-Fix Missing Columns)
@@ -683,6 +696,69 @@ def telebirr_callback():
         return jsonify({"code": -1, "msg": str(e)}), 400
 
 
+# ==========================================
+# Support Ticket Routes (አዲስ የተጨመሩ ራውቶች)
+# ==========================================
+@app.route('/api/support/submit', methods=['POST'])
+def submit_support_ticket():
+    user_id = request.form.get('user_id')
+    subject = request.form.get('subject', 'የደንበኞች አገልግሎት ጥያቄ')
+    message = request.form.get('message')
+    
+    file = request.files.get('attachment')
+    filename = None
+    if file:
+        upload_folder = os.path.join('static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        filename = f"{int(time.time())}_{file.filename}"
+        file.save(os.path.join(upload_folder, filename))
+        
+    if not message or not user_id:
+        return jsonify({"success": False, "msg": "እባክዎ መልዕክትዎን ይሙሉ!"}), 400
+        
+    ticket = SupportTicket(
+        user_id=user_id,
+        subject=subject,
+        message=message,
+        attachment=filename,
+        status='Pending'
+    )
+    db.session.add(ticket)
+    db.session.commit()
+    
+    # ለአድሚን በቴሌግራም ማሳወቂያ መላክ
+    send_telegram_notification(f"🎧 *አዲስ የደንበኛ ጥያቄ መጣ!*\n- ተጠቃሚ ID: `{user_id}`\n- መልዕክት: {message}")
+    
+    return jsonify({"success": True, "msg": "ጥያቄዎ በተሳካ ሁኔታ ተልኳል። አድሚኑ ምላሽ ይሰጥበታል።"})
+
+
+@app.route('/admin/support', methods=['GET'])
+def admin_support_list():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    tickets = SupportTicket.query.order_by(SupportTicket.created_at.desc()).all()
+    return render_template('admin_support.html', tickets=tickets)
+
+
+@app.route('/admin/support/<int:ticket_id>/reply', methods=['POST'])
+def admin_reply_ticket(ticket_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    ticket = SupportTicket.query.get_or_404(ticket_id)
+    reply_text = request.form.get('admin_reply') or request.json.get('admin_reply')
+    
+    try:
+        ticket.admin_reply = reply_text
+        ticket.status = 'Answered'
+        db.session.commit()
+        flash("ምላሹ በተሳካ ሁኔታ ተልኳል!", "success")
+        return jsonify({'success': True, 'message': 'ምላሹ ተልኳል።'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/admin', methods=['GET'])
 def admin_dashboard():
     if not session.get('is_admin') and not session.get('admin_logged'):
@@ -850,7 +926,7 @@ def admin_transaction_action(tx_id):
 def admin_login():
     error_msg = None
     if request.method == 'POST':
-        username = request.form.get('username`') if False else request.form.get('username')
+        username = request.form.get('username')
         password = request.form.get('password')
         
         admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
