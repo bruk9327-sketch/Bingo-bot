@@ -696,7 +696,7 @@ def telebirr_callback():
 
 
 # ==========================================
-# Support Ticket Routes (የተጠቃሚ ድጋፍ ራውት)
+# Support Ticket Routes (የተጠቃሚ ድጋፍ ራውቶች)
 # ==========================================
 @app.route('/support', methods=['GET', 'POST'])
 def user_support():
@@ -738,6 +738,26 @@ def submit_support_ticket():
     return jsonify({"success": True, "msg": "ጥያቄዎ በተሳካ ሁኔታ ተልኳል። አድሚኑ ምላሽ ይሰጥበታል።"})
 
 
+@app.route('/api/support/user-tickets', methods=['GET'])
+def get_user_tickets():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'msg': 'User ID is required'}), 400
+        
+    tickets = SupportTicket.query.filter_by(user_id=user_id).order_by(SupportTicket.created_at.desc()).all()
+    
+    tickets_data = [{
+        'id': t.id,
+        'subject': t.subject,
+        'message': t.message,
+        'status': t.status,
+        'admin_reply': t.admin_reply,
+        'created_at': t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else ''
+    } for t in tickets]
+    
+    return jsonify({'success': True, 'tickets': tickets_data})
+
+
 # ==========================================
 # Admin Support & Dashboard Routes (የተስተካከለ የአድሚን ድጋፍ ራውት)
 # ==========================================
@@ -746,7 +766,6 @@ def admin_support_list():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     tickets = SupportTicket.query.order_by(SupportTicket.created_at.desc()).all()
-    # እዚህጋር ተጠቃሚው የሚጠቀምበትን support.html ሳይሆን የአድሚኑን admin_support.html መጠራቱን አረጋግጠናል።
     return render_template('admin_support.html', tickets=tickets)
 
 
