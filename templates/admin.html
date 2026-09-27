@@ -102,7 +102,15 @@ button,input{font:inherit}
     <div class="nav-item"><div class="nav-left"><span class="nav-icon">🎁</span>Bonuses &amp; Promotions</div></div>
     <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">📣</span>Marketing</div><span class="chev">⌄</span></div></div>
     <div class="nav-item"><div class="nav-left"><span class="nav-icon">🤝</span>Agents &amp; Affiliates</div></div>
-    <div class="nav-section"><div class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support</div><span class="chev">⌄</span></div></div>
+    
+    <!-- Support Section with Support Tickets Link -->
+    <div class="nav-section">
+      <div class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support</div><span class="chev">⌄</span></div>
+      <div class="sub">
+        <div><a href="/admin/support" style="color:inherit; text-decoration:none;">• &nbsp;Support Tickets</a></div>
+      </div>
+    </div>
+
     <div class="nav-item"><div class="nav-left"><span class="nav-icon">▥</span>Reports &amp; Analytics</div></div>
     <div class="nav-item"><div class="nav-left"><span class="nav-icon">🛡</span>Security</div></div>
   </nav>
@@ -261,7 +269,6 @@ function searchData(){
 
 function viewUser(userId) {
     alert('የተጠቃሚው መታወቂያ: ' + userId);
-    // እዚህ ላይ የዩዘሩን ሙሉ መረጃ የሚያሳይ ሞዳል (Modal) ወይም ወደ ገጽ ማዘዋወሪያ መጻፍ ይቻላል
 }
 
 function changeStatus(userId, status) {
@@ -275,7 +282,7 @@ function changeStatus(userId, status) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload(); // ገጹን በማደስ አዲሱን መረጃ ማሳየት
+            location.reload();
         } else {
             alert('ኦፕሬሽኑ አልተሳካም!');
         }
