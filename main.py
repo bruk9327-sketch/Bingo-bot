@@ -380,7 +380,6 @@ def handle_login_user(data):
             return
 
         if user.password == password:
-            # session ላይ user_id እንዲቀመጥ ማድረግ (ለ support ገጽ ይጠቅማል)
             session['user_id'] = user.user_id
             emit('auth_response', {
                 'success': True,
@@ -697,19 +696,14 @@ def telebirr_callback():
 
 
 # ==========================================
-# Support Ticket Routes (የተስተካከለ የደንበኞች ድጋፍ ራውት)
+# Support Ticket Routes (የተጠቃሚ ድጋፍ ራውት)
 # ==========================================
 @app.route('/support', methods=['GET', 'POST'])
 def user_support():
-    # ተጠቃሚው መግባቱን በ session ወይም በ query parameter ማረጋገጥ 
-    # (በ session ውስጥ user_id ከሌለ በግልጽ እንዲገባ ወይም በ query እንዲታይ ማድረግ ይቻላል)
     current_user_id = session.get('user_id') or request.args.get('user_id')
-    
     tickets = []
     if current_user_id:
-        # የተጠቃሚውን ቲኬቶች ብቻ ከዳታቤዝ ማምጣት
         tickets = SupportTicket.query.filter_by(user_id=current_user_id).order_by(SupportTicket.created_at.desc()).all()
-        
     return render_template('support.html', tickets=tickets)
 
 
@@ -740,17 +734,19 @@ def submit_support_ticket():
     db.session.add(ticket)
     db.session.commit()
     
-    # ለአድሚን በቴሌግራም ማሳወቂያ መላክ
     send_telegram_notification(f"🎧 *አዲስ የደንበኛ ጥያቄ መጣ!*\n- ተጠቃሚ ID: `{user_id}`\n- መልዕክት: {message}")
-    
     return jsonify({"success": True, "msg": "ጥያቄዎ በተሳካ ሁኔታ ተልኳል። አድሚኑ ምላሽ ይሰጥበታል።"})
 
 
+# ==========================================
+# Admin Support & Dashboard Routes (የተስተካከለ የአድሚን ድጋፍ ራውት)
+# ==========================================
 @app.route('/admin/support', methods=['GET'])
 def admin_support_list():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     tickets = SupportTicket.query.order_by(SupportTicket.created_at.desc()).all()
+    # እዚህጋር ተጠቃሚው የሚጠቀምበትን support.html ሳይሆን የአድሚኑን admin_support.html መጠራቱን አረጋግጠናል።
     return render_template('admin_support.html', tickets=tickets)
 
 
@@ -766,7 +762,6 @@ def admin_reply_ticket(ticket_id):
         ticket.admin_reply = reply_text
         ticket.status = 'Answered'
         db.session.commit()
-        flash("ምላሹ በተሳካ ሁኔታ ተልኳል!", "success")
         return jsonify({'success': True, 'message': 'ምላሹ ተልኳል።'})
     except Exception as e:
         db.session.rollback()
