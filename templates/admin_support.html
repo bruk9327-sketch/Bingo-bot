@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <title>የደንበኞች ድጋፍ አስተዳደር - BKBINGO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-white p-4">
+    <div class="container">
+        <h2>🎧 የደንበኞች ቅሬታዎች እና ጥያቄዎች (Support Tickets)</h2>
+        <a href="/admin" class="btn btn-secondary btn-sm mb-3">← ወደ ዳሽቦርድ ተመለስ</a>
+        
+        <div class="table-responsive">
+            <table class="table table-dark table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>ተጠቃሚ ID</th>
+                        <th>ርዕስ</th>
+                        <th>መልዕክት</th>
+                        <th>ፋይል/ደረሰኝ</th>
+                        <th>ስታተስ</th>
+                        <th>የአድሚን ምላሽ</th>
+                        <th>ድርጊት</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if tickets %}
+                        {% for t in tickets %}
+                        <tr>
+                            <td>{{ t.id }}</td>
+                            <td><code>{{ t.user_id }}</code></td>
+                            <td>{{ t.subject }}</td>
+                            <td>{{ t.message }}</td>
+                            <td>
+                                {% if t.attachment %}
+                                    <a href="{{ url_for('static', filename='uploads/' + t.attachment) }}" target="_blank" class="btn btn-sm btn-info">ይዩ</a>
+                                {% else %}
+                                    የለም
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.status == 'Answered' %}
+                                    <span class="badge bg-success">ተመልሷል</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">በመጠበቅ ላይ</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ t.admin_reply or 'ምላሽ አልተሰጠም' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="openReplyModal('{{ t.id }}')">ምላሽ ስጥ</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="8" class="text-center text-muted">ምንም ጥያቄዎች የሉም።</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Reply Modal -->
+    <div class="modal fade" id="replyModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content bg-secondary text-white">
+          <div class="modal-header">
+            <h5 class="modal-title">ለተጠቃሚው ምላሽ መስጫ</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="current_ticket_id">
+            <textarea id="admin_reply_text" class="form-control" rows="4" placeholder="መልዕክትዎን እዚህ ይጻፉ..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="sendReply()">ላክ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let modal = new bootstrap.Modal(document.getElementById('replyModal'));
+        function openReplyModal(id) {
+            document.getElementById('current_ticket_id').value = id;
+            modal.show();
+        }
+        function sendReply() {
+            let id = document.getElementById('current_ticket_id').value;
+            let reply = document.getElementById('admin_reply_text').value;
+            
+            fetch('/admin/support/' + id + '/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_reply: reply })
+            }).then(res => res.json()).then(data => {
+                if(data.success) {
+                    alert('ምላሹ ተልኳል!');
+                    location.reload();
+                } else {
+                    alert('ስህተት ተፈጥሯል');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
