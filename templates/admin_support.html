@@ -2,7 +2,7 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>የደንበኞች ድጋፍ እና እርዳታ - BKBINGO</title>
+    <title>የአድሚን የደንበኞች ድጋፍ አስተዳደር - BKBINGO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -12,7 +12,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
         }
         .card-custom {
             background-color: #1c2541;
@@ -34,64 +34,54 @@
 <body>
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>🎧 የደንበኞች ድጋፍ እና ቅሬታዎች</h2>
-            <a href="/" class="btn btn-outline-light btn-sm">← ወደ ዋናው ገጽ ተመለስ</a>
+            <h2>🛠️ የአድሚን የደንበኞች ድጋፍ ማዕከል</h2>
+            <div>
+                <a href="/admin" class="btn btn-outline-warning btn-sm me-2">← ወደ አድሚን ዳሽቦርድ</a>
+                <a href="/" class="btn btn-outline-light btn-sm">ወደ ዋናው ገጽ</a>
+            </div>
         </div>
 
-        <!-- አዲስ ጥያቄ መላኪያ ፎርም -->
-        <div class="card-custom mb-5">
-            <h4 class="mb-3">አዲስ ጥያቄ ወይም ቅሬታ ላክ</h4>
-            <form id="supportForm" onsubmit="submitTicket(event)">
-                <input type="hidden" id="user_id" value=""> <!-- በ JavaScript ወይም በ session ይሞላል -->
-                <div class="mb-3">
-                    <label for="subject" class="form-label">ርዕስ (Subject)</label>
-                    <input type="text" class="form-control" id="subject" placeholder="ለምሳሌ፦ የዲፖዚት ክፍያ አልገባም አለ" required>
-                </div>
-                <div class="mb-3">
-                    <label for="message" class="form-label">መልዕክትዎ</label>
-                    <textarea class="form-control" id="message" rows="4" placeholder="እባክዎ ችግርዎን በዝርዝር ይጻፉ..." required></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="attachment" class="form-label">ፋይል ወይም ደረሰኝ (Screenshot - አማራጭ)</label>
-                    <input type="file" class="form-control" id="attachment">
-                </div>
-                <button type="submit" class="btn btn-primary w-100">ጥያቄውን ላክ</button>
-            </form>
-        </div>
-
-        <!-- የተጠቃሚው የድጋፍ ጥያቄዎች ታሪክ እና የአድሚን ምላሾች -->
-        <div class="user-tickets-container">
-            <h3 class="mb-3">የእኔ የድጋፍ ጥያቄዎች ታሪክ</h3>
+        <!-- የጥያቄዎች ዝርዝር -->
+        <div class="tickets-list-container">
+            <h3 class="mb-3">የተጠቃሚዎች የድጋፍ ጥያቄዎች እና ቅሬታዎች</h3>
             {% if tickets %}
                 {% for ticket in tickets %}
-                <div class="ticket-card" style="background: #101f46; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #3a506b;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <p class="mb-1"><strong>ርዕስ:</strong> {{ ticket.subject }}</p>
+                <div class="card-custom">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0 text-info"><strong>ርዕስ:</strong> {{ ticket.subject }}</h5>
                         <span class="badge {{ 'bg-success' if ticket.status == 'Answered' else 'bg-warning text-dark' }}">
                             {{ 'ተመልሷል' if ticket.status == 'Answered' else 'በመጠበቅ ላይ' }}
                         </span>
                     </div>
-                    <p class="mb-2 text-muted" style="font-size: 13px;">ቀን: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}</p>
-                    <p class="mb-2"><strong>መልዕክትዎ:</strong> {{ ticket.message }}</p>
+                    <p class="mb-1 text-muted" style="font-size: 13px;">
+                        <strong>ተጠቃሚ ID:</strong> <code>{{ ticket.user_id }}</code> | <strong>ቀን:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}
+                    </p>
+                    <p class="mb-3"><strong>የተጠቃሚው መልዕክት:</strong> {{ ticket.message }}</p>
                     
                     {% if ticket.attachment %}
-                    <p class="mb-2"><strong>ፋይል:</strong> <a href="{{ url_for('static', filename='uploads/' + ticket.attachment) }}" target="_blank" class="text-info">የተያያዘውን ፋይል ይዩ</a></p>
+                    <p class="mb-3"><strong>የተያያዘ ፋይል/ደረሰኝ:</strong> <a href="{{ url_for('static', filename='uploads/' + ticket.attachment) }}" target="_blank" class="text-warning">ፋይሉን ክፈት</a></p>
                     {% endif %}
                     
-                    <!-- የአድሚን ምላሽ የሚታይበት ቦታ -->
+                    <!-- ቀደም ሲል የተሰጠ ምላሽ ካለ ማሳየት -->
                     {% if ticket.admin_reply %}
-                    <div class="admin-reply-box" style="background: #1a3068; padding: 10px; margin-top: 10px; border-left: 4px solid #20d49b; border-radius: 4px;">
-                        <small style="color: #20d49b; font-weight: bold;">የአድሚን ምላሽ:</small>
-                        <p style="margin: 5px 0 0; color: #f4f7ff;">{{ ticket.admin_reply }}</p>
+                    <div class="admin-reply-box p-3 mb-3" style="background: #1a3068; border-left: 4px solid #20d49b; border-radius: 4px;">
+                        <small style="color: #20d49b; font-weight: bold;">የተሰጠ ምላሽ:</small>
+                        <p class="mb-0 mt-1" style="color: #f4f7ff;">{{ ticket.admin_reply }}</p>
                     </div>
-                    {% else %}
-                    <p style="color: #aab7d4; font-style: italic; font-size: 12px; margin-top: 8px;">አስተዳዳሪው ገና ምላሽ አልሰጠም፣ በመጠበቅ ላይ...</p>
                     {% endif %}
+
+                    <!-- ለጥያቄው ምላሽ መስጫ ፎርም -->
+                    <form onsubmit="sendAdminReply(event, '{{ ticket.id }}')">
+                        <div class="mb-2">
+                            <textarea class="form-control" id="reply_text_{{ ticket.id }}" rows="2" placeholder="ለዚህ ጥያቄ የሚሆን ምላሽ ይጻፉ..." required>{% if ticket.admin_reply %}{{ ticket.admin_reply }}{% endif %}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">ምላሽ ላክ / አዘምን</button>
+                    </form>
                 </div>
                 {% endfor %}
             {% else %}
                 <div class="card-custom text-center text-muted">
-                    <p class="mb-0">ምንም የተላከ የድጋፍ ጥያቄ የለም።</p>
+                    <p class="mb-0">ምንም የቀረበ የድጋፍ ጥያቄ የለም።</p>
                 </div>
             {% endif %}
         </div>
@@ -99,39 +89,24 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // ገጹ ሲከፈት ከ localStorage ወይም ከ session የተጠቃሚውን ID መውሰድ
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedUserId = localStorage.getItem('bk_user_id') || 'guest_user';
-            document.getElementById('user_id').value = savedUserId;
-        });
-
-        function submitTicket(event) {
+        function sendAdminReply(event, ticketId) {
             event.preventDefault();
-            
-            let userId = document.getElementById('user_id').value;
-            let subject = document.getElementById('subject').value;
-            let message = document.getElementById('message').value;
-            let attachmentFile = document.getElementById('attachment').files[0];
+            let replyText = document.getElementById('reply_text_' + ticketId).value;
 
-            let formData = new FormData();
-            formData.append('user_id', userId);
-            formData.append('subject', subject);
-            formData.append('message', message);
-            if (attachmentFile) {
-                formData.append('attachment', attachmentFile);
-            }
-
-            fetch('/api/support/submit', {
+            fetch('/admin/support/' + ticketId + '/reply', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ admin_reply: replyText })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    alert(data.msg);
+                    alert('ምላሹ በተሳካ ሁኔታ ተልኳል!');
                     location.reload();
                 } else {
-                    alert(data.msg || 'ስህተት ተፈጥሯል!');
+                    alert(data.message || 'ስህተት ተፈጥሯል!');
                 }
             })
             .catch(err => {
