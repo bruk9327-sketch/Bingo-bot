@@ -269,7 +269,6 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=True)
     balance = db.Column(db.Float, default=50.00)
     
-    # የተጠቃሚ ስታተስ ማስተዳደሪያ ፊልዶች
     is_active = db.Column(db.Boolean, default=True)
     is_suspended = db.Column(db.Boolean, default=False)
     kyc_verified = db.Column(db.Boolean, default=False)
@@ -306,22 +305,20 @@ class Transaction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
-# አዲስ የተጨመረው የደንበኞች ድጋፍ እና ቅሬታ ሞዴል (Support Ticket Model)
 class SupportTicket(db.Model):
     __tablename__ = 'support_tickets'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(100), nullable=False)
     subject = db.Column(db.String(150), nullable=True)
     message = db.Column(db.Text, nullable=False)
-    attachment = db.Column(db.String(255), nullable=True)  # የፋይል ወይም የስክሪንሻት ዱካ (Path)
-    status = db.Column(db.String(20), default='Pending')     # Pending, Answered
+    attachment = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), default='Pending')
     admin_reply = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 with app.app_context():
     db.create_all()
-    # የጠፉ አምዶች ካሉ በራስ-ሰር እንዲጨምር (Auto-Fix Missing Columns)
     try:
         with db.engine.connect() as conn:
             conn.execute(text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
@@ -383,6 +380,8 @@ def handle_login_user(data):
             return
 
         if user.password == password:
+            # session ላይ user_id እንዲቀመጥ ማድረግ (ለ support ገጽ ይጠቅማል)
+            session['user_id'] = user.user_id
             emit('auth_response', {
                 'success': True,
                 'msg': 'እንኳን ደህና መጡ!',
@@ -429,6 +428,7 @@ def handle_register_user(data):
         db.session.add(user)
         db.session.commit()
 
+        session['user_id'] = user.user_id
         emit('auth_response', {
             'success': True,
             'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቶዎታል።',
@@ -697,8 +697,22 @@ def telebirr_callback():
 
 
 # ==========================================
-# Support Ticket Routes (አዲስ የተጨመሩ ራውቶች)
+# Support Ticket Routes (የተስተካከለ የደንበኞች ድጋፍ ራውት)
 # ==========================================
+@app.route('/support', methods=['GET', 'POST'])
+def user_support():
+    # ተጠቃሚው መግባቱን በ session ወይም በ query parameter ማረጋገጥ 
+    # (በ session ውስጥ user_id ከሌለ በግልጽ እንዲገባ ወይም በ query እንዲታይ ማድረግ ይቻላል)
+    current_user_id = session.get('user_id') or request.args.get('user_id')
+    
+    tickets = []
+    if current_user_id:
+        # የተጠቃሚውን ቲኬቶች ብቻ ከዳታቤዝ ማምጣት
+        tickets = SupportTicket.query.filter_by(user_id=current_user_id).order_by(SupportTicket.created_at.desc()).all()
+        
+    return render_template('support.html', tickets=tickets)
+
+
 @app.route('/api/support/submit', methods=['POST'])
 def submit_support_ticket():
     user_id = request.form.get('user_id')
