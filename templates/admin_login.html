@@ -7,6 +7,8 @@
     <style>
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,8 +18,8 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            margin: 0;
             overflow-x: hidden;
+            padding: 15px;
         }
         
         /* ዋናው መያዣ (Layout Container) */
@@ -25,62 +27,116 @@
             display: flex;
             width: 100%;
             max-width: 1100px;
-            min-height: 650px;
+            min-height: 600px;
             background: radial-gradient(circle at top left, #1a2342, #0b1021);
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.7);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             overflow: hidden;
-            margin: 20px;
         }
 
         /* የግራ በኩል ያለው የባነር ክፍል */
         .left-banner {
             flex: 1;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(7, 11, 25, 0.95)), 
-                        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></svg>');
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(7, 11, 25, 0.98));
             padding: 40px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             position: relative;
             border-right: 1px solid rgba(255, 255, 255, 0.05);
+            align-items: center;
+            text-align: center;
         }
 
         .brand-top {
-            font-size: 18px;
+            font-size: 16px;
             font-style: italic;
             color: #fbbf24;
             font-weight: 600;
-            margin-bottom: 20px;
+            align-self: flex-start;
         }
 
-        /* አዲሱ የሎጎ መያዣ ክፍል */
-        .brand-center {
-            text-align: center;
-            margin: auto 0;
+        /* በኮድ የተሰራው ውብ ሎጎ (Pure CSS Neon Logo Emblem) */
+        .css-logo-emblem {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            background: radial-gradient(circle, #0f172a 40%, #070b19 90%);
+            border: 4px solid #f59e0b;
+            border-radius: 50%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(56, 189, 248, 0.3);
+            margin: 20px 0;
         }
 
-        .logo-image-wrapper {
-            width: 300px;
-            height: 300px;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 10px 30px rgba(255, 215, 0, 0.3));
+        .logo-stars {
+            font-size: 22px;
+            color: #fbbf24;
+            margin-bottom: 5px;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
         }
 
-        .logo-image-wrapper img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+        .logo-main-text {
+            font-size: 38px;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 1px;
+            display: flex;
         }
+
+        .logo-main-text .bk {
+            color: #38bdf8;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        }
+
+        .logo-main-text .k {
+            color: #f97316;
+            text-shadow: 0 0 15px rgba(249, 115, 22, 0.6);
+        }
+
+        .logo-badge-pill {
+            background: linear-gradient(90deg, #7c3aed, #2563eb);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 1px;
+            margin-top: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .logo-balls-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .mini-ball {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: #000;
+            box-shadow: inset -3px -3px 6px rgba(0,0,0,0.6), 0 2px 5px rgba(0,0,0,0.4);
+        }
+        .ball-purple { background: radial-gradient(circle at 30% 30%, #c084fc, #7e22ce); color: #fff; }
+        .ball-red { background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c); color: #fff; }
+        .ball-green { background: radial-gradient(circle at 30% 30%, #4ade80, #15803d); color: #fff; }
 
         .brand-slogan {
-            font-size: 14px;
-            letter-spacing: 1.5px;
+            font-size: 13px;
+            letter-spacing: 2px;
             color: #94a3b8;
             font-weight: 600;
             text-transform: uppercase;
@@ -89,17 +145,17 @@
         .features-footer {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            width: 100%;
+            font-size: 11px;
             color: #94a3b8;
             border-top: 1px solid rgba(255,255,255,0.1);
             padding-top: 15px;
-            margin-top: 20px;
         }
 
         /* የቀኝ በኩል ያለው የሎጊን ካርድ ክፍል */
         .right-login {
             flex: 1;
-            background: rgba(13, 19, 38, 0.85);
+            background: rgba(13, 19, 38, 0.95);
             backdrop-filter: blur(10px);
             padding: 40px;
             display: flex;
@@ -111,23 +167,23 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .shield-icon {
-            font-size: 36px;
+            font-size: 32px;
             color: #fbbf24;
         }
 
         .login-card-header h2 {
             margin: 0;
-            font-size: 24px;
+            font-size: 22px;
             color: #fff;
         }
 
         .login-card-header span {
             display: block;
-            font-size: 13px;
+            font-size: 12px;
             color: #38bdf8;
             font-weight: 600;
         }
@@ -135,18 +191,17 @@
         .welcome-text {
             color: #94a3b8;
             font-size: 13px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .form-group {
-            margin-bottom: 18px;
-            position: relative;
+            margin-bottom: 16px;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 6px;
-            font-size: 13px;
+            margin-bottom: 5px;
+            font-size: 12px;
             color: #cbd5e1;
         }
 
@@ -158,18 +213,18 @@
 
         .input-box span {
             position: absolute;
-            left: 14px;
-            color: #64748b;
+            left: 12px;
+            font-size: 14px;
         }
 
         .form-group input {
             width: 100%;
-            padding: 12px 12px 12px 40px;
+            padding: 11px 11px 11px 38px;
             border-radius: 8px;
             border: 1px solid #334155;
             background: #0b1021;
             color: #fff;
-            font-size: 14px;
+            font-size: 13px;
             outline: none;
             transition: all 0.3s;
         }
@@ -183,22 +238,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 13px;
-            margin-bottom: 20px;
+            font-size: 12px;
+            margin-bottom: 18px;
         }
 
         .remember-me {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             color: #94a3b8;
             cursor: pointer;
         }
 
         .remember-me input {
             accent-color: #2563eb;
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
         }
 
         .forgot-link {
@@ -209,12 +264,12 @@
 
         .btn-login {
             width: 100%;
-            padding: 12px;
+            padding: 11px;
             background: linear-gradient(135deg, #2563eb, #7c3aed);
             color: #fff;
             border: none;
             border-radius: 8px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: opacity 0.3s;
@@ -229,7 +284,7 @@
             text-align: center;
             border-bottom: 1px solid #1e293b;
             line-height: 0.1em;
-            margin: 25px 0;
+            margin: 20px 0;
             color: #64748b;
             font-size: 11px;
         }
@@ -238,24 +293,24 @@
         .panel-info-box {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 12px;
+            padding: 10px 12px;
             border-radius: 8px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .panel-info-box .crown { font-size: 20px; }
-        .panel-info-box .title { font-size: 12px; font-weight: bold; color: #fbbf24; }
-        .panel-info-box .version { font-size: 11px; color: #64748b; }
+        .panel-info-box .crown { font-size: 18px; }
+        .panel-info-box .title { font-size: 11px; font-weight: bold; color: #fbbf24; }
+        .panel-info-box .version { font-size: 10px; color: #64748b; }
 
         .error-msg { 
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.3);
             color: #ef4444; 
-            padding: 10px;
+            padding: 9px;
             border-radius: 6px;
-            font-size: 13px; 
+            font-size: 12px; 
             text-align: center; 
             margin-bottom: 15px; 
         }
@@ -264,30 +319,38 @@
             text-align: center;
             font-size: 11px;
             color: #64748b;
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 5px;
+            margin-top: 15px;
         }
 
-        /* Responsive design ለ ስልክ (Mobile) */
+        /* Responsive design ለ ስልክ (Mobile Optimization) */
         @media(max-width: 768px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
             .main-container {
                 flex-direction: column;
-                max-width: 450px;
-                margin: 10px;
+                max-width: 100%;
+                margin: 0;
             }
             .left-banner {
-                padding: 20px;
-                min-height: 250px;
+                padding: 25px 15px;
+                min-height: auto;
             }
-            .logo-image-wrapper {
-                width: 180px;
-                height: 180px;
+            .css-logo-emblem {
+                width: 190px;
+                height: 190px;
+                margin: 15px 0;
+            }
+            .logo-main-text {
+                font-size: 30px;
             }
             .right-login {
-                padding: 25px;
+                padding: 25px 20px;
+            }
+            .features-footer {
+                font-size: 10px;
+                gap: 5px;
             }
         }
     </style>
@@ -295,16 +358,25 @@
 <body>
 
     <div class="main-container">
-        <!-- የግራ በኩል የባነር ክፍል -->
+        <!-- የግራ በኩል የባነር ክፍል (በኮድ የተሰራ ሎጎ) -->
         <div class="left-banner">
             <div class="brand-top">Welcome to</div>
-            <div class="brand-center">
-                <!-- የክብ ሎጎ ምስል ተቀጥሏል -->
-                <div class="logo-image-wrapper">
-                    <img src="https://i.imgur.com/9W4B1fH.png" alt="BKBINGO HOUSE Logo" />
+            
+            <div class="css-logo-emblem">
+                <div class="logo-stars">⭐⭐⭐</div>
+                <div class="logo-main-text">
+                    <span class="bk">BK</span><span class="k">B</span>
                 </div>
-                <p class="brand-slogan">PLAY &bull; WIN &bull; BE A HOUSE</p>
+                <div class="logo-badge-pill">BKBINGOHOUSE</div>
+                <div class="logo-balls-row">
+                    <div class="mini-ball ball-purple">17</div>
+                    <div class="mini-ball ball-red">39</div>
+                    <div class="mini-ball ball-green">55</div>
+                </div>
             </div>
+
+            <p class="brand-slogan">PLAY &bull; WIN &bull; BE A HOUSE</p>
+            
             <div class="features-footer">
                 <div>🔒 Secure System</div>
                 <div>⚡ Fast Access</div>
