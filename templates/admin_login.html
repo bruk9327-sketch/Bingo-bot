@@ -2,78 +2,374 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Sign In - BKBINGO PRO</title>
+    <title>Admin Sign In - BKBINGO HOUSE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0f172a;
+            background: #070b19;
             color: #fff;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            overflow-x: hidden;
         }
-        .login-card {
-            background: #1e293b;
-            padding: 40px;
-            border-radius: 12px;
+        
+        /* ዋናው መያዣ (Layout Container) */
+        .main-container {
+            display: flex;
             width: 100%;
-            max-width: 400px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            border: 1px solid #334155;
+            max-width: 1100px;
+            min-height: 650px;
+            background: radial-gradient(circle at top left, #1a2342, #0b1021);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            margin: 20px;
         }
-        .login-card h2 { margin-top: 0; text-align: center; color: #38bdf8; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; }
+
+        /* የግራ በኩል ያለው የባነር ክፍል */
+        .left-banner {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(7, 11, 25, 0.95)), 
+                        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></svg>');
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .brand-top {
+            font-size: 18px;
+            font-style: italic;
+            color: #fbbf24;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        /* አዲሱ የሎጎ መያዣ ክፍል */
+        .brand-center {
+            text-align: center;
+            margin: auto 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-image-wrapper {
+            width: 300px;
+            height: 300px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 10px 30px rgba(255, 215, 0, 0.3));
+        }
+
+        .logo-image-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .brand-slogan {
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .features-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #94a3b8;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px;
+            margin-top: 20px;
+        }
+
+        /* የቀኝ በኩል ያለው የሎጊን ካርድ ክፍል */
+        .right-login {
+            flex: 1;
+            background: rgba(13, 19, 38, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .shield-icon {
+            font-size: 36px;
+            color: #fbbf24;
+        }
+
+        .login-card-header h2 {
+            margin: 0;
+            font-size: 24px;
+            color: #fff;
+        }
+
+        .login-card-header span {
+            display: block;
+            font-size: 13px;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .welcome-text {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+
+        .input-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-box span {
+            position: absolute;
+            left: 14px;
+            color: #64748b;
+        }
+
         .form-group input {
             width: 100%;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
+            padding: 12px 12px 12px 40px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0b1021;
             color: #fff;
-            box-sizing: border-box;
+            font-size: 14px;
             outline: none;
+            transition: all 0.3s;
         }
-        .form-group input:focus { border-color: #2563eb; }
+
+        .form-group input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+
+        .remember-me input {
+            accent-color: #2563eb;
+            width: 16px;
+            height: 16px;
+        }
+
+        .forgot-link {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+        .forgot-link:hover { text-decoration: underline; }
+
         .btn-login {
             width: 100%;
             padding: 12px;
-            background: #2563eb;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
             color: #fff;
             border: none;
-            border-radius: 6px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
         }
-        .btn-login:hover { background: #1d4ed8; }
-        .error-msg { color: #ef4444; font-size: 13px; text-align: center; margin-bottom: 15px; }
+
+        .btn-login:hover { 
+            opacity: 0.9; 
+        }
+
+        .divider {
+            text-align: center;
+            border-bottom: 1px solid #1e293b;
+            line-height: 0.1em;
+            margin: 25px 0;
+            color: #64748b;
+            font-size: 11px;
+        }
+        .divider span { background: #0d1326; padding: 0 10px; }
+
+        .panel-info-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .panel-info-box .crown { font-size: 20px; }
+        .panel-info-box .title { font-size: 12px; font-weight: bold; color: #fbbf24; }
+        .panel-info-box .version { font-size: 11px; color: #64748b; }
+
+        .error-msg { 
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444; 
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px; 
+            text-align: center; 
+            margin-bottom: 15px; 
+        }
+
+        .security-footer {
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Responsive design ለ ስልክ (Mobile) */
+        @media(max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                max-width: 450px;
+                margin: 10px;
+            }
+            .left-banner {
+                padding: 20px;
+                min-height: 250px;
+            }
+            .logo-image-wrapper {
+                width: 180px;
+                height: 180px;
+            }
+            .right-login {
+                padding: 25px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <h2>🛡️ BKBINGO Admin</h2>
-        <p style="text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 25px;">እባክዎ ለመግባት መረጃዎትን ያስገቡ</p>
-        
-        {% if error %}
-        <div class="error-msg">{{ error }}</div>
-        {% endif %}
 
-        <!-- ትክክለኛው አድራሻ /admin-login ተደርጎ ተስተካክሏል -->
-        <form method="POST" action="/admin-login">
-            <div class="form-group">
-                <label>የአስተዳዳሪ ስም ወይም ዩዘርኔም (Username)</label>
-                <input type="text" name="username" required autocomplete="off">
+    <div class="main-container">
+        <!-- የግራ በኩል የባነር ክፍል -->
+        <div class="left-banner">
+            <div class="brand-top">Welcome to</div>
+            <div class="brand-center">
+                <!-- የክብ ሎጎ ምስል ተቀጥሏል -->
+                <div class="logo-image-wrapper">
+                    <img src="https://i.imgur.com/9W4B1fH.png" alt="BKBINGO HOUSE Logo" />
+                </div>
+                <p class="brand-slogan">PLAY &bull; WIN &bull; BE A HOUSE</p>
             </div>
-            <div class="form-group">
-                <label>የሚስጥር ቁጥር (Password)</label>
-                <input type="password" name="password" required>
+            <div class="features-footer">
+                <div>🔒 Secure System</div>
+                <div>⚡ Fast Access</div>
+                <div>🎧 24/7 Support</div>
             </div>
-            <button type="submit" class="btn-login">ግባ (Sign In)</button>
-        </form>
+        </div>
+
+        <!-- የቀኝ በኩል የሎጊን ፎርም ክፍል -->
+        <div class="right-login">
+            <div class="login-card-header">
+                <div class="shield-icon">🛡️</div>
+                <div>
+                    <h2>Admin Sign In</h2>
+                    <span>BKBINGO HOUSE</span>
+                </div>
+            </div>
+            
+            <p class="welcome-text">Welcome back! Please sign in to your admin account.</p>
+            
+            {% if error %}
+            <div class="error-msg">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="/admin-login">
+                <div class="form-group">
+                    <label>Username</label>
+                    <div class="input-box">
+                        <span>👤</span>
+                        <input type="text" name="username" placeholder="Username" required autocomplete="off">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-box">
+                        <span>🔒</span>
+                        <input type="password" name="password" placeholder="Password" required>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" name="remember"> Remember me
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-login">Sign In</button>
+            </form>
+
+            <div class="divider"><span>OR</span></div>
+
+            <div class="panel-info-box">
+                <div class="crown">👑</div>
+                <div>
+                    <div class="title">BKBINGO HOUSE</div>
+                    <div class="version">Admin Panel v1.0.0</div>
+                </div>
+            </div>
+
+            <div class="security-footer">
+                🔒 Authorized Personnel Only
+            </div>
+        </div>
     </div>
+
 </body>
 </html>
