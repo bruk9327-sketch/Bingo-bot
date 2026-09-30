@@ -48,7 +48,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent')
 
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8734350453:AAEcn3M7BOk9aHkRhhBU85HJoirIsw82B2I')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM')
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '8912812512')
 ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 
@@ -978,15 +978,6 @@ def admin_login():
             error_msg = 'የተሳሳተ መግቢያ ስም ወይም የይለፍ ቃል!'
             
     return render_template('admin_login.html', error_msg=error_msg)
-
-
-@app.route('/admin-logout')
-def admin_logout():
-    session.pop('is_admin', None)
-    session.pop('admin_logged', None)
-    session.pop('admin_name', None)
-    flash(" ከአድሚን ፓነል ወጥተዋል!", "success")
-    return redirect(url_for('admin_login'))
 
 
 if __name__ == '__main__':
