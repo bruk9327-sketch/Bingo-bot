@@ -358,7 +358,7 @@ def send_telegram_notification(message, reply_markup=None):
 @socketio.on('connect')
 def handle_connect():
     emit('update_selected_cards', {'taken_cards': taken_cards_global})
-    emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
+    emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': game_active})
 
 
 @socketio.on('login_user')
@@ -449,11 +449,15 @@ def handle_select_card(data):
         return
 
     user_id = str(data.get('user_id'))
-    card_id = data.get('card_id')
     try:
-        card_id = int(card_id)
+        card_id = int(data.get('card_id'))
     except:
-        pass
+        emit('error_msg', {'msg': 'ትክክለኛ ያልሆነ የካርቴላ መለያ!'}, room=request.sid)
+        return
+
+    if card_id < 1 or card_id > 104:
+        emit('error_msg', {'msg': 'የካርቴላ ቁጥር ከ 1 እስከ 104 መሆን አለበት!'}, room=request.sid)
+        return
 
     card_price = 10.00
     user = User.query.filter_by(user_id=user_id).first()
@@ -482,7 +486,7 @@ def handle_select_card(data):
     emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': float(user.balance)}, room=request.sid)
     
     socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
-    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
+    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': game_active})
 
 
 def generate_bingo_matrix(seed_val):
@@ -518,7 +522,7 @@ def background_game_loop():
                 socketio.emit('reset_game', {})
 
                 while game_timer > 0:
-                    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
+                    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': False})
                     socketio.sleep(1)
                     game_timer -= 1
 
@@ -537,9 +541,9 @@ def background_game_loop():
                         break
                     drawn_balls.append(ball)
                     socketio.emit('number_drawn', {'number': ball})
-                    socketio.sleep(10)
+                    socketio.sleep(4)
 
-                socketio.sleep(10)
+                socketio.sleep(5)
         except Exception as e:
             print('Background Game Loop Error:', e)
             socketio.sleep(1)
@@ -578,7 +582,7 @@ def handle_claim_bingo(data):
             'card_id': card_id,
             'card_matrix': matrix,
         })
-        socketio.sleep(6)
+        socketio.sleep(5)
         reset_game_state_completely()
     else:
         emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'}, room=request.sid)
@@ -696,7 +700,7 @@ def telebirr_callback():
 
 
 # ==========================================
-# Support Ticket Routes (የተጠቃሚ ድጋፍ ራውቶች)
+# Support Ticket Routes
 # ==========================================
 @app.route('/support', methods=['GET', 'POST'])
 def user_support():
@@ -759,7 +763,7 @@ def get_user_tickets():
 
 
 # ==========================================
-# Admin Support & Dashboard Routes (የተስተካከለ የአድሚን ድጋፍ ራውት)
+# Admin Support & Dashboard Routes
 # ==========================================
 @app.route('/admin/support', methods=['GET'])
 def admin_support_list():
@@ -957,7 +961,6 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # በመረጃ ቋት ውስጥ አድሚኑን መፈለግ
         admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
         
         if admin and admin.password == password:
@@ -966,7 +969,6 @@ def admin_login():
             session['admin_name'] = username
             return redirect(url_for('admin_dashboard'))
         
-        # ከሲስተም ENV የተወሰደውን ወይም ዋናውን የአድሚን ፓስወርድ ማረጋገጥ
         elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
             session['admin_logged'] = True
             session['is_admin'] = True
