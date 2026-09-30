@@ -771,7 +771,7 @@
             const phoneInput = document.getElementById('deposit-phone').value.trim();
             
             if (!window.userId) {
-                return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
             if (!amount || amount <= 0) {
@@ -831,7 +831,7 @@
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
-            if (!amount || amount <= 0 || !account) return alert("⚠️️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
+            if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
             socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
@@ -940,7 +940,7 @@
 
             updateCalledNumbersUI();
 
-            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check'].checked : true;
+            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
             if (autoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
                     if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
@@ -1009,7 +1009,7 @@
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
-                                if (!drawnNumbersSet.has(val)) return alert("⚠ ይህ ቁጥር ገና አልተጠራም!");
+                                if (!drawnNumbersSet.has(val)) return alert("⚠️️ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
                                 cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
