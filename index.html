@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <!-- CARTELA SELECTION SCREEN -->
+    <!-- CARTELA SELECTION SCREEN (1 - 104) -->
     <div id="selection-screen" class="hidden space-y-3 my-2">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
             <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
@@ -328,26 +328,45 @@
         </div>
     </div>
 
-    <!-- 3. SUPPORT MODAL -->
+    <!-- 3. SUPPORT MODAL & COMPLAINT FORM WITH HISTORY & ADMIN REPLY -->
     <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl text-left">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-lg border-2 border-purple-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-black text-purple-400">🎧 የደንበኞች ድጋፍ (Support)</h3>
+                <h3 class="text-sm font-black text-purple-400">🎧 የደንበኞች ድጋፍ እና የታሪክ ምላሾች</h3>
                 <button onclick="closeSupportModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
-            <div class="space-y-3 text-[11px] text-slate-300">
-                <p>ተጫዋቾች ገንዘብ ገቢ ወይም ውጭ ሲያደርጉ ወይም ማንኛውም ቴክኒካዊ ችግር ሲያጋጥማቸው ከዚህ በታች ባሉት አማራጮች ማግኘት ይችላሉ:</p>
-                <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1">
-                    <div class="text-amber-400 font-bold">💳 የሜርሻንት መረጃ (Merchant Info)</div>
-                    <div>Telebirr Merchant: <b>642077</b></div>
-                    <div>CBE Merchant: <b>1287375</b></div>
-                </div>
-                <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-                    <div class="text-sky-400 font-bold">💬 ቴሌግራም ድጋፍ (Telegram)</div>
-                    <div>ለፈጣን እርዳታ እና የክፍያ ማረጋገጫ በቴሌግራም አድሚናችንን ያነጋግሩ።</div>
+            
+            <div class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                <!-- አዲስ ጥያቄ መላኪያ ፎርም -->
+                <form id="support-form" onsubmit="submitSupportTicket(event)" class="space-y-3 text-[11px] bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+                    <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1 mb-1">
+                        <div class="text-amber-400 font-bold text-[10px]">💳 የሜርሻንት መረጃ (Merchant Info)</div>
+                        <div class="text-[10px]">Telebirr Merchant: <b>642077</b></div>
+                        <div class="text-[10px]">CBE Merchant: <b>1287375</b></div>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">ርዕስ (Subject)</label>
+                        <input type="text" id="support-subject" placeholder="የክፍያ ወይም የጨዋታ ችግር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white outline-none text-xs" required>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">መልዕክትዎ ወይም ቅሬታዎ</label>
+                        <textarea id="support-message" rows="2" placeholder="ችግሩን በግልጽ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white outline-none text-xs" required></textarea>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">ፋይል ወይም ደረሰኝ (Screenshot)</label>
+                        <input type="file" id="support-file" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1 text-slate-300 text-[10px]">
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
+                </form>
+
+                <!-- የጥያቄዎች ታሪክ እና የአድሚን ምላሽ የሚታይበት ቦታ -->
+                <div>
+                    <h4 class="text-xs font-black text-slate-300 mb-2">የእርስዎ ጥያቄዎች እና የአድሚን ምላሾች</h4>
+                    <div id="user-tickets-history-container" class="space-y-2 text-[11px]">
+                        <p class="text-slate-400 text-center text-[10px]">ጫን በመባል ላይ ይገኛል...</p>
+                    </div>
                 </div>
             </div>
-            <button onclick="closeSupportModal()" class="w-full mt-4 py-2.5 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
         </div>
     </div>
 
@@ -527,10 +546,89 @@
 
         function openSupportModal() {
             document.getElementById('support-modal').classList.remove('hidden');
+            loadUserTickets();
         }
 
         function closeSupportModal() {
             document.getElementById('support-modal').classList.add('hidden');
+        }
+
+        function loadUserTickets() {
+            const currentUserId = window.userId || localStorage.getItem('bk_user_id');
+            if (!currentUserId) return;
+
+            fetch(`/api/support/user-tickets?user_id=${currentUserId}`)
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('user-tickets-history-container');
+                if (!container) return;
+                
+                if (data.success && data.tickets && data.tickets.length > 0) {
+                    container.innerHTML = '';
+                    data.tickets.forEach(ticket => {
+                        const statusBadge = ticket.status === 'Answered' 
+                            ? '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-bold">ተመልሷል</span>' 
+                            : '<span class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[9px] font-bold">በመጠበቅ ላይ</span>';
+                        
+                        let replyHtml = ticket.admin_reply 
+                            ? `<div class="mt-2 p-2 bg-slate-950 rounded-xl border-l-2 border-emerald-400 text-[10px]">
+                                 <span class="text-emerald-400 font-bold">የአድሚን ምላሽ:</span> ${ticket.admin_reply}
+                               </div>`
+                            : `<div class="mt-1 text-[10px] text-slate-500 italic">አስተዳዳሪው ገና ምላሽ አልሰጠም...</div>`;
+
+                        const ticketDiv = document.createElement('div');
+                        ticketDiv.className = 'bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1';
+                        ticketDiv.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-amber-300">ርዕስ: ${ticket.subject}</span>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-slate-300 text-[10px]">መልዕክት: ${ticket.message}</p>
+                            ${replyHtml}
+                        `;
+                        container.appendChild(ticketDiv);
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-slate-500 text-center text-[10px]">ምንም የተላከ ጥያቄ የለም።</p>';
+                }
+            })
+            .catch(err => {
+                console.error('Error loading tickets:', err);
+            });
+        }
+
+        function submitSupportTicket(event) {
+            event.preventDefault();
+            const formData = new FormData();
+            formData.append('user_id', window.userId ? window.userId : 'guest');
+            formData.append('subject', document.getElementById('support-subject').value);
+            formData.append('message', document.getElementById('support-message').value);
+            
+            const fileInput = document.getElementById('support-file');
+            if (fileInput.files[0]) {
+                formData.append('attachment', fileInput.files[0]);
+            }
+
+            fetch('/api/support/submit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.msg || "✅ የድጋፍ ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
+                    document.getElementById('support-subject').value = '';
+                    document.getElementById('support-message').value = '';
+                    document.getElementById('support-file').value = '';
+                    loadUserTickets();
+                } else {
+                    alert('ስህተት: ' + (data.msg || 'ጥያቄውን መላክ አልተቻለም።'));
+                }
+            })
+            .catch(err => {
+                console.error('Support ticket error:', err);
+                alert('⚠️ የኔትወርክ ስህተት ተፈጥሯል!');
+            });
         }
 
         function submitForgotPassword(e) {
@@ -725,7 +823,7 @@
             const method = document.getElementById('withdraw-method').value;
 
             if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
             if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
@@ -734,6 +832,7 @@
             closeWithdrawModal();
         }
 
+        // ከ 1 እስከ 104 ያሉ ካርቴላዎችን በግሪድ መልክ መገንባት
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -928,7 +1027,7 @@
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.className && container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
         socket.on('winner_announced', (data) => {
