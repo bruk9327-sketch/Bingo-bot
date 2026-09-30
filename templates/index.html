@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <!-- CARTELA SELECTION SCREEN -->
+    <!-- CARTELA SELECTION SCREEN (1 - 104) -->
     <div id="selection-screen" class="hidden space-y-3 my-2">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
             <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
@@ -546,14 +546,13 @@
 
         function openSupportModal() {
             document.getElementById('support-modal').classList.remove('hidden');
-            loadUserTickets(); // ሞዳሉ ሲከፈት የጥያቄዎች ታሪክ እና የአድሚን ምላሽ እንዲጫን
+            loadUserTickets();
         }
 
         function closeSupportModal() {
             document.getElementById('support-modal').classList.add('hidden');
         }
 
-        // የተጠቃሚውን የድጋፍ ጥያቄዎች ታሪክ እና የአድሚን ምላሾች ከሰቨር ማምጫ
         function loadUserTickets() {
             const currentUserId = window.userId || localStorage.getItem('bk_user_id');
             if (!currentUserId) return;
@@ -621,7 +620,7 @@
                     document.getElementById('support-subject').value = '';
                     document.getElementById('support-message').value = '';
                     document.getElementById('support-file').value = '';
-                    loadUserTickets(); // ጥያቄው ከተላከ በኋላ የታሪክ ዝርዝሩን ማደስ
+                    loadUserTickets();
                 } else {
                     alert('ስህተት: ' + (data.msg || 'ጥያቄውን መላክ አልተቻለም።'));
                 }
@@ -824,7 +823,7 @@
             const method = document.getElementById('withdraw-method').value;
 
             if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
             if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
@@ -833,6 +832,7 @@
             closeWithdrawModal();
         }
 
+        // ከ 1 እስከ 104 ያሉ ካርቴላዎችን በግሪድ መልክ መገንባት
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -1027,7 +1027,7 @@
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.className && container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
         socket.on('winner_announced', (data) => {
