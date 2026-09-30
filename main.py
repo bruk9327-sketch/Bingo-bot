@@ -957,13 +957,16 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
+        # በመረጃ ቋት ውስጥ አድሚኑን መፈለግ
         admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
+        
         if admin and admin.password == password:
             session['admin_logged'] = True
             session['is_admin'] = True
             session['admin_name'] = username
             return redirect(url_for('admin_dashboard'))
         
+        # ከሲስተም ENV የተወሰደውን ወይም ዋናውን የአድሚን ፓስወርድ ማረጋገጥ
         elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
             session['admin_logged'] = True
             session['is_admin'] = True
