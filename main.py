@@ -980,6 +980,15 @@ def admin_login():
     return render_template('admin_login.html', error_msg=error_msg)
 
 
+@app.route('/admin-logout')
+def admin_logout():
+    session.pop('is_admin', None)
+    session.pop('admin_logged', None)
+    session.pop('admin_name', None)
+    flash(" ከአድሚን ፓነል ወጥተዋል!", "success")
+    return redirect(url_for('admin_login'))
+
+
 if __name__ == '__main__':
     threading.Thread(target=background_game_loop, daemon=True).start()
     port = int(os.environ.get('PORT', 10000))
