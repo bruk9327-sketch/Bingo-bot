@@ -559,39 +559,30 @@
         }
 
         function loadUserTickets() {
-            const currentUserId = window.userId || localStorage.getItem('bk_user_id');
-            if (!currentUserId) return;
-
-            fetch(`/api/support/user-tickets?user_id=${currentUserId}`)
+            if (!window.userId) return;
+            fetch(`/api/support/user-tickets?user_id=${window.userId}`)
             .then(res => res.json())
             .then(data => {
                 const container = document.getElementById('user-tickets-history-container');
                 if (!container) return;
-                
                 if (data.success && data.tickets && data.tickets.length > 0) {
                     container.innerHTML = '';
-                    data.tickets.forEach(ticket => {
-                        const statusBadge = ticket.status === 'Answered' 
+                    data.tickets.forEach(t => {
+                        const statusBadge = t.status === 'Answered' 
                             ? '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-bold">ተመልሷል</span>' 
                             : '<span class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[9px] font-bold">በመጠበቅ ላይ</span>';
                         
-                        let replyHtml = ticket.admin_reply 
+                        let replyHtml = t.admin_reply 
                             ? `<div class="mt-2 p-2 bg-slate-950 rounded-xl border-l-2 border-emerald-400 text-[10px]">
-                                 <span class="text-emerald-400 font-bold">የአድሚን ምላሽ:</span> ${ticket.admin_reply}
+                                 <span class="text-emerald-400 font-bold">የአድሚን ምላሽ:</span> ${t.admin_reply}
                                </div>`
                             : `<div class="mt-1 text-[10px] text-slate-500 italic">አስተዳዳሪው ገና ምላሽ አልሰጠም...</div>`;
 
-                        const ticketDiv = document.createElement('div');
-                        ticketDiv.className = 'bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1';
-                        ticketDiv.innerHTML = `
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold text-amber-300">ርዕስ: ${ticket.subject}</span>
-                                ${statusBadge}
-                            </div>
-                            <p class="text-slate-300 text-[10px]">መልዕክት: ${ticket.message}</p>
+                        container.innerHTML += `<div class="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1">
+                            <div class="flex justify-between items-center"><span class="font-bold text-amber-300">${t.subject}</span>${statusBadge}</div>
+                            <p class="text-slate-300 text-[10px]">${t.message}</p>
                             ${replyHtml}
-                        `;
-                        container.appendChild(ticketDiv);
+                        </div>`;
                     });
                 } else {
                     container.innerHTML = '<p class="text-slate-500 text-center text-[10px]">ምንም የተላከ ጥያቄ የለም።</p>';
@@ -610,7 +601,7 @@
             formData.append('message', document.getElementById('support-message').value);
             
             const fileInput = document.getElementById('support-file');
-            if (fileInput.files[0]) {
+            if (fileInput && fileInput.files[0]) {
                 formData.append('attachment', fileInput.files[0]);
             }
 
@@ -624,7 +615,7 @@
                     alert(data.msg || "✅ የድጋፍ ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
                     document.getElementById('support-subject').value = '';
                     document.getElementById('support-message').value = '';
-                    document.getElementById('support-file').value = '';
+                    if(fileInput) fileInput.value = '';
                     loadUserTickets();
                 } else {
                     alert('ስህተት: ' + (data.msg || 'ጥያቄውን መላክ አልተቻለም።'));
@@ -650,11 +641,7 @@
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
             const password = document.getElementById('signin-password').value.trim();
-
-            if (!identifier || !password) {
-                return alert("⚠️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
-            }
-
+            if (!identifier || !password) return alert("⚠️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
             socket.emit('login_user', { identifier: identifier, password: password });
         }
 
@@ -666,20 +653,11 @@
             const password = document.getElementById('reg-password').value.trim();
             const confirmPassword = document.getElementById('reg-confirm-password').value.trim();
 
-            if (!fname || !uname || !email || !phone || !password || !confirmPassword) { 
-                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!"); 
-            }
-
-            if (password !== confirmPassword) {
-                return alert("⚠️ የሰጧቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
-            }
+            if (!fname || !uname || !email || !phone || !password || !confirmPassword) return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!");
+            if (password !== confirmPassword) return alert("⚠️ የሰጧቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
 
             socket.emit('register_user', {
-                full_name: fname,
-                username: uname,
-                email: email,
-                phone: phone,
-                password: password
+                full_name: fname, username: uname, email: email, phone: phone, password: password
             });
         }
 
@@ -689,7 +667,6 @@
                 userId = data.user_id;
                 window.userId = userId;
                 localStorage.setItem('bk_user_id', userId);
-
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
@@ -718,16 +695,12 @@
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        function openBalanceModal() { 
-            socket.emit('get_user_balance', { user_id: userId });
-            document.getElementById('balance-modal').classList.remove('hidden'); 
-        }
+        function openBalanceModal() { socket.emit('get_user_balance', { user_id: userId }); document.getElementById('balance-modal').classList.remove('hidden'); }
         function closeBalanceModal() { document.getElementById('balance-modal').classList.add('hidden'); }
         function openDepositModal() { document.getElementById('deposit-modal').classList.remove('hidden'); }
         function closeDepositModal() { document.getElementById('deposit-modal').classList.add('hidden'); }
         function openWithdrawModal() { document.getElementById('withdraw-modal').classList.remove('hidden'); }
         function closeWithdrawModal() { document.getElementById('withdraw-modal').classList.add('hidden'); }
-        
         function closeWinnerModal() { 
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
@@ -747,13 +720,8 @@
             const smsInput = document.getElementById('sms_text_input').value.trim();
             const method = document.getElementById('deposit-method').value;
 
-            if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            }
-
-            if (!amount || amount <= 0 || !smsInput) { 
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
-            }
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0 || !smsInput) return alert("⚠️️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!");
 
             let txRef = smsInput;
             const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
@@ -770,56 +738,26 @@
             const amount = parseFloat(document.getElementById('deposit_amount').value);
             const phoneInput = document.getElementById('deposit-phone').value.trim();
             
-            if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            }
-
-            if (!amount || amount <= 0) {
-                return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
-            }
-
-            if (!phoneInput) {
-                return alert("⚠️ እባክዎ ስልክ ቁጥርዎን (Phone Number) ያስገቡ!");
-            }
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0) return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
+            if (!phoneInput) return alert("⚠️ እባክዎ ስልክ ቁጥርዎን ያስገቡ!");
 
             fetch('/create-telebirr-payment', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    user_id: window.userId,
-                    amount: amount,
-                    phone: phoneInput
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: window.userId, amount: amount, phone: phoneInput })
             })
-            .then(async response => {
-                const contentType = response.headers.get("content-type");
-                let data = {};
-                if (contentType && contentType.includes("application/json")) {
-                    data = await response.json();
-                } else {
-                    const text = await response.text();
-                    throw new Error(text || `HTTP error! status: ${response.status}`);
-                }
-                
-                if (!response.ok) {
-                    throw new Error(data.msg || data.error || `HTTP error! status: ${response.status}`);
-                }
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.msg || data.error || 'ስህተት ተፈጥሯል');
                 return data;
             })
             .then(data => {
                 const checkoutUrl = data.data?.toPayUrl || data.checkout_url || data.url;
-                if (checkoutUrl) {
-                    window.location.href = checkoutUrl;
-                } else {
-                    alert("⚠️ " + (data.msg || data.error || "ክፍያ መጀመር አልተቻለም።"));
-                }
+                if (checkoutUrl) window.location.href = checkoutUrl;
+                else alert("⚠️ ክፍያ መጀመር አልተቻለም።");
             })
-            .catch(err => {
-                console.error('Telebirr Payment Error:', err);
-                alert("⚠️ ክፍያ መፈጸም አልተቻለም: " + err.message);
-            });
+            .catch(err => alert("⚠️ ክፍያ መፈጸም አልተቻለም: " + err.message));
         }
 
         function submitWithdraw() {
@@ -827,17 +765,13 @@
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
 
-            if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            }
-
-            if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0 || !account) return alert("⚠️️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
             socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
         }
 
-        // ከ 1 እስከ 104 ያሉ ካርቴላዎችን በግሪድ መልክ መገንባት (በትክክል እንዲመረጥ እና ቀለም እንዲለወጥ የተስተካከለ)
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -854,16 +788,14 @@
                 } else if (isSelected) {
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
                     btn.innerText = i;
-                    btn.onclick = () => {
-                        socket.emit('select_card', { user_id: window.userId, card_id: i });
-                    };
+                    btn.onclick = () => socket.emit('select_card', { user_id: window.userId, card_id: i });
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer';
                     btn.innerText = i;
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2 && !mySelectedCards.includes(i)) {
-                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
+                            return alert("⚠️️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
                         }
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
@@ -879,9 +811,7 @@
 
         socket.on('card_confirmed', (data) => {
             if (data.user_id && String(data.user_id) === String(window.userId)) {
-                if (!mySelectedCards.includes(data.card_id)) {
-                    mySelectedCards.push(data.card_id);
-                }
+                if (!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
             }
             cardsDatabase[data.card_id] = data.matrix;
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
@@ -1009,7 +939,7 @@
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
-                                if (!drawnNumbersSet.has(val)) return alert("⚠️️ ይህ ቁጥር ገና አልተጠራም!");
+                                if (!drawnNumbersSet.has(val)) return alert("⚠ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
                                 cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
