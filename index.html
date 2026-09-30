@@ -33,6 +33,11 @@
             font-weight: 700;
             padding: 10px 0;
             cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .number-cell:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -823,7 +828,7 @@
             const method = document.getElementById('withdraw-method').value;
 
             if (!window.userId) {
-                return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
             if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
@@ -832,7 +837,7 @@
             closeWithdrawModal();
         }
 
-        // ከ 1 እስከ 104 ያሉ ካርቴላዎችን በግሪድ መልክ መገንባት
+        // ከ 1 እስከ 104 ያሉ ካርቴላዎችን በግሪድ መልክ መገንባት (በትክክል እንዲመረጥ እና ቀለም እንዲለወጥ የተስተካከለ)
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -845,18 +850,24 @@
 
                 if (isTaken) {
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
+                    btn.innerText = i;
                 } else if (isSelected) {
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
-                    btn.onclick = () => socket.emit('select_card', { user_id: window.userId, card_id: i });
+                    btn.innerText = i;
+                    btn.onclick = () => {
+                        socket.emit('select_card', { user_id: window.userId, card_id: i });
+                    };
                 } else {
-                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
+                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer';
+                    btn.innerText = i;
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-                        if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
+                        if (mySelectedCards.length >= 2 && !mySelectedCards.includes(i)) {
+                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
+                        }
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
                 }
-                btn.innerText = i;
                 gridContainer.appendChild(btn);
             }
         }
@@ -867,7 +878,11 @@
         });
 
         socket.on('card_confirmed', (data) => {
-            if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
+            if (data.user_id && String(data.user_id) === String(window.userId)) {
+                if (!mySelectedCards.includes(data.card_id)) {
+                    mySelectedCards.push(data.card_id);
+                }
+            }
             cardsDatabase[data.card_id] = data.matrix;
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
@@ -994,7 +1009,7 @@
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
-                                if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                                if (!drawnNumbersSet.has(val)) return alert("⚠️️ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
                                 cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
