@@ -630,7 +630,7 @@
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
             const password = document.getElementById('signin-password').value.trim();
-            if (!identifier || !password) return alert("⚠️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
+            if (!identifier || !password) return alert("⚠️️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
             socket.emit('login_user', { identifier: identifier, password: password });
         }
 
@@ -761,9 +761,27 @@
             closeWithdrawModal();
         }
 
-        // አስተካክሎ የተሰጠው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
-        // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
-        
+        // ካርቴላዎችን ለመምረጥ እና ለመሰረዝ የሚረዱ ተግባራት
+        function selectCard(cardId) {
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (mySelectedCards.length >= 2) return alert("⚠️ በየዙሩ ቢበዛ 2 ካርቴላዎች ብቻ መምረጥ ይቻላል!");
+            if (mySelectedCards.includes(cardId)) return;
+            
+            socket.emit('select_card', { user_id: window.userId, card_id: cardId });
+        }
+
+        function deselectCard(cardId) {
+            if (!window.userId) return;
+            mySelectedCards = mySelectedCards.filter(id => id !== cardId);
+            delete cardsDatabase[cardId];
+            if(markedNumbersMap[cardId]) delete markedNumbersMap[cardId];
+            
+            socket.emit('deselect_card', { user_id: window.userId, card_id: cardId });
+            initCartelaGrid();
+            renderPreviewCards();
+        }
+
+        // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -789,8 +807,6 @@
                 gridContainer.appendChild(btn);
             }
         }
-
-        
 
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
