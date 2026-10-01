@@ -762,6 +762,7 @@
         }
 
         // አስተካክሎ የተሰጠው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
+        // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -780,6 +781,7 @@
                     btn.innerText = i;
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        // ከተመረጠ እንደገና ሲጫኑ እንዲለቀቅ (Deselect) ወይም ሰቨር እንዲያውቀው ይደረጋል
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
                 } else {
@@ -788,14 +790,18 @@
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2 && !mySelectedCards.includes(i)) {
-                            return alert("⚠ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
+                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
                         }
+                        // ለሰቨር ጥያቄውን በግልጽ እንልካለን
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
                 }
                 gridContainer.appendChild(btn);
             }
         }
+
+
+        
 
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
