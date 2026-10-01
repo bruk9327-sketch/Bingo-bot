@@ -313,7 +313,7 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50), nullable=False)  # Handles 'game_bet', 'deposit', 'win_prize', etc.
+    type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')
     transaction_ref = db.Column(db.String(100), nullable=True)
@@ -483,6 +483,35 @@ def handle_select_card(data):
     socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
     socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': game_active})
 
+@socketio.on('deselect_card')
+def handle_deselect_card(data):
+    global game_active, taken_cards_global, sold_cards_in_round
+    if game_active:
+        return
+    
+    user_id = str(data.get('user_id'))
+    try:
+        card_id = int(data.get('card_id'))
+    except:
+        return
+
+    if card_id in taken_cards_global:
+        taken_cards_global.remove(card_id)
+        
+    sold_cards_in_round = [item for item in sold_cards_in_round if not (str(item.get('user_id')) == user_id and item.get('card_id') == card_id)]
+    
+    # ገንዘብ ተመላሽ ማድረግ ከፈለጉ (የካርቴላ ዋጋ 10 ብር)
+    user = User.query.filter_by(user_id=user_id).first()
+    if user:
+        user.balance = float(user.balance) + 10.00
+        tx_record = Transaction(user_id=user_id, type='refund', amount=10.00, status='completed')
+        db.session.add(tx_record)
+        db.session.commit()
+        emit('balance_update', {'user_id': user_id, 'balance': float(user.balance)}, room=request.sid)
+
+    socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
+    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': game_active})
+
 @socketio.on('get_preview_matrix')
 def handle_preview_matrix(data):
     c_id = int(data.get('card_id'))
@@ -569,7 +598,14 @@ def background_game_loop():
             with app.app_context():
                 reset_game_state_completely()
 
+                # ታይመሩ 15 ሰከንድ እንዲቆጥር እና ካርቴላ እስኪመረጥ እንዲጠብቅ
                 while game_timer > 0 and len(sold_cards_in_round) == 0:
+                    socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': False})
+                    gevent.sleep(1)
+                    game_timer -= 1
+
+                # ተጫዋቾች ካርቴላ ከመረጡ ግን ታይመሩ 0 ከደረሰ ወይም ካርቴላዎች ካሉ ጨዋታውን መጀመር
+                while game_timer > 0 and len(sold_cards_in_round) > 0:
                     socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': False})
                     gevent.sleep(1)
                     game_timer -= 1
