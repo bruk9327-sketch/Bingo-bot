@@ -313,7 +313,7 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # Handles 'game_bet', 'deposit', 'win_prize', etc.
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')
     transaction_ref = db.Column(db.String(100), nullable=True)
@@ -528,7 +528,6 @@ def handle_claim_bingo(data):
         user = User.query.filter_by(user_id=user_id).first()
         if user:
             user.balance = float(user.balance) + float(prize_amount)
-            # ለአሸናፊው የተሰጠውን ሽልማት በግብይት ታሪክ መዝግብ
             tx_record = Transaction(user_id=user_id, type='win_prize', amount=float(prize_amount), status='completed')
             db.session.add(tx_record)
             db.session.commit()
