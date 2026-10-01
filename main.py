@@ -5,10 +5,10 @@ from datetime import datetime
 import os
 import random
 import re
-import threading
 import time
 import base64
 import json
+import gevent
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -548,7 +548,7 @@ def handle_claim_bingo(data):
             'card_id': card_id,
             'card_matrix': matrix,
         })
-        socketio.sleep(5)
+        gevent.sleep(5)
         reset_game_state_completely()
     else:
         emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'}, room=request.sid)
@@ -571,7 +571,7 @@ def background_game_loop():
 
                 while game_timer > 0 and len(sold_cards_in_round) == 0:
                     socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round), 'game_active': False})
-                    socketio.sleep(1)
+                    gevent.sleep(1)
                     game_timer -= 1
 
                 if len(sold_cards_in_round) == 0:
@@ -591,12 +591,12 @@ def background_game_loop():
                         break
                     drawn_balls.append(ball)
                     socketio.emit('number_drawn', {'number': ball})
-                    socketio.sleep(3.5)
+                    gevent.sleep(3.5)
 
-                socketio.sleep(5)
+                gevent.sleep(5)
         except Exception as e:
             print('Background Game Loop Error:', e)
-            socketio.sleep(1)
+            gevent.sleep(1)
 
 # ==========================================
 # Web Routes & Callbacks
@@ -710,11 +710,10 @@ def admin_dashboard():
     return render_template('admin.html')
 
 # ==========================================
-# Application Startup & Background Thread
+# Application Startup & Background Greenlet
 # ==========================================
 def start_background_loop():
-    thread = threading.Thread(target=background_game_loop, daemon=True)
-    thread.start()
+    gevent.spawn(background_game_loop)
 
 with app.app_context():
     db.create_all()
