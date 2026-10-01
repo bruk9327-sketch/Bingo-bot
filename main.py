@@ -528,6 +528,9 @@ def handle_claim_bingo(data):
         user = User.query.filter_by(user_id=user_id).first()
         if user:
             user.balance = float(user.balance) + float(prize_amount)
+            # ለአሸናፊው የተሰጠውን ሽልማት በግብይት ታሪክ መዝግብ
+            tx_record = Transaction(user_id=user_id, type='win_prize', amount=float(prize_amount), status='completed')
+            db.session.add(tx_record)
             db.session.commit()
             balance = user.balance
             full_name = user.full_name or f'ተጫዋች {user_id}'
@@ -611,11 +614,14 @@ def create_telebirr_payment():
     user_id = data.get('user_id') or 'unknown'
     out_trade_no = data.get('out_trade_no') or f"bk_{user_id}_{int(time.time())}_{random.randint(1000, 9999)}"
     
-    if not amount or not user_phone:
-        return jsonify({"success": False, "msg": "እባክዎ መጠኑን እና ስልክ ቁጥሩን በትክክል ያስገቡ!"}), 400
+    if not amount or float(amount) <= 0:
+        return jsonify({"success": False, "msg": "ትክክለኛ የብር መጠን አልገባም!"}), 400
+
+    order_res = create_telebirr_order(amount, user_phone, out_trade_no)
+    if "error" in order_res:
+        return jsonify({"success": False, "msg": order_res["error"]}), 400
         
-    result = create_telebirr_order(amount, user_phone, out_trade_no)
-    return jsonify(result)
+    return jsonify({"success": True, "data": order_res.get("data", order_res)})
 
 @app.route('/check-telebirr-order/<out_trade_no>', methods=['GET'])
 def check_telebirr_order_route(out_trade_no):
@@ -704,7 +710,17 @@ def admin_dashboard():
         return redirect(url_for('admin_login'))
     return render_template('admin.html')
 
+# ==========================================
+# Application Startup & Background Thread
+# ==========================================
+def start_background_loop():
+    thread = threading.Thread(target=background_game_loop, daemon=True)
+    thread.start()
+
+with app.app_context():
+    db.create_all()
+    start_background_loop()
+
 if __name__ == '__main__':
-    threading.Thread(target=background_game_loop, daemon=True).start()
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
