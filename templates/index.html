@@ -721,7 +721,7 @@
             const method = document.getElementById('deposit-method').value;
 
             if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            if (!amount || amount <= 0 || !smsInput) return alert("⚠️️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!");
+            if (!amount || amount <= 0 || !smsInput) return alert("⚠ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!");
 
             let txRef = smsInput;
             const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
@@ -766,7 +766,7 @@
             const method = document.getElementById('withdraw-method').value;
 
             if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            if (!amount || amount <= 0 || !account) return alert("⚠️️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
+            if (!amount || amount <= 0 || !account) return alert("⚠ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
             socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
@@ -795,7 +795,7 @@
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2 && !mySelectedCards.includes(i)) {
-                            return alert("⚠️️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
+                            return alert("⚠ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
                         }
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
