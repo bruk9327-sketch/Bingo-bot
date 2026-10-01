@@ -763,6 +763,7 @@
 
         // አስተካክሎ የተሰጠው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
         // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
+        
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -777,29 +778,17 @@
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
                     btn.innerText = i;
                 } else if (isSelected) {
-                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
+                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30';
                     btn.innerText = i;
-                    btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-                        // ከተመረጠ እንደገና ሲጫኑ እንዲለቀቅ (Deselect) ወይም ሰቨር እንዲያውቀው ይደረጋል
-                        socket.emit('select_card', { user_id: window.userId, card_id: i });
-                    };
+                    btn.onclick = () => deselectCard(i);
                 } else {
-                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer';
+                    btn.className = 'number-cell bg-slate-900 text-slate-200 border-slate-700 hover:border-purple-500';
                     btn.innerText = i;
-                    btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-                        if (mySelectedCards.length >= 2 && !mySelectedCards.includes(i)) {
-                            return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መምረጥ ይቻላል!");
-                        }
-                        // ለሰቨር ጥያቄውን በግልጽ እንልካለን
-                        socket.emit('select_card', { user_id: window.userId, card_id: i });
-                    };
+                    btn.onclick = () => selectCard(i);
                 }
                 gridContainer.appendChild(btn);
             }
         }
-
 
         
 
