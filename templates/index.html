@@ -342,7 +342,6 @@
             </div>
             
             <div class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-                <!-- አዲስ ጥያቄ መላኪያ ፎርም -->
                 <form id="support-form" onsubmit="submitSupportTicket(event)" class="space-y-3 text-[11px] bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
                     <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1 mb-1">
                         <div class="text-amber-400 font-bold text-[10px]">💳 የሜርሻንት መረጃ (Merchant Info)</div>
@@ -364,7 +363,6 @@
                     <button type="submit" class="w-full py-2 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
                 </form>
 
-                <!-- የጥያቄዎች ታሪክ እና የአድሚን ምላሽ የሚታይበት ቦታ -->
                 <div>
                     <h4 class="text-xs font-black text-slate-300 mb-2">የእርስዎ ጥያቄዎች እና የአድሚን ምላሾች</h4>
                     <div id="user-tickets-history-container" class="space-y-2 text-[11px]">
@@ -375,7 +373,7 @@
         </div>
     </div>
 
-    <!-- FORGOT PASSWORD MODAL (FOR INDEX) -->
+    <!-- FORGOT PASSWORD MODAL -->
     <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
             <h3 class="text-sm font-black text-amber-400 mb-2">የይለፍ ቃል ማግኛ (Recovery)</h3>
@@ -391,7 +389,6 @@
         </div>
     </div>
 
-    <!-- MODALS -->
     <!-- DEPOSIT MODAL -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
@@ -588,9 +585,7 @@
                     container.innerHTML = '<p class="text-slate-500 text-center text-[10px]">ምንም የተላከ ጥያቄ የለም።</p>';
                 }
             })
-            .catch(err => {
-                console.error('Error loading tickets:', err);
-            });
+            .catch(err => console.error('Error loading tickets:', err));
         }
 
         function submitSupportTicket(event) {
@@ -605,10 +600,7 @@
                 formData.append('attachment', fileInput.files[0]);
             }
 
-            fetch('/api/support/submit', {
-                method: 'POST',
-                body: formData
-            })
+            fetch('/api/support/submit', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
@@ -621,10 +613,7 @@
                     alert('ስህተት: ' + (data.msg || 'ጥያቄውን መላክ አልተቻለም።'));
                 }
             })
-            .catch(err => {
-                console.error('Support ticket error:', err);
-                alert('⚠️ የኔትወርክ ስህተት ተፈጥሯል!');
-            });
+            .catch(err => alert('⚠️ የኔትወርክ ስህተት ተፈጥሯል!'));
         }
 
         function submitForgotPassword(e) {
@@ -772,6 +761,7 @@
             closeWithdrawModal();
         }
 
+        // አስተካክሎ የተሰጠው የካርቴላ ግሪድ ማመንጫ ተግባር (Card Selection Fixed)
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -788,7 +778,10 @@
                 } else if (isSelected) {
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
                     btn.innerText = i;
-                    btn.onclick = () => socket.emit('select_card', { user_id: window.userId, card_id: i });
+                    btn.onclick = () => {
+                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        socket.emit('select_card', { user_id: window.userId, card_id: i });
+                    };
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95 cursor-pointer';
                     btn.innerText = i;
