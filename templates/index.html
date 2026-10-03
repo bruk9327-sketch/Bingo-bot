@@ -33,6 +33,11 @@
             font-weight: 700;
             padding: 10px 0;
             cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .number-cell:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -62,6 +67,11 @@
                     <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የይለፍ ቃል (Password)</label>
                     <input type="password" id="signin-password" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-xs text-white focus:border-purple-500 outline-none">
                 </div>
+                
+                <div class="text-right">
+                    <a href="#" onclick="openForgotModal(event)" class="text-[11px] text-sky-400 hover:underline">የይለፍ ቃል ረሳኸው? (Forgot Password?)</a>
+                </div>
+
                 <button type="button" onclick="submitSignIn()" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer active:scale-95 transition-all">ግባ (Sign In)</button>
             </div>
 
@@ -118,7 +128,6 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
-        <!-- Admin Panel Link Button -->
         <a href="/admin-login" style="text-decoration: none;" class="block w-full">
             <div class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer">
                 <span>🔐</span> አድሚን ፓነል (Admin Panel)
@@ -126,11 +135,27 @@
         </a>
 
         <div class="grid grid-cols-2 gap-2.5">
-            <button onclick="logoutToAuth()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
-                <span class="text-base bg-rose-500/20 p-2 rounded-xl">🚪</span>
+            <button onclick="openHistoryScreen()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-sky-500/20 p-2 rounded-xl">📜</span>
                 <div>
-                    <div class="text-xs font-black text-rose-400">Sign Out</div>
-                    <div class="text-[9px] text-slate-300">ውጣ</div>
+                    <div class="text-xs font-black text-sky-400">History</div>
+                    <div class="text-[9px] text-slate-300">የጨዋታና ክፍያ ታሪክ</div>
+                </div>
+            </button>
+
+            <button onclick="openRulesModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-indigo-500/20 p-2 rounded-xl">📖</span>
+                <div>
+                    <div class="text-xs font-black text-indigo-400">Rules</div>
+                    <div class="text-[9px] text-slate-300">የጨዋታ መመሪያዎች</div>
+                </div>
+            </button>
+
+            <button onclick="openSupportModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-purple-500/20 p-2 rounded-xl">🎧</span>
+                <div>
+                    <div class="text-xs font-black text-purple-400">Support</div>
+                    <div class="text-[9px] text-slate-300">እርዳታ እና ድጋፍ</div>
                 </div>
             </button>
 
@@ -158,9 +183,31 @@
                 </div>
             </button>
         </div>
+
+        <div class="text-center pt-2">
+            <button onclick="logoutToAuth()" class="text-rose-400 text-[11px] font-bold hover:underline cursor-pointer">🚪 ከአካውንት ውጣ (Sign Out)</button>
+        </div>
     </div>
 
-    <!-- CARTELA SELECTION SCREEN -->
+    <!-- 1. GAME & TRANSACTION HISTORY SCREEN -->
+    <div id="history-screen" class="hidden space-y-3 my-2">
+        <div class="glass-panel p-3 rounded-2xl border border-slate-700 flex justify-between items-center">
+            <h2 class="text-xs font-black text-amber-400">📜 የጨዋታና የክፍያ ታሪክ (History)</h2>
+            <button onclick="backToMenu()" class="bg-slate-800 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
+        </div>
+        
+        <div class="glass-panel p-3 rounded-2xl border border-slate-700/80 space-y-2">
+            <div class="text-[11px] font-bold text-slate-300">የግብይት ታሪክ (Transactions & Deposits)</div>
+            <div id="transaction-history-list" class="space-y-1.5 max-h-[220px] overflow-y-auto text-[10px]">
+                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 flex justify-between">
+                    <span class="text-emerald-400 font-bold">ቦነስ (Sign up Bonus)</span>
+                    <span class="text-slate-400">+50.00 ETB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARTELA SELECTION SCREEN (1 - 104) -->
     <div id="selection-screen" class="hidden space-y-3 my-2">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
             <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
@@ -251,7 +298,7 @@
                 <div class="text-[8px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
                 <div id="derash-amount" class="text-sm font-black text-emerald-400">0.00 ETB</div>
             </div>
-            <div class="glass-panel p-2 rounded-xl border border-purple-500/50 flex items-center justify-between px-3">
+            <div class="glass-panel p-2.5 rounded-xl border border-purple-500/50 flex items-center justify-between px-3">
                 <div>
                     <div class="text-[7px] text-slate-400">የተጠራው ቁጥር</div>
                     <div class="text-[9px] text-purple-300 font-bold">የወጣ</div>
@@ -269,8 +316,79 @@
         </div>
     </div>
 
-    <!-- MODALS -->
-    
+    <!-- 2. RULES MODAL -->
+    <div id="rules-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-indigo-500 shadow-2xl text-left">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-indigo-400">📖 የጨዋታ መመሪያዎች (Rules)</h3>
+                <button onclick="closeRulesModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-2 text-[11px] text-slate-300 max-h-[250px] overflow-y-auto pr-1">
+                <p>🔹 <b>ካርቴላ መምረጥ፡</b> ከ 1 እስከ 104 ካርቴላዎች መካከል በየዙሩ ቢበዛ <b>2 ካርቴላዎች</b> መምረጥ ይቻላል። የአንዱ ካርቴላ ዋጋ <b>10 ብር</b> ነው።</p>
+                <p>🔹 <b>አውቶ ዳብ (Auto Daub)፡</b> ቁጥሮች ሲጠሩ በራሱ እንዲመረጥ (Auto-Daub) በነቃ ሁኔታ ይቆያል፤ ተጫዋቹ ራሱ መምረጥም ይችላል።</p>
+                <p>🔹 <b>ማሸነፍ (Bingo)፡</b> አግድም (Row)፣ ቀጥ ያለ (Column) ወይም ሰያፍ (Diagonal) መስመር ሲሞላ <b>"BINGO"</b> የሚለውን ቁልፍ በመጫን ማሸነፍ ይቻላል።</p>
+                <p>🔹 <b>ቦነስ፡</b> አዲስ ሲመዘገቡ <b>50 ብር ቦነስ</b> በሂሳብዎ ላይ ይገባል።</p>
+            </div>
+            <button onclick="closeRulesModal()" class="w-full mt-4 py-2.5 bg-indigo-600 text-white font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
+        </div>
+    </div>
+
+    <!-- 3. SUPPORT MODAL & COMPLAINT FORM WITH HISTORY & ADMIN REPLY -->
+    <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-lg border-2 border-purple-500 shadow-2xl text-left">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-purple-400">🎧 የደንበኞች ድጋፍ እና የታሪክ ምላሾች</h3>
+                <button onclick="closeSupportModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            
+            <div class="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                <form id="support-form" onsubmit="submitSupportTicket(event)" class="space-y-3 text-[11px] bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+                    <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1 mb-1">
+                        <div class="text-amber-400 font-bold text-[10px]">💳 የሜርሻንት መረጃ (Merchant Info)</div>
+                        <div class="text-[10px]">Telebirr Merchant: <b>642077</b></div>
+                        <div class="text-[10px]">CBE Merchant: <b>1287375</b></div>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">ርዕስ (Subject)</label>
+                        <input type="text" id="support-subject" placeholder="የክፍያ ወይም የጨዋታ ችግር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white outline-none text-xs" required>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">መልዕክትዎ ወይም ቅሬታዎ</label>
+                        <textarea id="support-message" rows="2" placeholder="ችግሩን በግልጽ ይጻፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white outline-none text-xs" required></textarea>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 font-semibold mb-1 block">ፋይል ወይም ደረሰኝ (Screenshot)</label>
+                        <input type="file" id="support-file" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1 text-slate-300 text-[10px]">
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
+                </form>
+
+                <div>
+                    <h4 class="text-xs font-black text-slate-300 mb-2">የእርስዎ ጥያቄዎች እና የአድሚን ምላሾች</h4>
+                    <div id="user-tickets-history-container" class="space-y-2 text-[11px]">
+                        <p class="text-slate-400 text-center text-[10px]">ጫን በመባል ላይ ይገኛል...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORGOT PASSWORD MODAL -->
+    <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
+            <h3 class="text-sm font-black text-amber-400 mb-2">የይለፍ ቃል ማግኛ (Recovery)</h3>
+            <p class="text-[11px] text-slate-300 mb-3">የተመዘገቡበትን ስልክ ቁጥር ወይም ኢሜይል ያስገቡ። ጥያቄው ለአድሚን ይላካል:</p>
+            
+            <form id="indexForgotForm" onsubmit="submitForgotPassword(event)" class="space-y-3 text-left">
+                <input type="text" id="recovery_identity" placeholder="ስልክ ቁጥር ወይም ኢሜይል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeForgotModal()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">ይቅር</button>
+                    <button type="submit" class="w-1/2 py-2.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ላክ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- DEPOSIT MODAL -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
@@ -279,17 +397,24 @@
                 <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
-                <div>
-                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">የክፍያ አማራጭ (Merchant ID: 1287375)</label>
+                <div class="mb-3">
+                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant Code: 642077)</label>
                     <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="CBE_Merchant">CBE Merchant (ቁጥር: 1287375)</option>
-                        <option value="Telebirr_Merchant">Telebirr Merchant (ቁጥር: 1287375)</option>
+                        <option value="telebirr_merchant">Telebirr Merchant (ኮድ: 642077)</option>
+                        <option value="cbe_merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
-                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ራሱ ከደረሰኙ ያነብልዎታል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ ወይም የክፍያ ሊንክ (TID) እዚህ ፖስት ያድርጉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
+                <div>
+                    <label class="text-[10px] text-slate-300 font-semibold mb-1 block">ስልክ ቁጥር (Phone Number)</label>
+                    <input type="text" id="deposit-phone" placeholder="09xxxxxxxx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                </div>
+                <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
-                <button type="button" onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ክፍያ አረጋግጥ እና ላክ</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="submitDeposit()" class="w-1/2 py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
+                    <button type="button" onclick="submitTelebirrPayment()" class="w-1/2 py-3 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">በቴሌብር ክፍያ (API)</button>
+                </div>
             </div>
         </div>
     </div>
@@ -374,7 +499,6 @@
         });
 
         socket.on('connect', () => {
-            console.log("Connected to server via socket ID:", socket.id);
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
             }
@@ -400,14 +524,113 @@
             }
         }
 
+        function openForgotModal(e) {
+            if(e) e.preventDefault();
+            document.getElementById('indexForgotModal').classList.remove('hidden');
+        }
+
+        function closeForgotModal() {
+            document.getElementById('indexForgotModal').classList.add('hidden');
+        }
+
+        function openHistoryScreen() {
+            document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('history-screen').classList.remove('hidden');
+        }
+
+        function openRulesModal() {
+            document.getElementById('rules-modal').classList.remove('hidden');
+        }
+
+        function closeRulesModal() {
+            document.getElementById('rules-modal').classList.add('hidden');
+        }
+
+        function openSupportModal() {
+            document.getElementById('support-modal').classList.remove('hidden');
+            loadUserTickets();
+        }
+
+        function closeSupportModal() {
+            document.getElementById('support-modal').classList.add('hidden');
+        }
+
+        function loadUserTickets() {
+            if (!window.userId) return;
+            fetch(`/api/support/user-tickets?user_id=${window.userId}`)
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('user-tickets-history-container');
+                if (!container) return;
+                if (data.success && data.tickets && data.tickets.length > 0) {
+                    container.innerHTML = '';
+                    data.tickets.forEach(t => {
+                        const statusBadge = t.status === 'Answered' 
+                            ? '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-bold">ተመልሷል</span>' 
+                            : '<span class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[9px] font-bold">በመጠበቅ ላይ</span>';
+                        
+                        let replyHtml = t.admin_reply 
+                            ? `<div class="mt-2 p-2 bg-slate-950 rounded-xl border-l-2 border-emerald-400 text-[10px]">
+                                 <span class="text-emerald-400 font-bold">የአድሚን ምላሽ:</span> ${t.admin_reply}
+                               </div>`
+                            : `<div class="mt-1 text-[10px] text-slate-500 italic">አስተዳዳሪው ገና ምላሽ አልሰጠም...</div>`;
+
+                        container.innerHTML += `<div class="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1">
+                            <div class="flex justify-between items-center"><span class="font-bold text-amber-300">${t.subject}</span>${statusBadge}</div>
+                            <p class="text-slate-300 text-[10px]">${t.message}</p>
+                            ${replyHtml}
+                        </div>`;
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-slate-500 text-center text-[10px]">ምንም የተላከ ጥያቄ የለም።</p>';
+                }
+            })
+            .catch(err => console.error('Error loading tickets:', err));
+        }
+
+        function submitSupportTicket(event) {
+            event.preventDefault();
+            const formData = new FormData();
+            formData.append('user_id', window.userId ? window.userId : 'guest');
+            formData.append('subject', document.getElementById('support-subject').value);
+            formData.append('message', document.getElementById('support-message').value);
+            
+            const fileInput = document.getElementById('support-file');
+            if (fileInput && fileInput.files[0]) {
+                formData.append('attachment', fileInput.files[0]);
+            }
+
+            fetch('/api/support/submit', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.msg || "✅ የድጋፍ ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
+                    document.getElementById('support-subject').value = '';
+                    document.getElementById('support-message').value = '';
+                    if(fileInput) fileInput.value = '';
+                    loadUserTickets();
+                } else {
+                    alert('ስህተት: ' + (data.msg || 'ጥያቄውን መላክ አልተቻለም።'));
+                }
+            })
+            .catch(err => alert('⚠️ የኔትወርክ ስህተት ተፈጥሯል!'));
+        }
+
+        function submitForgotPassword(e) {
+            e.preventDefault();
+            const identity = document.getElementById('recovery_identity').value.trim();
+            if(!identity) return alert("⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
+            
+            socket.emit('forgot_password_request', { recovery_identity: identity });
+            alert("✅ የይለፍ ቃል ማግኛ ጥያቄዎ ለአድሚን ተልኳል!");
+            closeForgotModal();
+            document.getElementById('recovery_identity').value = '';
+        }
+
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
             const password = document.getElementById('signin-password').value.trim();
-
-            if (!identifier || !password) {
-                return alert("⚠️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
-            }
-
+            if (!identifier || !password) return alert("⚠️️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
             socket.emit('login_user', { identifier: identifier, password: password });
         }
 
@@ -419,23 +642,12 @@
             const password = document.getElementById('reg-password').value.trim();
             const confirmPassword = document.getElementById('reg-confirm-password').value.trim();
 
-            if (!fname || !uname || !email || !phone || !password || !confirmPassword) { 
-                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!"); 
-            }
+            if (!fname || !uname || !email || !phone || !password || !confirmPassword) return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች በትክክል ይሙሉ!");
+            if (password !== confirmPassword) return alert("⚠️ የሰጧቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
 
-            if (password !== confirmPassword) {
-                return alert("⚠️ የentered ያደረጓቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
-            }
-
-            const userData = {
-                full_name: fname,
-                username: uname,
-                email: email,
-                phone: phone,
-                password: password
-            };
-
-            socket.emit('register_user', userData);
+            socket.emit('register_user', {
+                full_name: fname, username: uname, email: email, phone: phone, password: password
+            });
         }
 
         socket.on('auth_response', (data) => {
@@ -444,7 +656,6 @@
                 userId = data.user_id;
                 window.userId = userId;
                 localStorage.setItem('bk_user_id', userId);
-
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
@@ -456,6 +667,7 @@
             userId = null;
             window.userId = null;
             document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('history-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('hidden');
         }
 
@@ -468,19 +680,16 @@
 
         function backToMenu() {
             document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('history-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        function openBalanceModal() { 
-            socket.emit('get_user_balance', { user_id: userId });
-            document.getElementById('balance-modal').classList.remove('hidden'); 
-        }
+        function openBalanceModal() { socket.emit('get_user_balance', { user_id: userId }); document.getElementById('balance-modal').classList.remove('hidden'); }
         function closeBalanceModal() { document.getElementById('balance-modal').classList.add('hidden'); }
         function openDepositModal() { document.getElementById('deposit-modal').classList.remove('hidden'); }
         function closeDepositModal() { document.getElementById('deposit-modal').classList.add('hidden'); }
         function openWithdrawModal() { document.getElementById('withdraw-modal').classList.remove('hidden'); }
         function closeWithdrawModal() { document.getElementById('withdraw-modal').classList.add('hidden'); }
-        
         function closeWinnerModal() { 
             document.getElementById('winner-modal').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
@@ -500,40 +709,79 @@
             const smsInput = document.getElementById('sms_text_input').value.trim();
             const method = document.getElementById('deposit-method').value;
 
-            if (!amount || amount <= 0 || !smsInput) { 
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
-            }
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0 || !smsInput) return alert("⚠ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!");
 
             let txRef = smsInput;
             const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
-            if (tidMatch && tidMatch[1]) {
-                txRef = tidMatch[1];
-            }
+            if (tidMatch && tidMatch[1]) txRef = tidMatch[1];
 
-            socket.emit('request_deposit', { 
-                user_id: userId, 
-                amount: amount, 
-                tx_ref: txRef, 
-                sms_text: smsInput,
-                method: method 
-            });
-            
+            socket.emit('request_deposit', { user_id: window.userId, amount: amount, tx_ref: txRef, sms_text: smsInput, method: method });
             closeDepositModal();
-            alert("📥 የዲፖዚት ጥያቄዎ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።");
+            alert("📥 የዲፖዚት ጥያቄዎ ተልኳል!");
             document.getElementById('deposit_amount').value = '';
             document.getElementById('sms_text_input').value = '';
+        }
+
+        function submitTelebirrPayment() {
+            const amount = parseFloat(document.getElementById('deposit_amount').value);
+            const phoneInput = document.getElementById('deposit-phone').value.trim();
+            
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0) return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
+            if (!phoneInput) return alert("⚠️ እባክዎ ስልክ ቁጥርዎን ያስገቡ!");
+
+            fetch('/create-telebirr-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: window.userId, amount: amount, phone: phoneInput })
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.msg || data.error || 'ስህተት ተፈጥሯል');
+                return data;
+            })
+            .then(data => {
+                const checkoutUrl = data.data?.toPayUrl || data.checkout_url || data.url;
+                if (checkoutUrl) window.location.href = checkoutUrl;
+                else alert("⚠️ ክፍያ መጀመር አልተቻለም።");
+            })
+            .catch(err => alert("⚠️ ክፍያ መፈጸም አልተቻለም: " + err.message));
         }
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
-            if (!amount || amount <= 0 || !account) { return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!"); }
-            socket.emit('request_withdrawal', { user_id: userId, amount: amount, account: account, method: method });
+
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (!amount || amount <= 0 || !account) return alert("⚠ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
+            socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
             alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
             closeWithdrawModal();
         }
 
+        // ካርቴላዎችን ለመምረጥ እና ለመሰረዝ የሚረዱ ተግባራት
+        function selectCard(cardId) {
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            if (mySelectedCards.length >= 2) return alert("⚠️ በየዙሩ ቢበዛ 2 ካርቴላዎች ብቻ መምረጥ ይቻላል!");
+            if (mySelectedCards.includes(cardId)) return;
+            
+            socket.emit('select_card', { user_id: window.userId, card_id: cardId });
+        }
+
+        function deselectCard(cardId) {
+            if (!window.userId) return;
+            mySelectedCards = mySelectedCards.filter(id => id !== cardId);
+            delete cardsDatabase[cardId];
+            if(markedNumbersMap[cardId]) delete markedNumbersMap[cardId];
+            
+            socket.emit('deselect_card', { user_id: window.userId, card_id: cardId });
+            initCartelaGrid();
+            renderPreviewCards();
+        }
+
+        // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -546,17 +794,16 @@
 
                 if (isTaken) {
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
+                    btn.innerText = i;
                 } else if (isSelected) {
-                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
-                    btn.onclick = () => socket.emit('select_card', { user_id: userId, card_id: i });
+                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30';
+                    btn.innerText = i;
+                    btn.onclick = () => deselectCard(i);
                 } else {
-                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
-                    btn.onclick = () => {
-                        if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                        socket.emit('select_card', { user_id: userId, card_id: i });
-                    };
+                    btn.className = 'number-cell bg-slate-900 text-slate-200 border-slate-700 hover:border-purple-500';
+                    btn.innerText = i;
+                    btn.onclick = () => selectCard(i);
                 }
-                btn.innerText = i;
                 gridContainer.appendChild(btn);
             }
         }
@@ -567,14 +814,14 @@
         });
 
         socket.on('card_confirmed', (data) => {
-            if(!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
+            if (data.user_id && String(data.user_id) === String(window.userId)) {
+                if (!mySelectedCards.includes(data.card_id)) mySelectedCards.push(data.card_id);
+            }
             cardsDatabase[data.card_id] = data.matrix;
             if(!markedNumbersMap[data.card_id]) markedNumbersMap[data.card_id] = new Set();
             initCartelaGrid();
             renderPreviewCards();
-            if (data.new_balance !== undefined) {
-                updateBalanceDisplays(data.new_balance);
-            }
+            if (data.new_balance !== undefined) updateBalanceDisplays(data.new_balance);
         });
 
         function updateBalanceDisplays(bal) {
@@ -585,9 +832,7 @@
         }
 
         socket.on('balance_update', (data) => {
-            if(String(data.user_id) === String(userId)) {
-                updateBalanceDisplays(data.balance);
-            }
+            if(String(data.user_id) === String(window.userId)) updateBalanceDisplays(data.balance);
         });
 
         socket.on('timer_update', (data) => {
@@ -630,20 +875,12 @@
             updateCalledNumbersUI();
 
             const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
-
             if (autoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
                     if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                     const matrix = cardsDatabase[cid];
-                    
                     if(matrix) {
-                        matrix.forEach((row) => {
-                            row.forEach((val) => {
-                                if (val == num) {
-                                    markedNumbersMap[cid].add(val);
-                                }
-                            });
-                        });
+                        matrix.forEach(row => row.forEach(val => { if(val == num) markedNumbersMap[cid].add(val); }));
                     }
                 });
 
@@ -706,7 +943,7 @@
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
-                                if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
+                                if (!drawnNumbersSet.has(val)) return alert("⚠ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
                                 cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
@@ -723,10 +960,11 @@
                 claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1';
                 claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
                 claimBtn.onclick = () => {
+                    if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
                     let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: userId, card_id: cid, board: boardValidationMatrix });
+                    socket.emit('claim_bingo', { user_id: window.userId, card_id: cid, board: boardValidationMatrix });
                 };
                 cardDiv.appendChild(claimBtn);
             }
