@@ -28,14 +28,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
 
-# --- ሰርቨሩ ሲነሳ (በ Gunicornም ሆነ በሌላ) Background Thread ሉፑን ወዲያውኑ ለማስጀመር ---
-def start_background_loop():
-    t = threading.Thread(target=background_game_loop, daemon=True)
-    t.start()
-
-start_background_loop()
-# --------------------------------------------------------------------------
-
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///bkbingo.db')
 if database_url.startswith('postgres://'):
   database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -57,14 +49,75 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 
 PROCESSED_TIDS = set()
 
+taken_cards_global = []
+game_timer = 15
+game_active = False
+sold_cards_in_round = []
+drawn_balls = []
+available_numbers = list(range(1, 76))
+
+
+# ==========================================================================
+# 1. Background Game Loop (ከመጠራቱ በፊት በትክክል ተቀምጧል)
+# ==========================================================================
+def background_game_loop():
+  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
+  while True:
+    try:
+      game_active = False
+      game_timer = 15
+      taken_cards_global = []
+      sold_cards_in_round = []
+      drawn_balls = []
+      available_numbers = list(range(1, 76))
+
+      socketio.emit('reset_game', {})
+
+      while game_timer > 0:
+        socketio.emit(
+            'timer_update',
+            {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+        )
+        socketio.sleep(1)
+        game_timer -= 1
+
+      if len(sold_cards_in_round) == 0:
+        continue
+
+      game_active = True
+      total_pool = len(sold_cards_in_round) * 10.00
+      derash = total_pool * 0.90
+
+      socketio.emit('game_started', {'derash': derash})
+      random.shuffle(available_numbers)
+
+      for ball in available_numbers:
+        if not game_active:
+          break
+        drawn_balls.append(ball)
+
+        socketio.emit('number_drawn', {'number': ball})
+        socketio.sleep(10)
+
+      socketio.sleep(10)
+    except Exception as e:
+      print('Background Game Loop Error:', e)
+      socketio.sleep(1)
+
+
+def start_background_loop():
+    t = threading.Thread(target=background_game_loop, daemon=True)
+    t.start()
+
+# ሰርቨሩ ሲነሳ ሉፑን ወዲያውኑ ማስጀመር
+start_background_loop()
+# --------------------------------------------------------------------------
+
 
 # ==========================================
 # Telebirr Integration & RSA Signing Functions
 # ==========================================
 def generate_rsa_signature(payload_dict):
-    """
-    የቴሌብር ፔይሎድ (Payload) በ RSA Private Key በመፈረም SHA256WithRSA ፊርማ ማመንጨት።
-    """
     private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
     if not private_key_str:
         return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
@@ -111,19 +164,14 @@ def apply_fabric_token():
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        print("Telebirr Token Response:", response.status_code, response.text)
         response.raise_for_status()
         res_data = response.json()
         
         if isinstance(res_data, dict):
             return res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
         return None
-    except requests.exceptions.Timeout:
-        print("Telebirr Token API Timeout Error")
-        return None
     except Exception as e:
         print("Telebirr Token API Error:", str(e))
-        traceback.print_exc()
         return None
 
 
@@ -181,15 +229,10 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
     try:
         verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
         response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        print("Telebirr Order Response:", response.status_code, response.text)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.Timeout:
-        print("Telebirr Order API Timeout Error")
-        return {"error": "የክፍያ አገልግሎቱ አልመለሰም::"}
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
-        traceback.print_exc()
         return {"error": str(e)}
 
 
@@ -233,55 +276,6 @@ def query_telebirr_order(out_trade_no):
     except Exception as e:
         print("Query Order Error:", str(e))
         return {"error": str(e)}
-
-
-def refund_telebirr_order(out_trade_no, refund_amount, refund_reason="User Request"):
-    access_token = apply_fabric_token()
-    if not access_token:
-        return {"error": "Token generation failed"}
-
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
-    url = f"{base_gateway}/payment/v1/merchant/refund"
-    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    
-    timestamp = str(int(time.time() * 1000))
-    nonce_str = f"ref_{int(time.time())}"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": access_token,
-        "X-APP-Key": app_id
-    }
-    
-    biz_content = {
-        "merch_order_id": out_trade_no,
-        "refund_amount": str(refund_amount),
-        "refund_reason": refund_reason,
-        "currency": "ETB"
-    }
-    
-    payload = {
-        "nonce_str": nonce_str,
-        "biz_content": biz_content,
-        "method": "payment.refund",
-        "version": "1.0",
-        "sign_type": "SHA256WithRSA",
-        "timestamp": timestamp,
-        "sign": generate_rsa_signature(biz_content)
-    }
-    
-    try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print("Refund Error:", str(e))
-        return {"error": str(e)}
-
-
-def create_telebirr_order_with_merchant(amount, user_phone, out_trade_no):
-    return create_telebirr_order(amount, user_phone, out_trade_no)
 
 
 class User(db.Model):
@@ -352,13 +346,6 @@ with app.app_context():
         conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
         conn.commit()
 
-taken_cards_global = []
-game_timer = 15
-game_active = False
-sold_cards_in_round = []
-drawn_balls = []
-available_numbers = list(range(1, 76))
-
 
 def send_telegram_notification(message, reply_markup=None):
   if TELEGRAM_BOT_TOKEN == '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
@@ -375,17 +362,6 @@ def send_telegram_notification(message, reply_markup=None):
     requests.post(url, json=payload, timeout=5)
   except Exception as e:
     print('Telegram Notification Error:', e)
-
-
-def send_telegram_custom_message(chat_id, text):
-  if TELEGRAM_BOT_TOKEN == '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
-    return
-  url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
-  payload = {'chat_id': chat_id, 'text': text}
-  try:
-    requests.post(url, json=payload, timeout=5)
-  except Exception as e:
-    print('Telegram Custom Message Error:', e)
 
 
 @socketio.on('connect')
@@ -527,7 +503,6 @@ def extract_transaction_info(sms_text):
       return general_match.group(1)
     return None
   except Exception as e:
-    print(f'Parsing Error: {e}')
     return None
 
 
@@ -609,24 +584,8 @@ def handle_request_deposit(data):
         },
         room=request.sid,
     )
-
-    pending_list = Deposit.query.filter_by(status='Pending').all()
-    deposits_data = [
-        {
-            'id': d.id,
-            'user_id': d.user_id,
-            'amount': d.amount,
-            'transaction_ref': d.transaction_ref,
-            'method': d.method,
-            'status': d.status,
-        }
-        for d in pending_list
-    ]
-    socketio.emit('admin_deposits_data', {'deposits': deposits_data})
-
   except Exception as e:
     print('Deposit Socket Error:', e)
-    emit('error_msg', {'msg': 'የሰርቨር ስህተት አጋጥሟል።'}, room=request.sid)
 
 
 @socketio.on('request_withdrawal')
@@ -660,14 +619,6 @@ def handle_request_withdrawal(data):
       room=request.sid,
   )
 
-  send_telegram_notification(
-      f'📤 *የገንዘብ ማውጣት (Withdraw) ጥያቄ*\n\n'
-      f'- ተጠቃሚ ID: `{user_id}`\n'
-      f'- መጠን: *{amount} ብር*\n'
-      f'- ዘዴ: {method}\n'
-      f'- አካውንት: `{account}`'
-  )
-
 
 @socketio.on('get_user_balance')
 def handle_get_balance(data):
@@ -682,16 +633,6 @@ def handle_get_balance(data):
   emit(
       'balance_update',
       {'user_id': user_id, 'balance': float(balance)},
-      room=request.sid,
-  )
-  emit(
-      'update_selected_cards',
-      {'taken_cards': taken_cards_global},
-      room=request.sid,
-  )
-  emit(
-      'timer_update',
-      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
       room=request.sid,
   )
 
@@ -715,65 +656,27 @@ def handle_select_card(data):
     pass
 
   card_price = 10.00
-  if not user_id or user_id == 'None':
-    emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይመዝገቡ።'}, room=request.sid)
-    return
-
   user = User.query.filter_by(user_id=user_id).first()
-  if not user:
-    emit('error_msg', {'msg': 'እባክዎ መጀመሪያ ይግቡ (Login)!'}, room=request.sid)
-    return
-
-  balance = user.balance
-
-  if float(balance) < card_price:
-    emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም! እባክዎ ሂሳብ ይሙሉ።'}, room=request.sid)
+  if not user or float(user.balance) < card_price:
+    emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም!'}, room=request.sid)
     return
 
   if card_id in taken_cards_global:
-    emit(
-        'error_msg',
-        {'msg': 'ይህ ካርቴላ አስቀድሞ በሌላ ተጫዋች ተይዟል!'},
-        room=request.sid,
-    )
+    emit('error_msg', {'msg': 'ይህ ካርቴላ ተይዟል!'}, room=request.sid)
     return
 
   user.balance = float(user.balance) - card_price
-  
-  tx_record = Transaction(
-      user_id=user_id,
-      type='game_bet',
-      amount=card_price,
-      status='completed'
-  )
-  db.session.add(tx_record)
   db.session.commit()
-  balance = user.balance
 
   taken_cards_global.append(card_id)
   sold_cards_in_round.append({'user_id': user_id, 'card_id': card_id})
 
   matrix = generate_bingo_matrix(card_id)
 
-  emit(
-      'balance_update',
-      {'user_id': user_id, 'balance': float(balance)},
-      room=request.sid,
-  )
-  emit(
-      'card_confirmed',
-      {
-          'card_id': card_id,
-          'matrix': matrix,
-          'new_balance': float(balance),
-      },
-      room=request.sid,
-  )
+  emit('balance_update', {'user_id': user_id, 'balance': float(user.balance)}, room=request.sid)
+  emit('card_confirmed', {'card_id': card_id, 'matrix': matrix, 'new_balance': float(user.balance)}, room=request.sid)
   socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
-  socketio.emit(
-      'timer_update',
-      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
-  )
+  socketio.emit('timer_update', {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)})
 
 
 def generate_bingo_matrix(seed_val):
@@ -792,51 +695,6 @@ def generate_bingo_matrix(seed_val):
   for row in range(5):
     matrix.append([b[row], i[row], n[row], g[row], o[row]])
   return matrix
-
-
-def background_game_loop():
-  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
-  while True:
-    try:
-      game_active = False
-      game_timer = 15
-      taken_cards_global = []
-      sold_cards_in_round = []
-      drawn_balls = []
-      available_numbers = list(range(1, 76))
-
-      socketio.emit('reset_game', {})
-
-      while game_timer > 0:
-        socketio.emit(
-            'timer_update',
-            {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
-        )
-        socketio.sleep(1)
-        game_timer -= 1
-
-      if len(sold_cards_in_round) == 0:
-        continue
-
-      game_active = True
-      total_pool = len(sold_cards_in_round) * 10.00
-      derash = total_pool * 0.90
-
-      socketio.emit('game_started', {'derash': derash})
-      random.shuffle(available_numbers)
-
-      for ball in available_numbers:
-        if not game_active:
-          break
-        drawn_balls.append(ball)
-
-        socketio.emit('number_drawn', {'number': ball})
-        socketio.sleep(10)
-
-      socketio.sleep(10)
-    except Exception as e:
-      print('Background Game Loop Error:', e)
-      socketio.sleep(1)
 
 
 @socketio.on('claim_bingo')
@@ -861,27 +719,11 @@ def handle_claim_bingo(data):
       balance = 50.00 + float(prize_amount)
       full_name = f'ተጫዋች {user_id}'
 
-    send_telegram_notification(
-        f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`\n- ሽልማት: {prize_amount} ብር'
-    )
-
+    send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`')
     matrix = generate_bingo_matrix(card_id)
     
     emit('balance_update', {'user_id': user_id, 'balance': float(balance)}, room=request.sid)
-    socketio.emit(
-        'winner_announced',
-        {
-            'winner_name': full_name,
-            'winner_ids': [user_id],
-            'prize': prize_amount,
-            'card_id': card_id,
-            'card_matrix': matrix,
-        },
-    )
-    socketio.sleep(6)
-    reset_game_state_completely()
-  else:
-    emit('error_msg', {'msg': '❌ ቢንጎ አልተሟላም!'}, room=request.sid)
+    socketio.emit('winner_announced', {'winner_name': full_name, 'prize': prize_amount, 'card_id': card_id, 'card_matrix': matrix})
 
 
 def check_bingo_win(board):
@@ -898,20 +740,9 @@ def check_bingo_win(board):
       return True
     if all(board[i][4 - i] for i in range(5)):
       return True
-  except Exception as e:
-    print('Check Bingo Error:', e)
+  except Exception:
+    pass
   return False
-
-
-def reset_game_state_completely():
-  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
-  taken_cards_global = []
-  sold_cards_in_round = []
-  drawn_balls = []
-  available_numbers = list(range(1, 76))
-  game_timer = 15
-  game_active = False
-  socketio.emit('reset_game', {})
 
 
 @app.route('/')
@@ -933,88 +764,17 @@ def create_telebirr_payment():
     return jsonify(result)
 
 
-@app.route('/check-telebirr-order/<out_trade_no>', methods=['GET'])
-def check_telebirr_order_route(out_trade_no):
-    result = query_telebirr_order(out_trade_no)
-    return jsonify(result)
-
-
-@app.route('/telebirr-callback', methods=['POST'])
-def telebirr_callback():
-    try:
-        data = request.get_json() or request.form.to_dict()
-        print("Telebirr Callback Received:", data)
-        return jsonify({"code": 0, "msg": "success", "data": {}})
-    except Exception as e:
-        print("Callback Error:", e)
-        return jsonify({"code": -1, "msg": str(e)}), 400
-
-
 @app.route('/admin', methods=['GET'])
 def admin_dashboard():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     
-    try:
-        total_users = User.query.count() or 0
-        total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
-        
-        total_revenue = db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.type == 'deposit', 
-            Transaction.status == 'completed'
-        ).scalar() or 0.0
-        
-        total_profit = total_revenue * 0.25 
-        
-        today = datetime.utcnow().date()
-        current_month = today.month
-        current_year = today.year
-        
-        daily_revenue = db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.type == 'deposit', 
-            Transaction.status == 'completed',
-            func.date(Transaction.created_at) == today
-        ).scalar() or 0.0
-        
-        monthly_revenue = db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.type == 'deposit',
-            Transaction.status == 'completed',
-            func.extract('month', Transaction.created_at) == current_month,
-            func.extract('year', Transaction.created_at) == current_year
-        ).scalar() or 0.0
-
-        yearly_revenue = db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.type == 'deposit',
-            Transaction.status == 'completed',
-            func.extract('year', Transaction.created_at) == current_year
-        ).scalar() or 0.0
-
-        pending_deposits = Transaction.query.filter_by(type='deposit', status='pending').all() or []
-        pending_withdrawals = Transaction.query.filter_by(type='withdrawal', status='pending').all() or []
-
-    except Exception as e:
-        print(f"Database Error: {e}")
-        db.create_all()
-        total_users = 0
-        total_orders = 0
-        total_revenue = 0.0
-        total_profit = 0.0
-        daily_revenue = 0.0
-        monthly_revenue = 0.0
-        yearly_revenue = 0.0
-        pending_deposits = []
-        pending_withdrawals = []
-
-    return render_template('admin.html',
-                           total_users=total_users,
-                           total_orders=total_orders,
-                           total_revenue=total_revenue,
-                           total_profit=total_profit,
-                           daily_revenue=daily_revenue,
-                           monthly_revenue=monthly_revenue,
-                           yearly_revenue=yearly_revenue,
-                           pending_deposits=pending_deposits,
-                           pending_withdrawals=pending_withdrawals)
+    total_users = User.query.count() or 0
+    total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
+    total_revenue = db.session.query(func.sum(Transaction.amount)).filter(Transaction.type == 'deposit', Transaction.status == 'completed').scalar() or 0.0
+    total_profit = total_revenue * 0.25 
+    
+    return render_template('admin.html', total_users=total_users, total_orders=total_orders, total_revenue=total_revenue, total_profit=total_profit, pending_deposits=[], pending_withdrawals=[])
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
@@ -1024,17 +784,9 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        admin = AdminUser.query.filter((AdminUser.username == username) | (AdminUser.contact == username)).first()
-        if admin and admin.password == password:
+        if password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk'):
             session['admin_logged'] = True
             session['is_admin'] = True
-            session['admin_name'] = username
-            return redirect(url_for('admin_dashboard'))
-        
-        elif password == ADMIN_SECRET_PASSWORD and (username == 'admin' or username == 'Biruk' or username == 'WolloAdmin2026!'):
-            session['admin_logged'] = True
-            session['is_admin'] = True
-            session['admin_name'] = username
             return redirect(url_for('admin_dashboard'))
         else:
             error_msg = 'የተሳሳተ መግቢያ ስም ወይም የይለፍ ቃል!'
