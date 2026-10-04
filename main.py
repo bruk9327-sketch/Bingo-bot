@@ -28,6 +28,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
 
+# --- ሰርቨሩ ሲነሳ (በ Gunicornም ሆነ በሌላ) Background Thread ሉፑን ወዲያውኑ ለማስጀመር ---
+def start_background_loop():
+    t = threading.Thread(target=background_game_loop, daemon=True)
+    t.start()
+
+start_background_loop()
+# --------------------------------------------------------------------------
+
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///bkbingo.db')
 if database_url.startswith('postgres://'):
   database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -59,7 +67,6 @@ def generate_rsa_signature(payload_dict):
     """
     private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
     if not private_key_str:
-        # ፕራይቬት ከይ ከሌለ በ ENV ውስጥ፣ ዱሚ ፊርማ ይመልሳል (ለሙከራ)
         return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
     
     try:
@@ -72,9 +79,6 @@ def generate_rsa_signature(payload_dict):
             backend=default_backend()
         )
         
-        # ቴሌብር የሚፈልገው ኪ-ቫልዩዎችን በፊደል ተከታተል (Alphabetical order) አሰናድቶ መፈረም ነው።
-        # ወይም የቀረበውን ዲክሽነሪ ሼር በማድረግ ኬቶችን በቅደም ተከተል በመያዝ ኬን መፍጠር ይቻላል።
-        # እዚህ ጋር ለቀላል አጠቃቀም JSON string ወይም የተወሰኑ አካላትን እንፈርማለን።
         canonical_content = json.dumps(payload_dict, sort_keys=True, separators=(',', ':'))
         
         signature = private_key.sign(
@@ -172,7 +176,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         "sign": ""
     }
     
-    # ፊርማ ማመንጨት
     payload["sign"] = generate_rsa_signature(biz_content)
     
     try:
@@ -191,9 +194,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
 
 
 def query_telebirr_order(out_trade_no):
-    """
-    የተፈጠረ ትዕዛዝ ሁኔታን (Check Order / Query Order) ከቴሌብር ሰርቨር ማረጋገጫ ዲስፓርች ማድረግ።
-    """
     access_token = apply_fabric_token()
     if not access_token:
         return {"error": "Token generation failed"}
@@ -236,9 +236,6 @@ def query_telebirr_order(out_trade_no):
 
 
 def refund_telebirr_order(out_trade_no, refund_amount, refund_reason="User Request"):
-    """
-    የተሳሳተ ክፍያ ሲኖር ገንዘብን ለመመለስ (Refund API) የሚያገለግል ተግባር።
-    """
     access_token = apply_fabric_token()
     if not access_token:
         return {"error": "Token generation failed"}
@@ -938,9 +935,6 @@ def create_telebirr_payment():
 
 @app.route('/check-telebirr-order/<out_trade_no>', methods=['GET'])
 def check_telebirr_order_route(out_trade_no):
-    """
-    የትዕዛዙን ሁኔታ ከቴሌብር ሰርቨር በቀጥታ ለመመልከት (Check Order Endpoint)።
-    """
     result = query_telebirr_order(out_trade_no)
     return jsonify(result)
 
@@ -950,10 +944,6 @@ def telebirr_callback():
     try:
         data = request.get_json() or request.form.to_dict()
         print("Telebirr Callback Received:", data)
-        
-        # እዚህ ጋር የቴሌብርን ኮልባክ ዳታ ማረጋገጥ እና 
-        # ክፍያው ከተሳካ ለተጠቃሚው አካውንት ባላንስ በራስ-ሰር መሙላት ይቻላል።
-        
         return jsonify({"code": 0, "msg": "success", "data": {}})
     except Exception as e:
         print("Callback Error:", e)
@@ -1053,6 +1043,5 @@ def admin_login():
 
 
 if __name__ == '__main__':
-  threading.Thread(target=background_game_loop, daemon=True).start()
   port = int(os.environ.get('PORT', 10000))
   socketio.run(app, host='0.0.0.0', port=port)
