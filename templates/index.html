@@ -307,12 +307,13 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-12 gap-2 items-start">
-            <div class="col-span-4 glass-panel p-1.5 rounded-xl border border-purple-500/30">
+        <!-- Responsive layout: Stack on small screens, grid on larger screens -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+            <div class="md:col-span-4 glass-panel p-1.5 rounded-xl border border-purple-500/30">
                 <div class="text-[10px] font-bold text-slate-300 mb-1 text-center">የወጡ ቁጥሮች</div>
                 <div class="max-h-[300px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board"></div>
             </div>
-            <div id="my-cards-container" class="col-span-8 space-y-2"></div>
+            <div id="my-cards-container" class="md:col-span-8 space-y-2"></div>
         </div>
     </div>
 
@@ -358,7 +359,7 @@
                     </div>
                     <div>
                         <label class="text-slate-300 font-semibold mb-1 block">ፋይል ወይም ደረሰኝ (Screenshot)</label>
-                        <input type="file" id="support-file" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1 text-slate-300 text-[10px]">
+                        <input type="file" id="support-file" accept="image/*" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1 text-slate-300 text-[10px]">
                     </div>
                     <button type="submit" class="w-full py-2 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
                 </form>
@@ -501,8 +502,14 @@
         socket.on('connect', () => {
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
+            } else {
+                logoutToAuth();
             }
             initCartelaGrid();
+        });
+
+        socket.on('disconnect', () => {
+            console.warn("⚠️ ከሰርቨር ጋር ያለው ግንኙነት ተቋርጧል (Disconnected)");
         });
 
         function switchAuthMode(mode) {
@@ -619,7 +626,7 @@
         function submitForgotPassword(e) {
             e.preventDefault();
             const identity = document.getElementById('recovery_identity').value.trim();
-            if(!identity) return alert("⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
+            if(!identity) return alert("⚠️️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
             
             socket.emit('forgot_password_request', { recovery_identity: identity });
             alert("✅ የይለፍ ቃል ማግኛ ጥያቄዎ ለአድሚን ተልኳል!");
@@ -630,7 +637,7 @@
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
             const password = document.getElementById('signin-password').value.trim();
-            if (!identifier || !password) return alert("⚠️️ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
+            if (!identifier || !password) return alert("⚠ እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!");
             socket.emit('login_user', { identifier: identifier, password: password });
         }
 
@@ -668,6 +675,8 @@
             window.userId = null;
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('history-screen').classList.add('hidden');
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('hidden');
         }
 
@@ -761,7 +770,6 @@
             closeWithdrawModal();
         }
 
-        // ካርቴላዎችን ለመምረጥ እና ለመሰረዝ የሚረዱ ተግባራት
         function selectCard(cardId) {
             if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             if (mySelectedCards.length >= 2) return alert("⚠️ በየዙሩ ቢበዛ 2 ካርቴላዎች ብቻ መምረጥ ይቻላል!");
@@ -781,7 +789,6 @@
             renderPreviewCards();
         }
 
-        // የተስተካከለው የካርቴላ ግሪድ ማመንጫ ተግባር
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -877,107 +884,153 @@
             const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
             if (autoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
-                    if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                    const matrix = cardsDatabase[cid];
-                    if(matrix) {
-                        matrix.forEach(row => row.forEach(val => { if(val == num) markedNumbersMap[cid].add(val); }));
+                    if (cardsDatabase[cid] && markedNumbersMap[cid]) {
+                        cardsDatabase[cid].forEach((row, rIdx) => {
+                            row.forEach((cellNum, cIdx) => {
+                                if (cellNum === num) {
+                                    markedNumbersMap[cid].add(`${rIdx}-${cIdx}`);
+                                }
+                            });
+                        });
+                        renderCardUI(cid);
                     }
                 });
-
-                const container = document.getElementById('my-cards-container');
-                if (container && container.children.length > 0) {
-                    container.innerHTML = '';
-                    mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
-                }
             }
         });
 
-        function getLetterForNum(num) {
-            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+        function getLetterForNum(n) {
+            if (n <= 15) return 'B';
+            if (n <= 30) return 'I';
+            if (n <= 45) return 'N';
+            if (n <= 60) return 'G';
+            return 'O';
         }
 
         function updateCalledNumbersUI() {
-            const boardContainer = document.getElementById('called-numbers-board');
-            const gameBallsCount = document.getElementById('game-balls-count');
-            const selectionDrawnCount = document.getElementById('selection-drawn-count');
+            const board = document.getElementById('called-numbers-board');
+            if(!board) return;
+            board.innerHTML = '';
             
-            const countText = `${drawnNumbersList.length}/75`;
-            if(gameBallsCount) gameBallsCount.innerText = countText;
-            if(selectionDrawnCount) selectionDrawnCount.innerText = countText;
-
-            if(!boardContainer) return;
-            boardContainer.innerHTML = '';
-
-            drawnNumbersList.slice().reverse().forEach((num, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = index === 0 ? 'py-1 px-1.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-lg text-center shadow' : 'py-1 px-1.5 bg-slate-900 text-slate-300 font-bold text-[10px] rounded-lg text-center border border-slate-800';
-                itemDiv.innerText = `${getLetterForNum(num)}-${num}`;
-                boardContainer.appendChild(itemDiv);
+            [...drawnNumbersList].reverse().forEach(num => {
+                const ltr = getLetterForNum(num);
+                const item = document.createElement('div');
+                item.className = "bg-slate-900 border border-slate-800 p-1.5 rounded-xl text-center text-[10px] font-bold text-purple-300 flex justify-between px-3";
+                item.innerHTML = `<span>${ltr}</span><span class="text-amber-400">${num}</span>`;
+                board.appendChild(item);
             });
+
+            const cntDisp = document.getElementById('game-balls-count');
+            if(cntDisp) cntDisp.innerText = `${drawnNumbersList.length}/75`;
+            const selCount = document.getElementById('selection-drawn-count');
+            if(selCount) selCount.innerText = `${drawnNumbersList.length}/75`;
         }
 
-        function createCardHTML(cid, matrix, isPlayMode = false) {
-            const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700';
-            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
+        function createCardHTML(cardId, matrix, isPlayMode = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "glass-panel p-2.5 rounded-2xl border border-purple-500/40 space-y-1.5";
+            
+            const header = document.createElement('div');
+            header.className = "flex justify-between items-center text-[10px]";
+            header.innerHTML = `<span class="font-black text-amber-400">ካርቴላ #${cardId}</span>`;
+            
+            if (!isPlayMode) {
+                const deselectBtn = document.createElement('button');
+                deselectBtn.className = "text-rose-400 hover:underline font-bold text-[9px] cursor-pointer";
+                deselectBtn.innerText = "ሰርዝ (Deselect)";
+                deselectBtn.onclick = () => deselectCard(cardId);
+                header.appendChild(deselectBtn);
+            } else {
+                const bingoBtn = document.createElement('button');
+                bingoBtn.className = "px-2 py-0.5 bg-gradient-to-r from-amber-500 to-emerald-500 text-slate-950 font-black text-[9px] rounded-lg shadow cursor-pointer";
+                bingoBtn.innerText = "BINGO!";
+                bingoBtn.onclick = () => declareBingo(cardId);
+                header.appendChild(bingoBtn);
+            }
+            wrapper.appendChild(header);
 
-            const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950 p-2 rounded-xl mb-2';
+            const table = document.createElement('div');
+            table.className = "grid grid-cols-5 gap-1 text-center";
 
-            ['B','I','N','G','O'].forEach(h => {
-                const hCell = document.createElement('div');
-                hCell.className = 'p-1 rounded-lg font-black text-[11px] bg-slate-900 text-purple-400';
-                hCell.innerText = h;
-                mGrid.appendChild(hCell);
+            ['B', 'I', 'N', 'G', 'O'].forEach(l => {
+                const th = document.createElement('div');
+                th.className = "text-[9px] font-black text-purple-400 bg-slate-900/80 py-1 rounded";
+                th.innerText = l;
+                table.appendChild(th);
             });
 
-            if (matrix) {
-                matrix.forEach(row => {
-                    row.forEach(val => {
+            if (matrix && Array.isArray(matrix)) {
+                matrix.forEach((row, rIdx) => {
+                    row.forEach((cellNum, cIdx) => {
                         const cell = document.createElement('div');
-                        const isFree = val === 'FREE';
-                        const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
+                        const isMarked = markedNumbersMap[cardId] && markedNumbersMap[cardId].has(`${rIdx}-${cIdx}`);
+                        const isFree = (cellNum === 0 || cellNum === 'FREE');
 
-                        cell.className = `p-2 rounded-lg text-xs font-black ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
-                        cell.innerText = val;
+                        let cName = "aspect-square flex items-center justify-center rounded text-[10px] font-bold border ";
+                        if (isFree || isMarked) {
+                            cName += "bg-emerald-500 text-slate-950 border-emerald-400 shadow-md font-black";
+                            cell.innerText = isFree ? "★" : cellNum;
+                        } else {
+                            cName += "bg-slate-900 text-slate-200 border-slate-800";
+                            cell.innerText = cellNum;
+                        }
+                        cell.className = cName;
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
-                                if (!drawnNumbersSet.has(val)) return alert("⚠ ይህ ቁጥር ገና አልተጠራም!");
-                                if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
-                                markedNumbersMap[cid].add(val);
-                                cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
+                                if(!markedNumbersMap[cardId]) markedNumbersMap[cardId] = new Set();
+                                const key = `${rIdx}-${cIdx}`;
+                                if(markedNumbersMap[cardId].has(key)) markedNumbersMap[cardId].delete(key);
+                                else markedNumbersMap[cardId].add(key);
+                                renderCardUI(cardId);
                             };
                         }
-                        mGrid.appendChild(cell);
+                        table.appendChild(cell);
                     });
                 });
             }
-            cardDiv.appendChild(mGrid);
+            wrapper.appendChild(table);
+            return wrapper;
+        }
 
-            if (isPlayMode) {
-                const claimBtn = document.createElement('button');
-                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1';
-                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
-                claimBtn.onclick = () => {
-                    if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-                    const matrixData = cardsDatabase[cid];
-                    const markedSet = markedNumbersMap[cid] || new Set();
-                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: window.userId, card_id: cid, board: boardValidationMatrix });
-                };
-                cardDiv.appendChild(claimBtn);
-            }
-
-            return cardDiv;
+        function renderCardUI(cardId) {
+            const container = document.getElementById('my-cards-container');
+            if(!container) return;
+            container.innerHTML = '';
+            mySelectedCards.forEach(cid => {
+                container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+            });
         }
 
         function renderPreviewCards() {
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => {
+                container.appendChild(createCardHTML(cid, cardsDatabase[cid], false));
+            });
+            const soldCountEl = document.getElementById('sold-count');
+            if(soldCountEl) soldCountEl.innerText = mySelectedCards.length;
         }
+
+        function declareBingo(cardId) {
+            if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            const matrixData = cardsDatabase[cardId];
+            const markedSet = markedNumbersMap[cardId] || new Set();
+            let boardValidationMatrix = matrixData.map((row, rIdx) => 
+                row.map((val, cIdx) => val === 'FREE' || val === 0 || markedSet.has(`${rIdx}-${cIdx}`))
+            );
+            socket.emit('claim_bingo', { user_id: window.userId, card_id: cardId, board: boardValidationMatrix });
+        }
+
+        socket.on('bingo_result', (data) => {
+            if (data.success) {
+                document.getElementById('winner-name').innerText = `🎉 እንኳን አሸነፉ! (${data.username || 'ተጫዋች'})`;
+                document.getElementById('winner-prize').innerText = `${data.prize || 0.00} ETB`;
+                document.getElementById('winner-modal').classList.remove('hidden');
+            } else {
+                alert("⚠️ " + (data.msg || "ቢንጎው ትክክል አይደለም!"));
+            }
+        });
 
         socket.on('winner_announced', (data) => {
             const wName = document.getElementById('winner-name');
