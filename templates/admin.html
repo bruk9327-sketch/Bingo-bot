@@ -214,7 +214,7 @@ button,input{font:inherit}
     </div>
   </div>
 
-  <!-- የገንዘብ ማስቀመጫ ጥያቄዎች እና ሌሎች ሰንጠረዦች -->
+  <!-- የገንዘብ ማስቀመጫ ጥያቄዎች እና የይለፍ ቃል ማግኛ ጥያቄዎች ሰንጠረዥ -->
   <div class="tables" style="margin-top: 16px;">
     <!-- የገንዘብ ማስቀመጫ ጥያቄዎች (Pending Deposits Table) -->
     <div class="card table-card" style="grid-column: span 3;">
@@ -248,6 +248,48 @@ button,input{font:inherit}
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- የይለፍ ቃል ማግኛ ጥያቄዎች ክፍል (Password Reset Requests) -->
+  <div class="card table-card" style="margin-top: 16px;">
+    <div class="card-title">🔐 የይለፍ ቃል ማግኛ ጥያቄዎች (Password Reset Requests)</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>መለያ (Phone / Email)</th>
+          <th>ቀን / ሰዓት</th>
+          <th>ስታተስ (Status)</th>
+          <th>እርምጃ (Action)</th>
+        </tr>
+      </thead>
+      <tbody id="password-resets-tbody">
+        {% if password_resets %}
+          {% for req in password_resets %}
+          <tr>
+            <td>{{ req.id }}</td>
+            <td>{{ req.user_identifier }}</td>
+            <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else 'Recent' }}</td>
+            <td>
+              {% if req.status == 'Resolved' %}
+                <span class="badge bg-success">Resolved</span>
+              {% else %}
+                <span class="badge bg-warning">Pending</span>
+              {% endif %}
+            </td>
+            <td>
+              <button class="btn btn-sm btn-success" onclick="handlePasswordResetAction('{{ req.id }}', 'resolve')">አጠናቅ (Resolve)</button>
+              <button class="btn btn-sm btn-danger" onclick="handlePasswordResetAction('{{ req.id }}', 'delete')">ሰርዝ (Delete)</button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" style="text-align: center; color: #aab7d4; padding: 20px;">ምንም የሚጠብቅ የይለፍ ቃል ጥያቄ የለም።</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
   </div>
 
 </section>
@@ -285,6 +327,31 @@ function changeStatus(userId, status) {
             location.reload();
         } else {
             alert('ኦፕሬሽኑ አልተሳካም!');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('የኔትወርክ ስህተት አጋጥሟል!');
+    });
+}
+
+function handlePasswordResetAction(reqId, actionType) {
+    if (!confirm('ይህንን እርምጃ መፈጸም እንደሚፈልጉ እርግጠኛ ኖት?')) return;
+
+    fetch(`/admin/password-reset/${reqId}/action`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: actionType })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('ስህተት: ' + data.message);
         }
     })
     .catch(error => {
