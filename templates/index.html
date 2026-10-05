@@ -273,19 +273,33 @@
         </div>
     </div>
 
-    <!-- FORGOT PASSWORD MODAL (FOR INDEX) -->
+    <!-- FORGOT PASSWORD & OTP RECOVERY MODAL -->
     <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
-            <h3 class="text-sm font-black text-amber-400 mb-2">የይለፍ ቃል ማግኛ (Recovery)</h3>
-            <p class="text-[11px] text-slate-300 mb-3">የተመዘገቡበትን ስልክ ቁጥር ወይም ኢሜይል ያስገቡ። ጥያቄው ለአድሚን ይላካል:</p>
+            <h3 class="text-sm font-black text-amber-400 mb-2">🔑 የይለፍ ቃል ማግኛ (Password Recovery)</h3>
             
-            <form id="indexForgotForm" onsubmit="submitForgotPassword(event)" class="space-y-3 text-left">
+            <!-- Step 1: Request OTP -->
+            <div id="otp-step-1" class="space-y-3 text-left">
+                <p class="text-[11px] text-slate-300">እባክዎ የተመዘገቡበትን ስልክ ቁጥር ወይም ኢሜይል ያስገቡ:</p>
                 <input type="text" id="recovery_identity" placeholder="ስልክ ቁጥር ወይም ኢሜይል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
                 <div class="flex gap-2">
                     <button type="button" onclick="closeForgotModal()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">ይቅር</button>
-                    <button type="submit" class="w-1/2 py-2.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ላክ</button>
+                    <button type="button" onclick="requestOtpCode()" class="w-1/2 py-2.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ኮድ ላክ (Send)</button>
                 </div>
-            </form>
+            </div>
+
+            <!-- Step 2: Verify OTP & New Password -->
+            <div id="otp-step-2" class="space-y-3 text-left hidden">
+                <p class="text-[11px] text-emerald-400 font-bold">✅ የማረጋገጫ ኮድ ተልኳል። እባክዎ OTP ኮዱን እና አዲስ የይለፍ ቃል ያስገቡ።</p>
+                <input type="text" id="otp_code_input" placeholder="6-digit OTP Code" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white text-center tracking-widest font-bold" maxlength="6">
+                <input type="password" id="new_password_input" placeholder="አዲስ የይለፍ ቃል (New Password)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="password" id="confirm_password_input" placeholder="አዲስ የይለፍ ቃል ማረጋገጫ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                
+                <div class="flex gap-2">
+                    <button type="button" onclick="resetOtpStep()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">ተመለስ</button>
+                    <button type="button" onclick="verifyAndResetPassword()" class="w-1/2 py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ቀይር (Reset)</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -428,18 +442,64 @@
 
         function closeForgotModal() {
             document.getElementById('indexForgotModal').classList.add('hidden');
+            resetOtpStep();
         }
 
-        function submitForgotPassword(e) {
-            e.preventDefault();
+        let targetRecoveryIdentity = "";
+
+        function requestOtpCode() {
             const identity = document.getElementById('recovery_identity').value.trim();
             if(!identity) return alert("⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
             
-            socket.emit('forgot_password_request', { recovery_identity: identity });
-            alert("✅ የይለፍ ቃል ማግኛ ጥያቄዎ ለአድሚን ተልኳል!");
-            closeForgotModal();
-            document.getElementById('recovery_identity').value = '';
+            targetRecoveryIdentity = identity;
+            socket.emit('send_otp_request', { identity: identity });
         }
+
+        socket.on('otp_sent_response', (data) => {
+            if (data.success) {
+                alert("📩 " + data.msg);
+                document.getElementById('otp-step-1').classList.add('hidden');
+                document.getElementById('otp-step-2').classList.remove('hidden');
+            } else {
+                alert("⚠️ " + data.msg);
+            }
+        });
+
+        function resetOtpStep() {
+            document.getElementById('otp-step-2').classList.add('hidden');
+            document.getElementById('otp-step-1').classList.remove('hidden');
+        }
+
+        function verifyAndResetPassword() {
+            const otp = document.getElementById('otp_code_input').value.trim();
+            const newPass = document.getElementById('new_password_input').value.trim();
+            const confirmPass = document.getElementById('confirm_password_input').value.trim();
+
+            if (!otp || !newPass || !confirmPass) {
+                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች ይሙሉ!");
+            }
+            if (newPass !== confirmPass) {
+                return alert("⚠️ የentered ያደረጓቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
+            }
+
+            socket.emit('verify_otp_and_reset', {
+                identity: targetRecoveryIdentity,
+                otp: otp,
+                new_password: newPass
+            });
+        }
+
+        socket.on('password_reset_response', (data) => {
+            alert((data.success ? "✅ " : "⚠️ ") + data.msg);
+            if (data.success) {
+                closeForgotModal();
+                resetOtpStep();
+                document.getElementById('recovery_identity').value = '';
+                document.getElementById('otp_code_input').value = '';
+                document.getElementById('new_password_input').value = '';
+                document.getElementById('confirm_password_input').value = '';
+            }
+        });
 
         function submitSignIn() {
             const identifier = document.getElementById('signin-identifier').value.trim();
@@ -544,7 +604,7 @@
             }
 
             if (!amount || amount <= 0 || !smsInput) { 
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
+                return alert("⚠️️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
             }
 
             let txRef = smsInput;
