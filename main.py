@@ -319,6 +319,15 @@ class Transaction(db.Model):
   created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+# Password Reset Request Model added
+class PasswordResetRequest(db.Model):
+    __tablename__ = 'password_reset_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_identifier = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), default='Pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 with app.app_context():
   db.create_all()
   inspector = sa.inspect(db.engine)
@@ -442,38 +451,25 @@ def handle_register_user(data):
     emit('auth_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
 
 
-# ==========================================
-# Forgot Password Socket Handler Added
-# ==========================================
 @socketio.on('forgot_password_request')
 def handle_forgot_password_request(data):
-  identifier = str(data.get('identifier') or '').strip()
-  new_password = str(data.get('new_password') or '').strip()
-
-  if not identifier or not new_password:
-    emit('forgot_password_response', {'success': False, 'msg': 'እባክዎ መለያዎን (ስልክ/ኢሜይል) እና አዲሱን የይለፍ ቃል ያስገቡ!'}, room=request.sid)
+  recovery_identity = str(data.get('recovery_identity') or data.get('identifier') or '').strip()
+  if not recovery_identity:
     return
-
+  
   try:
-    user = User.query.filter(
-        (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
-    ).first()
-
-    if not user:
-      emit('forgot_password_response', {'success': False, 'msg': 'ያስገቡት መለያ (ስልክ/ኢሜይል/ዩዘርኔም) አልተገኘም!'}, room=request.sid)
-      return
-
-    user.password = new_password
+    reset_req = PasswordResetRequest(user_identifier=recovery_identity, status='Pending')
+    db.session.add(reset_req)
     db.session.commit()
-
-    # ለቴሌግራም አድሚን ማሳወቂያ መላክ ከፈለጉ
-    send_telegram_notification(f'🔄 *የይለፍ ቃል መቀየር ጥያቄ*\n- ተጠቃሚ: `{user.user_id}`\n- ስልክ/ኢሜይል: `{identifier}`')
-
-    emit('forgot_password_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
+    
+    admin_msg = (
+        f"🔐 *አዲስ የይለፍ ቃል ማግኛ ጥያቄ*\n\n"
+        f"- መለያ (ስልክ/ኢሜይል): `{recovery_identity}`\n"
+        f"- ቀን: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+    )
+    send_telegram_notification(admin_msg)
   except Exception as e:
-    db.session.rollback()
-    print('Forgot Password Error:', e)
-    emit('forgot_password_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
+    print('Forgot Password DB Error:', e)
 
 
 @socketio.on('get_registered_users')
@@ -808,7 +804,33 @@ def admin_dashboard():
     total_revenue = db.session.query(func.sum(Transaction.amount)).filter(Transaction.type == 'deposit', Transaction.status == 'completed').scalar() or 0.0
     total_profit = total_revenue * 0.25 
     
-    return render_template('admin.html', total_users=total_users, total_orders=total_orders, total_revenue=total_revenue, total_profit=total_profit, pending_deposits=[], pending_withdrawals=[])
+    password_resets = PasswordResetRequest.query.order_by(PasswordResetRequest.id.desc()).all()
+    
+    return render_template('admin.html', total_users=total_users, total_orders=total_orders, total_revenue=total_revenue, total_profit=total_profit, pending_deposits=[], pending_withdrawals=[], password_resets=password_resets)
+
+
+@app.route('/admin/password-reset/<int:req_id>/action', methods=['POST'])
+def admin_password_reset_action(req_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.get_json() or {}
+    action = data.get('action')
+    
+    req_item = PasswordResetRequest.query.get(req_id)
+    if not req_item:
+        return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
+        
+    if action == 'resolve':
+        req_item.status = 'Resolved'
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'ጥያቄው ተጠናቋል!'})
+    elif action == 'delete':
+        db.session.delete(req_item)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'ጥያቄው ተሰርዟል!'})
+        
+    return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
