@@ -401,10 +401,17 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            // ስክሪኖቹ በዲፎልት ተደብቀው እንዲቆዩ ማድረግ
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+
             if (userId) {
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
+            } else {
+                document.getElementById('menu-dashboard').classList.add('hidden');
+                document.getElementById('auth-screen').classList.remove('hidden');
             }
             initCartelaGrid();
         });
@@ -545,6 +552,8 @@
                 localStorage.setItem('bk_user_id', userId);
 
                 document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('selection-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
             }
@@ -555,6 +564,8 @@
             userId = null;
             window.userId = null;
             document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('hidden');
         }
 
@@ -604,7 +615,7 @@
             }
 
             if (!amount || amount <= 0 || !smsInput) { 
-                return alert("⚠️️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
             }
 
             let txRef = smsInput;
@@ -697,7 +708,7 @@
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
                     btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        if (!window.userId) return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
