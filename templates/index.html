@@ -130,11 +130,27 @@
         </a>
 
         <div class="grid grid-cols-2 gap-2.5">
-            <button onclick="logoutToAuth()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
-                <span class="text-base bg-rose-500/20 p-2 rounded-xl">🚪</span>
+            <button onclick="openHistoryModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-sky-500/20 p-2 rounded-xl">📜</span>
                 <div>
-                    <div class="text-xs font-black text-rose-400">Sign Out</div>
-                    <div class="text-[9px] text-slate-300">ውጣ</div>
+                    <div class="text-xs font-black text-sky-400">History</div>
+                    <div class="text-[9px] text-slate-300">የጨዋታና ክፍያ ታሪክ</div>
+                </div>
+            </button>
+
+            <button onclick="openRulesModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-indigo-500/20 p-2 rounded-xl">📖</span>
+                <div>
+                    <div class="text-xs font-black text-indigo-400">Rules</div>
+                    <div class="text-[9px] text-slate-300">የጨዋታ መመሪያዎች</div>
+                </div>
+            </button>
+
+            <button onclick="openSupportModal()" class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 text-left cursor-pointer">
+                <span class="text-base bg-purple-500/20 p-2 rounded-xl">🎧</span>
+                <div>
+                    <div class="text-xs font-black text-purple-400">Support</div>
+                    <div class="text-[9px] text-slate-300">እርዳታ እና ድጋፍ</div>
                 </div>
             </button>
 
@@ -162,6 +178,10 @@
                 </div>
             </button>
         </div>
+
+        <button onclick="logoutToAuth()" class="w-full py-3 bg-rose-500/20 border border-rose-500/40 text-rose-400 font-black text-xs rounded-2xl cursor-pointer">
+            🚪 ዉጣ (Sign Out)
+        </button>
     </div>
 
     <!-- CARTELA SELECTION SCREEN -->
@@ -278,7 +298,6 @@
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
             <h3 class="text-sm font-black text-amber-400 mb-2">🔑 የይለፍ ቃል ማግኛ (Password Recovery)</h3>
             
-            <!-- Step 1: Request OTP -->
             <div id="otp-step-1" class="space-y-3 text-left">
                 <p class="text-[11px] text-slate-300">እባክዎ የተመዘገቡበትን ስልክ ቁጥር ወይም ኢሜይል ያስገቡ:</p>
                 <input type="text" id="recovery_identity" placeholder="ስልክ ቁጥር ወይም ኢሜይል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
@@ -288,7 +307,6 @@
                 </div>
             </div>
 
-            <!-- Step 2: Verify OTP & New Password -->
             <div id="otp-step-2" class="space-y-3 text-left hidden">
                 <p class="text-[11px] text-emerald-400 font-bold">✅ የማረጋገጫ ኮድ ተልኳል። እባክዎ OTP ኮዱን እና አዲስ የይለፍ ቃል ያስገቡ።</p>
                 <input type="text" id="otp_code_input" placeholder="6-digit OTP Code" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white text-center tracking-widest font-bold" maxlength="6">
@@ -300,6 +318,51 @@
                     <button type="button" onclick="verifyAndResetPassword()" class="w-1/2 py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ቀይር (Reset)</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- HISTORY MODAL -->
+    <div id="history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-sky-500 shadow-2xl text-left">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-sky-400">📜 የጨዋታና ክፍያ ታሪክ (History)</h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <p class="text-[11px] text-slate-300 mb-3">የመጨረሻዎቹ የጨዋታዎችዎ እና የዲፖዚት/ዊዝድሮ ታሪክዎ:</p>
+            <div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-slate-400 text-center min-h-[120px] flex items-center justify-center">
+                ምንም አዲስ የታሪክ መዝገብ የለም።
+            </div>
+            <button onclick="closeHistoryModal()" class="w-full mt-3 py-2.5 bg-sky-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
+        </div>
+    </div>
+
+    <!-- RULES MODAL -->
+    <div id="rules-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-indigo-500 shadow-2xl text-left">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-black text-indigo-400">📖 የጨዋታ መመሪያዎች (Rules)</h3>
+                <button onclick="closeRulesModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-2 text-[11px] text-slate-300 leading-relaxed max-h-[220px] overflow-y-auto pr-1">
+                <p>1. <b>ካርቴላ መግዛት:</b> በእያንዳንዱ ዙር ከ1 እስከ 2 ካርቴላዎች መምረጥ ይቻላል (የአንዱ ዋጋ 10 ብር ነው።)</p>
+                <p>2. <b>ቦነስ:</b> ሲመዘገቡ 50 ብር የቦነስ ሂሳብ ያገኛሉ።</p>
+                <p>3. <b>አሸናፊነት:</b> ቁጥሮቹ ሲጠሩ በመጀመሪያ መስመር (Row)፣ ዓምድ (Column) ወይም ዲያጎናል (Diagonal) ሙሉ ፊት የሚሞላ ተጫዋች አሸናፊ ይሆናል።</p>
+                <p>4. <b>ሽልማት:</b> አሸናፊው ከተሰበሰበው ጠቅላላ ገቢ 90% ደራሽ ይወስዳል።</p>
+            </div>
+            <button onclick="closeRulesModal()" class="w-full mt-3 py-2.5 bg-indigo-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
+        </div>
+    </div>
+
+    <!-- SUPPORT MODAL -->
+    <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl text-center">
+            <div class="text-3xl mb-2">🎧</div>
+            <h3 class="text-sm font-black text-purple-400 mb-1">እርዳታ እና ድጋፍ (Support)</h3>
+            <p class="text-xs text-slate-300 mb-3">ማንኛውም ጥያቄ ወይም የባንክ ክፍያ ማስተካከያ ካለዎት በአድሚናችን በኩል ማግኘት ይችላሉ።</p>
+            <div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-amber-400 font-bold mb-3">
+                ቴሌግራም አድሚን: @Biruk_Admin
+            </div>
+            <button onclick="closeSupportModal()" class="w-full py-2.5 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer">ዝጋ (Close)</button>
         </div>
     </div>
 
@@ -401,7 +464,6 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // ስክሪኖቹ በዲፎልት ተደብቀው እንዲቆዩ ማድረግ
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
 
@@ -497,7 +559,7 @@
         }
 
         socket.on('password_reset_response', (data) => {
-            alert((data.success ? "✅ " : "⚠️ ") + data.msg);
+            alert((data.success ? "✅ " : "⚠️️ ") + data.msg);
             if (data.success) {
                 closeForgotModal();
                 resetOtpStep();
@@ -580,6 +642,13 @@
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
+
+        function openHistoryModal() { document.getElementById('history-modal').classList.remove('hidden'); }
+        function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
+        function openRulesModal() { document.getElementById('rules-modal').classList.remove('hidden'); }
+        function closeRulesModal() { document.getElementById('rules-modal').classList.add('hidden'); }
+        function openSupportModal() { document.getElementById('support-modal').classList.remove('hidden'); }
+        function closeSupportModal() { document.getElementById('support-modal').classList.add('hidden'); }
 
         function openBalanceModal() { 
             socket.emit('get_user_balance', { user_id: userId });
@@ -708,7 +777,7 @@
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
                     btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
                         socket.emit('select_card', { user_id: window.userId, card_id: i });
                     };
