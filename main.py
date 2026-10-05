@@ -56,6 +56,9 @@ sold_cards_in_round = []
 drawn_balls = []
 available_numbers = list(range(1, 76))
 
+# ጊዜያዊ የ OTP ማከማቻ ዲክሽነሪ (Memory Storage for OTP)
+OTP_STORAGE = {}
+
 
 # ==========================================================================
 # 1. Background Game Loop (ከመጠራቱ በፊት በትክክል ተቀምጧል)
@@ -451,25 +454,79 @@ def handle_register_user(data):
     emit('auth_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
 
 
-@socketio.on('forgot_password_request')
-def handle_forgot_password_request(data):
-  recovery_identity = str(data.get('recovery_identity') or data.get('identifier') or '').strip()
-  if not recovery_identity:
-    return
-  
-  try:
-    reset_req = PasswordResetRequest(user_identifier=recovery_identity, status='Pending')
-    db.session.add(reset_req)
-    db.session.commit()
-    
+@socketio.on('send_otp_request')
+def handle_send_otp_request(data):
+    identity = str(data.get('identity') or '').strip()
+    if not identity:
+        emit('otp_sent_response', {'success': False, 'msg': 'እባክዎ ትክክለኛ መለያ ያስገቡ!'}, room=request.sid)
+        return
+
+    user = User.query.filter(
+        (User.email == identity) | (User.phone == identity) | (User.username == identity) | (User.user_id == identity)
+    ).first()
+
+    if not user:
+        emit('otp_sent_response', {'success': False, 'msg': 'ይህ መለያ በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
+        return
+
+    # 6 አሃዝ የ OTP ኮድ ማመንጨት
+    otp_code = str(random.randint(100000, 999999))
+    OTP_STORAGE[identity] = {
+        'otp': otp_code,
+        'expires': time.time() + 300 # ለ 5 ደቂቃ ብቻ የሚያገለግል
+    }
+
+    # ለአድሚን በቴሌግራም ማሳወቂያ መላክ
     admin_msg = (
-        f"🔐 *አዲስ የይለፍ ቃል ማግኛ ጥያቄ*\n\n"
-        f"- መለያ (ስልክ/ኢሜይል): `{recovery_identity}`\n"
-        f"- ቀን: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        f"🔐 *የይለፍ ቃል ማግኛ OTP ጥያቄ*\n\n"
+        f"- ተጠቃሚ: `{identity}`\n"
+        f"- የ OTP ኮድ: *`{otp_code}`*\n"
+        f"- (ለ 5 ደቂቃ ብቻ ያገለግላል)"
     )
     send_telegram_notification(admin_msg)
-  except Exception as e:
-    print('Forgot Password DB Error:', e)
+    print(f"DEBUG OTP for {identity}: {otp_code}")
+
+    emit('otp_sent_response', {'success': True, 'msg': 'የማረጋገጫ ኮድ (OTP) ተልኳል። እባክዎ ኮዱን ያስገቡ።'}, room=request.sid)
+
+
+@socketio.on('verify_otp_and_reset')
+def handle_verify_otp_and_reset(data):
+    identity = str(data.get('identity') or '').strip()
+    otp = str(data.get('otp') or '').strip()
+    new_password = str(data.get('new_password') or '').strip()
+
+    if not identity or not otp or not new_password:
+        emit('password_reset_response', {'success': False, 'msg': 'እባክዎ መረጃውን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
+        return
+
+    stored_data = OTP_STORAGE.get(identity)
+    if not stored_data:
+        emit('password_reset_response', {'success': False, 'msg': 'እባክዎ መጀመሪያ የኮድ ጥያቄ ይላኩ!'}, room=request.sid)
+        return
+
+    if time.time() > stored_data['expires']:
+        emit('password_reset_response', {'success': False, 'msg': 'የ OTP ኮዱ ጊዜው አልፎበታል! እባክዎ እንደገና ይሞክሩ።'}, room=request.sid)
+        return
+
+    if stored_data['otp'] != otp:
+        emit('password_reset_response', {'success': False, 'msg': 'ያስገቡት የ OTP ኮድ ስህተት ነው!'}, room=request.sid)
+        return
+
+    user = User.query.filter(
+        (User.email == identity) | (User.phone == identity) | (User.username == identity) | (User.user_id == identity)
+    ).first()
+
+    if not user:
+        emit('password_reset_response', {'success': False, 'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
+        return
+
+    user.password = new_password
+    db.session.commit()
+    
+    # ከተሳካ ከዲክሽነሪ ውስጥ መሰረዝ
+    del OTP_STORAGE[identity]
+
+    emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
 
 @socketio.on('get_registered_users')
