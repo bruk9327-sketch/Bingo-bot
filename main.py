@@ -442,6 +442,40 @@ def handle_register_user(data):
     emit('auth_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
 
 
+# ==========================================
+# Forgot Password Socket Handler Added
+# ==========================================
+@socketio.on('forgot_password_request')
+def handle_forgot_password_request(data):
+  identifier = str(data.get('identifier') or '').strip()
+  new_password = str(data.get('new_password') or '').strip()
+
+  if not identifier or not new_password:
+    emit('forgot_password_response', {'success': False, 'msg': 'እባክዎ መለያዎን (ስልክ/ኢሜይል) እና አዲሱን የይለፍ ቃል ያስገቡ!'}, room=request.sid)
+    return
+
+  try:
+    user = User.query.filter(
+        (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
+    ).first()
+
+    if not user:
+      emit('forgot_password_response', {'success': False, 'msg': 'ያስገቡት መለያ (ስልክ/ኢሜይል/ዩዘርኔም) አልተገኘም!'}, room=request.sid)
+      return
+
+    user.password = new_password
+    db.session.commit()
+
+    # ለቴሌግራም አድሚን ማሳወቂያ መላክ ከፈለጉ
+    send_telegram_notification(f'🔄 *የይለፍ ቃል መቀየር ጥያቄ*\n- ተጠቃሚ: `{user.user_id}`\n- ስልክ/ኢሜይል: `{identifier}`')
+
+    emit('forgot_password_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
+  except Exception as e:
+    db.session.rollback()
+    print('Forgot Password Error:', e)
+    emit('forgot_password_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
+
+
 @socketio.on('get_registered_users')
 def handle_get_registered_users(data):
   users_list = [
