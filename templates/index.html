@@ -540,33 +540,39 @@
         }
 
         function verifyAndResetPassword() {
-            const otp = document.getElementById('otp_code_input').value.trim();
-            const newPass = document.getElementById('new_password_input').value.trim();
-            const confirmPass = document.getElementById('confirm_password_input').value.trim();
+            const otpCode = document.getElementById('otp_code_input').value.trim();
+            const newPassword = document.getElementById('new_password_input').value.trim();
+            const confirmPassword = document.getElementById('confirm_password_input').value.trim();
 
-            if (!otp || !newPass || !confirmPass) {
-                return alert("⚠️ እባክዎ ሁሉንም ክፍት ቦታዎች ይሙሉ!");
+            if (!otpCode || otpCode.length !== 6) {
+                return alert("⚠️ እባክዎ ትክክለኛ የ 6 አሃዝ OTP ኮድ ያስገቡ!");
             }
-            if (newPass !== confirmPass) {
-                return alert("⚠️ የentered ያደረጓቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
+            if (!newPassword || newPassword.length < 6) {
+                return alert("⚠️ የይለፍ ቃሉ ቢያንስ ከ 6 ቁጥሮች/ፊደላት በላይ መሆን አለበት!");
+            }
+            if (newPassword !== confirmPassword) {
+                return alert("⚠️ የይለፍ ቃሎቹ እርስ በእርስ አልተመሳሰሉም!");
             }
 
             socket.emit('verify_otp_and_reset', {
                 identity: targetRecoveryIdentity,
-                otp: otp,
-                new_password: newPass
+                otp: otpCode,
+                new_password: newPassword
             });
         }
 
         socket.on('password_reset_response', (data) => {
-            alert((data.success ? "✅ " : "⚠️️ ") + data.msg);
             if (data.success) {
+                alert("🎉 " + data.msg);
                 closeForgotModal();
+                switchAuthMode('signin');
                 resetOtpStep();
                 document.getElementById('recovery_identity').value = '';
                 document.getElementById('otp_code_input').value = '';
                 document.getElementById('new_password_input').value = '';
                 document.getElementById('confirm_password_input').value = '';
+            } else {
+                alert("⚠️ " + data.msg);
             }
         });
 
