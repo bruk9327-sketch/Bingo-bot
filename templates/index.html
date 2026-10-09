@@ -378,12 +378,12 @@
                 <div class="mb-3">
                     <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant Code: 642077)</label>
                     <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="telebirr_merchant">Telebirr Merchant (ኮድ: 642077)</option>
-                        <option value="cbe_merchant">CBE Merchant (ቁጥር: 1287375)</option>
+                        <option value="Telebirr Merchant">Telebirr Merchant (ኮድ: 642077)</option>
+                        <option value="CBE Merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
+                <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ (TID እና መጠን በአውቶማቲክ ይነበባል)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
                 <div class="flex gap-2">
                     <button type="button" onclick="submitDeposit()" class="w-1/2 py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
@@ -674,9 +674,11 @@
 
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
-            const amountMatch = text.match(/([\d\.]+)\s*(?:Br|ETB|ብር)/i);
+            // ከኤስኤምኤስ ውስጥ የገንዘብ መጠንን በራስ ሰር ማውጣት
+            const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:ETB|ብር|Birr)?/i);
             if (amountMatch && amountMatch[1]) {
-                document.getElementById('deposit_amount').value = parseFloat(amountMatch[1]);
+                const cleanAmt = amountMatch[1].replace(',', '');
+                document.getElementById('deposit_amount').value = parseFloat(cleanAmt);
             }
         }
 
@@ -690,16 +692,21 @@
             }
 
             if (!amount || amount <= 0 || !smsInput) { 
-                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ/የክፍያ ሊንክ ደረሰኝ ያስገቡ!"); 
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!"); 
             }
 
             let txRef = smsInput;
             const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
-            if (tidMatch && tidMatch[1]) txRef = tidMatch[1];
+            if (tidMatch && tidMatch[1]) {
+                txRef = tidMatch[1];
+            } else {
+                const generalMatch = smsInput.match(/\b([A-Z0-9]{10,})\b/);
+                if (generalMatch && generalMatch[1]) txRef = generalMatch[1];
+            }
 
             socket.emit('request_deposit', { user_id: window.userId, amount: amount, tx_ref: txRef, sms_text: smsInput, method: method });
             closeDepositModal();
-            alert("📥 የዲፖዚት ጥያቄዎ ተልኳል!");
+            alert("📥 የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
             document.getElementById('deposit_amount').value = '';
             document.getElementById('sms_text_input').value = '';
         }
@@ -741,7 +748,7 @@
                 })
                 .catch(fetchError => {
                     console.error('Fetch Catch Error:', fetchError);
-                    alert("⚠️ የኔትወርክ ወይም የሰቨር ችግር አጋጥሟል። እባክዎ ተርሚናል (Terminal) ሎግ ይዩ።");
+                    alert("⚠️ የኔትወርክ ወይም የሰርቨር ችግር አጋጥሟል።");
                 });
 
             } catch (err) {
