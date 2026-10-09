@@ -409,12 +409,21 @@ def handle_admin_broadcast(data):
 
 def extract_transaction_info(sms_text):
   try:
+    # የቴሌብር ትራንዛክሽን ቁጥሮችን (ለምሳሌ DJ95LNAHEF) በቀጥታ ለመፈለግ
+    match = re.search(r'(?:ቁጥርዎ|number is|Transaction ID:|TID=)?\s*([A-Z0-9]{8,15})', sms_text, re.IGNORECASE)
+    if match:
+      candidate = match.group(1)
+      if not candidate.isdigit() and len(candidate) >= 8:
+        return candidate
+        
     tid_match = re.search(r'TID=([A-Za-z0-9]+)', sms_text, re.IGNORECASE)
     if tid_match:
       return tid_match.group(1)
-    general_match = re.search(r'\b([A-Z0-9]{10,})\b', sms_text)
+      
+    general_match = re.search(r'\b([A-Z0-9]{8,15})\b', sms_text)
     if general_match:
       return general_match.group(1)
+      
     return None
   except Exception as e:
     return None
