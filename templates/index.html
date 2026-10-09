@@ -48,8 +48,8 @@
 
         <div class="glass-panel p-4 rounded-3xl border border-slate-700/80 shadow-2xl space-y-3">
             <div class="grid grid-cols-2 gap-2 p-1 bg-slate-900/90 rounded-2xl border border-slate-800">
-                <button onclick="switchAuthMode('signin')" id="auth-tab-signin" class="py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow">ግባ (Sign In)</button>
-                <button onclick="switchAuthMode('signup')" id="auth-tab-signup" class="py-2.5 rounded-xl text-xs font-black transition-all text-slate-400">ተመዝገብ (Sign Up)</button>
+                <button type="button" onclick="switchAuthMode('signin')" id="auth-tab-signin" class="py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow cursor-pointer">ግባ (Sign In)</button>
+                <button type="button" onclick="switchAuthMode('signup')" id="auth-tab-signup" class="py-2.5 rounded-xl text-xs font-black transition-all text-slate-400 cursor-pointer">ተመዝገብ (Sign Up)</button>
             </div>
 
             <!-- Sign In Form -->
@@ -491,13 +491,13 @@
             const formSignUp = document.getElementById('form-signup');
 
             if (mode === 'signin') {
-                btnSignIn.className = "py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow";
-                btnSignUp.className = "py-2.5 rounded-xl text-xs font-black transition-all text-slate-400";
+                btnSignIn.className = "py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow cursor-pointer";
+                btnSignUp.className = "py-2.5 rounded-xl text-xs font-black transition-all text-slate-400 cursor-pointer";
                 formSignIn.classList.remove('hidden');
                 formSignUp.classList.add('hidden');
             } else {
-                btnSignUp.className = "py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow";
-                btnSignIn.className = "py-2.5 rounded-xl text-xs font-black transition-all text-slate-400";
+                btnSignUp.className = "py-2.5 rounded-xl text-xs font-black transition-all bg-purple-600 text-white shadow cursor-pointer";
+                btnSignIn.className = "py-2.5 rounded-xl text-xs font-black transition-all text-slate-400 cursor-pointer";
                 formSignUp.classList.remove('hidden');
                 formSignIn.classList.add('hidden');
             }
@@ -816,7 +816,7 @@
 
             updateCalledNumbersUI();
 
-            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check'].checked : true;
+            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
             if (autoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
                     if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
