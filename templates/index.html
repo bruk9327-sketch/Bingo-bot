@@ -114,7 +114,7 @@
                 <span class="text-xl">🌟</span>
                 <div>
                     <h2 class="text-xs font-black text-amber-400 mb-0.5">እንኳን ወደ BKBINGO PRO በደህና መጡ!</h2>
-                    <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! በጨዋታው መጀመሪያ <span class="text-emerald-400 font-bold">50 ብር ቦነስ</span> ተሰጥቶዎታል።</p>
+                    <p class="text-[10px] text-slate-300 leading-relaxed">ይጫወቱ ያሸንፉ! ለመጫወት እባክዎ ቢያንስ <span class="text-emerald-400 font-bold">20 ብር</span> ዲፖዚት ያድርጉ።</p>
                 </div>
             </div>
         </div>
@@ -207,7 +207,7 @@
                 <button onclick="backToMenu()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
                 <div class="bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-xl text-right">
                     <div class="text-[8px] text-emerald-300">ሕሳብ (BAL)</div>
-                    <div id="user-balance-disp-2" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
+                    <div id="user-balance-disp-2" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
                 </div>
             </div>
         </div>
@@ -251,7 +251,7 @@
             </div>
             <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
                 <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
-                <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">50.00 ETB</div>
+                <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
             </div>
         </div>
 
@@ -345,7 +345,7 @@
             </div>
             <div class="space-y-2 text-[11px] text-slate-300 leading-relaxed max-h-[220px] overflow-y-auto pr-1">
                 <p>1. <b>ካርቴላ መግዛት:</b> በእያንዳንዱ ዙር ከ1 እስከ 2 ካርቴላዎች መምረጥ ይቻላል (የአንዱ ዋጋ 10 ብር ነው።)</p>
-                <p>2. <b>ቦነስ:</b> ሲመዘገቡ 50 ብር የቦነስ ሂሳብ ያገኛሉ።</p>
+                <p>2. <b>ዲፖዚት:</b> ለመጫወት ቢያንስ 20 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ ግዴታ ነው።</p>
                 <p>3. <b>አሸናፊነት:</b> ቁጥሮቹ ሲጠሩ በመጀመሪያ መስመር (Row)፣ ዓምድ (Column) ወይም ዲያጎናል (Diagonal) ሙሉ ፊት የሚሞላ ተጫዋች አሸናፊ ይሆናል።</p>
                 <p>4. <b>ሽልማት:</b> አሸናፊው ከተሰበሰበው ጠቅላላ ገቢ 90% ደራሽ ይወስዳል።</p>
             </div>
@@ -376,18 +376,17 @@
             </div>
             <div class="space-y-3 text-left">
                 <div class="mb-3">
-                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant Code: 642077)</label>
+                    <label class="form-label text-white text-[10px] font-semibold mb-1 block">የክፍያ አማራጭ (Merchant Code: 609446)</label>
                     <select id="deposit-method" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-bold">
-                        <option value="Telebirr Merchant">Telebirr Merchant (ኮድ: 642077)</option>
+                        <option value="Telebirr Merchant">Telebirr Merchant (ኮድ: 609446)</option>
                         <option value="CBE Merchant">CBE Merchant (ቁጥር: 1287375)</option>
                     </select>
                 </div>
                 <input type="number" id="deposit_amount" placeholder="የሚጫኑትን መጠን (ETB) ያስገቡ" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <textarea id="sms_text_input" rows="3" placeholder="የኤስኤምኤስ ደረሰኝ እዚህ ይለጥፉ (TID እና መጠን በአውቶማቲክ ይነበባል)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" oninput="parseReceiptInput()"></textarea>
                 
-                <div class="flex gap-2">
-                    <button type="button" onclick="submitDeposit()" class="w-1/2 py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
-                    <button type="button" onclick="submitTelebirrPayment()" class="w-1/2 py-3 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">በቴሌብር ክፍያ (API)</button>
+                <div>
+                    <button type="button" onclick="submitDeposit()" class="w-full py-3 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">ደረሰኝ አረጋግጥ</button>
                 </div>
             </div>
         </div>
@@ -398,7 +397,7 @@
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">💰</div>
             <h3 class="text-xs font-bold text-slate-300 mb-1">የአካውንትዎ ቀሪ ሂሳብ (Balance)</h3>
-            <div id="modal-balance-amount" class="text-2xl font-black text-emerald-400 mb-4">50.00 ETB</div>
+            <div id="modal-balance-amount" class="text-2xl font-black text-emerald-400 mb-4">0.00 ETB</div>
             <button onclick="closeBalanceModal()" class="w-full py-2.5 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
         </div>
     </div>
@@ -674,7 +673,6 @@
 
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
-            // ከኤስኤምኤስ ውስጥ የገንዘብ መጠንን በራስ ሰር ማውጣት
             const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:ETB|ብር|Birr)?/i);
             if (amountMatch && amountMatch[1]) {
                 const cleanAmt = amountMatch[1].replace(',', '');
@@ -709,52 +707,6 @@
             alert("📥 የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
             document.getElementById('deposit_amount').value = '';
             document.getElementById('sms_text_input').value = '';
-        }
-
-        function submitTelebirrPayment() {
-            const amount = parseFloat(document.getElementById('deposit_amount').value);
-            
-            if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            }
-
-            if (!amount || amount <= 0) {
-                return alert("⚠️ እባክዎ ትክክለኛ የብር መጠን ያስገቡ!");
-            }
-
-            try {
-                fetch('/create-telebirr-payment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        user_id: window.userId,
-                        amount: amount
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.checkout_url) {
-                        window.location.href = data.checkout_url;
-                    } else {
-                        alert("⚠️ " + (data.msg || "ክፍያ መጀመር አልተቻለም።"));
-                    }
-                })
-                .catch(fetchError => {
-                    console.error('Fetch Catch Error:', fetchError);
-                    alert("⚠️ የኔትወርክ ወይም የሰርቨር ችግር አጋጥሟል።");
-                });
-
-            } catch (err) {
-                console.error('Frontend Script Error:', err);
-                alert("⚠️ በሲስተሙ ላይ ያልተጠበቀ ችግር ተፈጥሯል።");
-            }
         }
 
         function submitWithdraw() {
@@ -864,7 +816,7 @@
 
             updateCalledNumbersUI();
 
-            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
+            const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check'].checked : true;
             if (autoDaubEnabled) {
                 mySelectedCards.forEach(cid => {
                     if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
