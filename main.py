@@ -115,128 +115,6 @@ def start_background_loop():
 start_background_loop()
 
 
-# ==========================================
-# Telebirr Integration & RSA Signing Functions
-# ==========================================
-def generate_rsa_signature(payload_dict):
-    private_key_str = os.environ.get("TELEBIRR_PRIVATE_KEY", "")
-    if not private_key_str:
-        return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
-    
-    try:
-        if "-----BEGIN" not in private_key_str:
-            private_key_str = f"-----BEGIN PRIVATE KEY-----\n{private_key_str}\n-----END PRIVATE KEY-----"
-            
-        private_key = serialization.load_pem_private_key(
-            private_key_str.encode('utf-8'),
-            password=None,
-            backend=default_backend()
-        )
-        
-        canonical_content = json.dumps(payload_dict, sort_keys=True, separators=(',', ':'))
-        
-        signature = private_key.sign(
-            canonical_content.encode('utf-8'),
-            padding.PKCS1v15(),
-            hashes.SHA256()
-        )
-        return base64.b64encode(signature).decode('utf-8')
-    except Exception as e:
-        print("RSA Signing Error:", str(e))
-        return "DUMMY_SIGNATURE_TO_BE_REPLACED_OR_GENERATED_VIA_RSA"
-
-
-def apply_fabric_token():
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
-    url = f"{base_gateway}/payment/v1/token"
-    
-    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    app_secret = os.environ.get("APP_SECRET", "fad0f06383c6297f545876694b974599")
-    
-    headers = {
-        "Content-Type": "application/json",
-        "X-APP-Key": app_id
-    }
-    
-    payload = {
-        "appSecret": app_secret
-    }
-    
-    try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        response.raise_for_status()
-        res_data = response.json()
-        
-        if isinstance(res_data, dict):
-            return res_data.get("token") or res_data.get("data", {}).get("token") or res_data.get("access_token")
-        return None
-    except Exception as e:
-        print("Telebirr Token API Error:", str(e))
-        return None
-
-
-def create_telebirr_order(amount, user_phone, out_trade_no):
-    access_token = apply_fabric_token()
-    if not access_token:
-        return {"error": "Token generation failed"}
-
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
-    url = f"{base_gateway}/payment/v1/merchant/preOrder"
-    
-    merchant_id = os.environ.get("MERCHANT_ID", "930231098009602")
-    merchant_code = os.environ.get("MERCHANT_CODE", "101011")
-    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    
-    base_url = request.host_url.rstrip('/')
-    timestamp = str(int(time.time() * 1000))
-    nonce_str = f"bkbingo_{int(time.time())}_{random.randint(1000, 9999)}"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": access_token,
-        "X-APP-Key": app_id
-    }
-    
-    biz_content = {
-        "trans_currency": "ETB",
-        "total_amount": str(amount),
-        "merch_order_id": out_trade_no,
-        "appid": merchant_id,
-        "merch_code": merchant_code,
-        "timeout_express": "120m",
-        "trade_type": "InApp",
-        "notify_url": f"{base_url}/telebirr-callback",
-        "return_url": f"{base_url}/",
-        "title": "BKBINGO PRO Deposit",
-        "business_type": "BuyGoods",
-        "payee_identifier": merchant_code,
-        "payee_identifier_type": "04",
-        "payee_type": "5000"
-    }
-    
-    payload = {
-        "nonce_str": nonce_str,
-        "biz_content": biz_content,
-        "method": "payment.preorder",
-        "version": "1.0",
-        "sign_type": "SHA256WithRSA",
-        "timestamp": timestamp,
-        "sign": ""
-    }
-    
-    payload["sign"] = generate_rsa_signature(biz_content)
-    
-    try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print("Telebirr Order API Error:", str(e))
-        return {"error": str(e)}
-
-
 class User(db.Model):
   __tablename__ = 'users'
   id = db.Column(db.Integer, primary_key=True)
@@ -287,7 +165,6 @@ class PasswordResetRequest(db.Model):
 
 
 with app.app_context():
-  db.drop_all()
   db.create_all()
 
 
@@ -841,20 +718,6 @@ def check_bingo_win(board):
 @app.route('/')
 def index():
   return render_template('index.html')
-
-
-@app.route('/create-telebirr-payment', methods=['POST'])
-def create_telebirr_payment():
-    data = request.get_json() or {}
-    amount = data.get('amount')
-    user_phone = data.get('phone') or data.get('user_phone')
-    out_trade_no = data.get('out_trade_no') or f"bk_{int(time.time())}_{random.randint(1000, 9999)}"
-    
-    if not amount or not user_phone:
-        return jsonify({"success": False, "msg": "እባክዎ መጠኑን እና ስልክ ቁጥሩን በትክክል ያስገቡ!"}), 400
-        
-    result = create_telebirr_order(amount, user_phone, out_trade_no)
-    return jsonify(result)
 
 
 @app.route('/admin', methods=['GET'])
