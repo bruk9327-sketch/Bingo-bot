@@ -203,8 +203,14 @@ def handle_login_user(data):
     emit('auth_response', {'success': False, 'msg': 'እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
     return
 
+  # ስልክ ቁጥር፣ ኢሜይል ወይም ዩዘርኔም ትክክለኛ ማረጋገጫ
   user = User.query.filter(
-      (User.email == identifier) | (User.phone == identifier) | (User.username == identifier) | (User.user_id == identifier)
+      sa.or_(
+          User.email == identifier,
+          User.phone == identifier,
+          User.username == identifier,
+          User.user_id == identifier
+      )
   ).first()
 
   if user and user.password == password:
@@ -233,7 +239,15 @@ def handle_register_user(data):
     return
 
   try:
-    existing = User.query.filter((User.email == email) | (User.phone == phone) | (User.user_id == user_id) | (User.username == username)).first()
+    existing = User.query.filter(
+        sa.or_(
+            User.email == email,
+            User.phone == phone,
+            User.user_id == user_id,
+            User.username == username
+        )
+    ).first()
+    
     if existing:
       emit('auth_response', {'success': False, 'msg': 'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!'}, room=request.sid)
       return
@@ -271,7 +285,12 @@ def handle_send_otp_request(data):
         return
 
     user = User.query.filter(
-        (User.email == identity) | (User.phone == identity) | (User.username == identity) | (User.user_id == identity)
+        sa.or_(
+            User.email == identity,
+            User.phone == identity,
+            User.username == identity,
+            User.user_id == identity
+        )
     ).first()
 
     if not user:
@@ -319,7 +338,12 @@ def handle_verify_otp_and_reset(data):
         return
 
     user = User.query.filter(
-        (User.email == identity) | (User.phone == identity) | (User.username == identity) | (User.user_id == identity)
+        sa.or_(
+            User.email == identity,
+            User.phone == identity,
+            User.username == identity,
+            User.user_id == identity
+        )
     ).first()
 
     if not user:
