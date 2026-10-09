@@ -61,7 +61,7 @@ OTP_STORAGE = {}
 
 
 # ==========================================================================
-# 1. Background Game Loop (ከመጠራቱ በፊት በትክክል ተቀምጧል)
+# 1. Background Game Loop
 # ==========================================================================
 def background_game_loop():
   global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
@@ -246,7 +246,7 @@ class User(db.Model):
   full_name = db.Column(db.String(150), nullable=True)
   email = db.Column(db.String(120), nullable=True)
   password = db.Column(db.String(255), nullable=True)
-  balance = db.Column(db.Float, default=50.00)
+  balance = db.Column(db.Float, default=0.00)
 
 
 class AdminUser(db.Model):
@@ -287,31 +287,8 @@ class PasswordResetRequest(db.Model):
 
 
 with app.app_context():
+  db.drop_all()
   db.create_all()
-  inspector = sa.inspect(db.engine)
-  tables = inspector.get_table_names()
-  
-  if 'users' in tables:
-    columns = [col['name'] for col in inspector.get_columns('users')]
-    with db.engine.connect() as conn:
-      if 'full_name' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN full_name VARCHAR(150);'))
-        conn.commit()
-      if 'username' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN username VARCHAR(100);'))
-        conn.commit()
-      if 'email' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN email VARCHAR(120);'))
-        conn.commit()
-      if 'phone' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN phone VARCHAR(50);'))
-        conn.commit()
-      if 'password' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN password VARCHAR(255);'))
-        conn.commit()
-      if 'balance' not in columns:
-        conn.execute(sa.text('ALTER TABLE users ADD COLUMN balance FLOAT DEFAULT 50.00;'))
-        conn.commit()
 
 
 def send_telegram_notification(message, reply_markup=None):
@@ -391,14 +368,14 @@ def handle_register_user(data):
         email=email,
         phone=phone,
         password=password,
-        balance=50.00
+        balance=0.00
     )
     db.session.add(user)
     db.session.commit()
 
     emit('auth_response', {
         'success': True,
-        'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል! 50 ብር ቦነስ ተሰጥቶዎታል።',
+        'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል። ለመጫወት እባክዎ ቢያንስ 20 ብር ዲፖዚት ያድርጉ!',
         'user_id': user.user_id,
         'balance': user.balance,
         'full_name': user.full_name
@@ -554,9 +531,6 @@ def extract_amount_from_sms(sms_text):
     return 0.0
 
 
-# ==========================================================================
-# 2. SMS Forwarder Webhook Route (የተስተካከለው ራውት - ተጠቃሚን በስልክ ቁጥር በመፈለግ ሒሳብ የሚሞላ)
-# ==========================================================================
 @app.route('/api/receive-sms', methods=['POST'])
 def receive_sms():
     try:
@@ -575,7 +549,6 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
-            # ከኤስኤምኤስ ውስጥ ስልክ ቁጥርን በመፈለግ ተጠቃሚውን መለየት
             phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
             user = None
             if phone_match:
@@ -596,11 +569,9 @@ def receive_sms():
                 db.session.add(deposit)
                 db.session.commit()
                 
-                # ለተጠቃሚው በ Socket.IO የባላንስ ማሻሻያ መላክ
                 socketio.emit('balance_update', {'user_id': user.user_id, 'balance': user.balance})
                 send_telegram_notification(f"✅ *አውቶማቲክ ዲፖዚት ተሳካ*\n- ተጠቃሚ: `{user.user_id}`\n- መጠን: *{amount} ብር*\n- TID: `{tid}`")
             else:
-                # ተጠቃሚው ካልተገኘ ለአድሚን በፔንዲንግ መልክ ያስቀምጠው
                 deposit = Deposit(
                     user_id='unknown_user',
                     amount=amount,
@@ -768,9 +739,18 @@ def handle_select_card(data):
   except:
     pass
 
-  card_price = 10.00
   user = User.query.filter_by(user_id=user_id).first()
-  if not user or float(user.balance) < card_price:
+  if not user:
+    emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
+    return
+
+  # ቢያንስ 20 ብር ዲፖዚት መደረጉን ማረጋገጫ
+  if float(user.balance) < 20.00:
+    emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 20 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
+    return
+
+  card_price = 10.00
+  if float(user.balance) < card_price:
     emit('error_msg', {'msg': 'በቂ ባላንስ የለዎትም!'}, room=request.sid)
     return
 
@@ -829,7 +809,7 @@ def handle_claim_bingo(data):
       balance = user.balance
       full_name = user.full_name or f'ተጫዋች {user_id}'
     else:
-      balance = 50.00 + float(prize_amount)
+      balance = float(prize_amount)
       full_name = f'ተጫዋች {user_id}'
 
     send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`')
