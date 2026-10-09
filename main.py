@@ -409,7 +409,6 @@ def handle_admin_broadcast(data):
 
 def extract_transaction_info(sms_text):
   try:
-    # የቴሌብር ትራንዛክሽን ቁጥሮችን (ለምሳሌ DJ95LNAHEF) በቀጥታ ለመፈለግ
     match = re.search(r'(?:ቁጥርዎ|number is|Transaction ID:|TID=)?\s*([A-Z0-9]{8,15})', sms_text, re.IGNORECASE)
     if match:
       candidate = match.group(1)
@@ -458,20 +457,26 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
+            # 1. መጀመሪያ በ TID የተደረገ የፔንዲንግ ዲፖዚት ጥያቄ አለ ወይ ማየት
             deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             user = None
             
             if deposit_req and deposit_req.user_id != 'unknown_user':
                 user = User.query.filter_by(user_id=deposit_req.user_id).first()
             
+            # 2. ካልተገኘ በመጨረሻ ክፍያ የጠየቀ (Pending የነበረ) ተጠቃሚን መውሰድ
+            if not user:
+                latest_pending = Deposit.query.filter_by(status='Pending').order_by(Deposit.id.desc()).first()
+                if latest_pending and latest_pending.user_id != 'unknown_user':
+                    user = User.query.filter_by(user_id=latest_pending.user_id).first()
+                    deposit_req = latest_pending
+
+            # 3. አሁንም ካልተገኘ ኤስኤምኤሱ ውስጥ የሚታየውን ያልተደበቀ ስልክ ቁጥር መፈለግ
             if not user:
                 phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
                 if phone_match:
                     phone_str = phone_match.group(1)
                     user = User.query.filter(User.phone.like(f"%{phone_str[-9:]}%")).first()
-            
-            if not user:
-                user = User.query.first()
             
             if user:
                 user.balance = float(user.balance) + amount
@@ -479,6 +484,7 @@ def receive_sms():
                 if deposit_req:
                     deposit_req.status = 'Approved'
                     deposit_req.amount = amount
+                    deposit_req.transaction_ref = tid
                 else:
                     deposit = Deposit(
                         user_id=user.user_id,
@@ -818,7 +824,8 @@ def admin_login():
         else:
             error_msg = 'የተሳሳተ መግቢያ ስም ወይም የይለፍ ቃል!'
             
-    return render_template('admin_login.html', error_msg=error_msg)
+    render_template_obj = render_template('admin_login.html', error_msg=error_msg)
+    return render_template_obj
 
 
 if __name__ == '__main__':
