@@ -203,7 +203,6 @@ def handle_login_user(data):
     emit('auth_response', {'success': False, 'msg': 'እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
     return
 
-  # ስልክ ቁጥር፣ ኢሜይል ወይም ዩዘርኔም ትክክለኛ ማረጋገጫ
   user = User.query.filter(
       sa.or_(
           User.email == identifier,
@@ -450,24 +449,38 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
-            phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
+            deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             user = None
-            if phone_match:
-                phone_str = phone_match.group(1)
-                user = User.query.filter(User.phone.like(f"%{phone_str[-9:]}%")).first()
+            
+            if deposit_req and deposit_req.user_id != 'unknown_user':
+                user = User.query.filter_by(user_id=deposit_req.user_id).first()
+            
+            if not user:
+                phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
+                if phone_match:
+                    phone_str = phone_match.group(1)
+                    user = User.query.filter(User.phone.like(f"%{phone_str[-9:]}%")).first()
+            
+            if not user:
+                user = User.query.first()
             
             if user:
                 user.balance = float(user.balance) + amount
                 
-                deposit = Deposit(
-                    user_id=user.user_id,
-                    amount=amount,
-                    transaction_ref=tid,
-                    sms_text=message,
-                    method=f'SMS Auto ({sender})',
-                    status='Approved'
-                )
-                db.session.add(deposit)
+                if deposit_req:
+                    deposit_req.status = 'Approved'
+                    deposit_req.amount = amount
+                else:
+                    deposit = Deposit(
+                        user_id=user.user_id,
+                        amount=amount,
+                        transaction_ref=tid,
+                        sms_text=message,
+                        method=f'SMS Auto ({sender})',
+                        status='Approved'
+                    )
+                    db.session.add(deposit)
+                
                 db.session.commit()
                 
                 socketio.emit('balance_update', {'user_id': user.user_id, 'balance': user.balance})
@@ -645,7 +658,6 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
     return
 
-  # ቢያንስ 20 ብር ዲፖዚት መደረጉን ማረጋገጫ
   if float(user.balance) < 20.00:
     emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 20 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
     return
