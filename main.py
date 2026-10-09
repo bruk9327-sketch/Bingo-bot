@@ -322,7 +322,6 @@ class Transaction(db.Model):
   created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
-# Password Reset Request Model added
 class PasswordResetRequest(db.Model):
     __tablename__ = 'password_reset_requests'
     id = db.Column(db.Integer, primary_key=True)
@@ -469,14 +468,12 @@ def handle_send_otp_request(data):
         emit('otp_sent_response', {'success': False, 'msg': 'ይህ መለያ በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
         return
 
-    # 6 አሃዝ የ OTP ኮድ ማመንጨት
     otp_code = str(random.randint(100000, 999999))
     OTP_STORAGE[identity] = {
         'otp': otp_code,
-        'expires': time.time() + 300 # ለ 5 ደቂቃ ብቻ የሚያገለግል
+        'expires': time.time() + 300
     }
 
-    # ለአድሚን በቴሌግራም ማሳወቂያ መላክ
     admin_msg = (
         f"🔐 *የይለፍ ቃል ማግኛ OTP ጥያቄ*\n\n"
         f"- ተጠቃሚ: `{identity}`\n"
@@ -484,7 +481,6 @@ def handle_send_otp_request(data):
         f"- (ለ 5 ደቂቃ ብቻ ያገለግላል)"
     )
     send_telegram_notification(admin_msg)
-    print(f"DEBUG OTP for {identity}: {otp_code}")
 
     emit('otp_sent_response', {'success': True, 'msg': 'የማረጋገጫ ኮድ (OTP) ተልኳል። እባክዎ ኮዱን ያስገቡ።'}, room=request.sid)
 
@@ -522,8 +518,6 @@ def handle_verify_otp_and_reset(data):
 
     user.password = new_password
     db.session.commit()
-    
-    # ከተሳካ ከዲክሽነሪ ውስጥ መሰረዝ
     del OTP_STORAGE[identity]
 
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
@@ -582,7 +576,7 @@ def handle_admin_broadcast(data):
 
 def extract_transaction_info(sms_text):
   try:
-    tid_match = re.search(r'TID=([A-Za-z0-9]+)', sms_text)
+    tid_match = re.search(r'TID=([A-Za-z0-9]+)', sms_text, re.IGNORECASE)
     if tid_match:
       return tid_match.group(1)
     general_match = re.search(r'\b([A-Z0-9]{10,})\b', sms_text)
@@ -591,6 +585,61 @@ def extract_transaction_info(sms_text):
     return None
   except Exception as e:
     return None
+
+
+def extract_amount_from_sms(sms_text):
+  try:
+    # ከኤስኤምኤስ ውስጥ የገንዘብ መጠንን ለመፈለግ (ለምሳሌ: 100.00 ETB ወይም 50 ብር)
+    amount_match = re.search(r'([\d,]+\.\d{2})\s*(?:ETB|ብር|Birr)?', sms_text, re.IGNORECASE)
+    if amount_match:
+      cleaned_amt = amount_match.group(1).replace(',', '')
+      return float(cleaned_amt)
+    return 0.0
+  except:
+    return 0.0
+
+
+# ==========================================================================
+# 2. SMS Forwarder Webhook Route (አዲሱ የተጨመረው ራውት)
+# ==========================================================================
+@app.route('/api/receive-sms', methods=['POST'])
+def receive_sms():
+    try:
+        data = request.get_json() or {}
+        sender = data.get('sender', '')
+        message = data.get('message', '')
+        
+        print(f"Received SMS from {sender}: {message}")
+        
+        # የባንክ ወይም የቴሌኮም መልዕክት መሆኑን ማረጋገጥ (ለምሳሌ CBE ወይም Telebirr)
+        tid = extract_transaction_info(message)
+        amount = extract_amount_from_sms(message)
+        
+        if tid and amount > 0:
+            if tid in PROCESSED_TIDS:
+                return "success", 200 # ቀድሞ የተያዘ ከሆነ ቸል ይበለው
+                
+            PROCESSED_TIDS.add(tid)
+            
+            # በራስ-ሰር ገቢውን ሪከርድ ማድረግ (System Deposit)
+            deposit = Deposit(
+                user_id='auto_sms_user',
+                amount=amount,
+                transaction_ref=tid,
+                sms_text=message,
+                method=f'SMS Auto ({sender})',
+                status='Approved' # በቀጥታ እንዲጸድቅ ከፈለጉ
+            )
+            db.session.add(deposit)
+            db.session.commit()
+            
+            # ለቴሌግራም አድሚን ማሳወቂያ መላክ
+            send_telegram_notification(f"📥 *አውቶማቲክ የባንክ ኤስኤምኤስ ገቢ*\n- ላኪ: `{sender}`\n- TID: `{tid}`\n- መጠን: *{amount} ብር*")
+            
+        return "success", 200
+    except Exception as e:
+        print("Webhook Error:", str(e))
+        return "error", 500
 
 
 @socketio.on('request_deposit')
