@@ -112,9 +112,7 @@ def start_background_loop():
     t = threading.Thread(target=background_game_loop, daemon=True)
     t.start()
 
-# ሰርቨሩ ሲነሳ ሉፑን ወዲያውኑ ማስጀመር
 start_background_loop()
-# --------------------------------------------------------------------------
 
 
 # ==========================================
@@ -236,48 +234,6 @@ def create_telebirr_order(amount, user_phone, out_trade_no):
         return response.json()
     except Exception as e:
         print("Telebirr Order API Error:", str(e))
-        return {"error": str(e)}
-
-
-def query_telebirr_order(out_trade_no):
-    access_token = apply_fabric_token()
-    if not access_token:
-        return {"error": "Token generation failed"}
-
-    base_gateway = os.environ.get("TELEBIRR_BASE_URL", "https://196.188.120.3:38443")
-    url = f"{base_gateway}/payment/v1/merchant/queryOrder"
-    app_id = os.environ.get("FABRIC_APP_ID", "c4182ef8-9249-458a-985e-06d191f4d505")
-    
-    timestamp = str(int(time.time() * 1000))
-    nonce_str = f"query_{int(time.time())}"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": access_token,
-        "X-APP-Key": app_id
-    }
-    
-    biz_content = {
-        "merch_order_id": out_trade_no
-    }
-    
-    payload = {
-        "nonce_str": nonce_str,
-        "biz_content": biz_content,
-        "method": "payment.queryorder",
-        "version": "1.0",
-        "sign_type": "SHA256WithRSA",
-        "timestamp": timestamp,
-        "sign": generate_rsa_signature(biz_content)
-    }
-    
-    try:
-        verify_ssl = os.environ.get('VERIFY_TELEBIRR_SSL', 'False').lower() == 'true'
-        response = requests.post(url, json=payload, headers=headers, verify=verify_ssl, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print("Query Order Error:", str(e))
         return {"error": str(e)}
 
 
@@ -589,7 +545,6 @@ def extract_transaction_info(sms_text):
 
 def extract_amount_from_sms(sms_text):
   try:
-    # ከኤስኤምኤስ ውስጥ የገንዘብ መጠንን ለመፈለግ (ለምሳሌ: 100.00 ETB ወይም 50 ብር)
     amount_match = re.search(r'([\d,]+\.\d{2})\s*(?:ETB|ብር|Birr)?', sms_text, re.IGNORECASE)
     if amount_match:
       cleaned_amt = amount_match.group(1).replace(',', '')
@@ -600,7 +555,7 @@ def extract_amount_from_sms(sms_text):
 
 
 # ==========================================================================
-# 2. SMS Forwarder Webhook Route (አዲሱ የተጨመረው ራውት)
+# 2. SMS Forwarder Webhook Route (የተስተካከለው ራውት - ተጠቃሚን በስልክ ቁጥር በመፈለግ ሒሳብ የሚሞላ)
 # ==========================================================================
 @app.route('/api/receive-sms', methods=['POST'])
 def receive_sms():
@@ -611,30 +566,52 @@ def receive_sms():
         
         print(f"Received SMS from {sender}: {message}")
         
-        # የባንክ ወይም የቴሌኮም መልዕክት መሆኑን ማረጋገጥ (ለምሳሌ CBE ወይም Telebirr)
         tid = extract_transaction_info(message)
         amount = extract_amount_from_sms(message)
         
         if tid and amount > 0:
             if tid in PROCESSED_TIDS:
-                return "success", 200 # ቀድሞ የተያዘ ከሆነ ቸል ይበለው
+                return "success", 200
                 
             PROCESSED_TIDS.add(tid)
             
-            # በራስ-ሰር ገቢውን ሪከርድ ማድረግ (System Deposit)
-            deposit = Deposit(
-                user_id='auto_sms_user',
-                amount=amount,
-                transaction_ref=tid,
-                sms_text=message,
-                method=f'SMS Auto ({sender})',
-                status='Approved' # በቀጥታ እንዲጸድቅ ከፈለጉ
-            )
-            db.session.add(deposit)
-            db.session.commit()
+            # ከኤስኤምኤስ ውስጥ ስልክ ቁጥርን በመፈለግ ተጠቃሚውን መለየት
+            phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
+            user = None
+            if phone_match:
+                phone_str = phone_match.group(1)
+                user = User.query.filter(User.phone.like(f"%{phone_str[-9:]}%")).first()
             
-            # ለቴሌግራም አድሚን ማሳወቂያ መላክ
-            send_telegram_notification(f"📥 *አውቶማቲክ የባንክ ኤስኤምኤስ ገቢ*\n- ላኪ: `{sender}`\n- TID: `{tid}`\n- መጠን: *{amount} ብር*")
+            if user:
+                user.balance = float(user.balance) + amount
+                
+                deposit = Deposit(
+                    user_id=user.user_id,
+                    amount=amount,
+                    transaction_ref=tid,
+                    sms_text=message,
+                    method=f'SMS Auto ({sender})',
+                    status='Approved'
+                )
+                db.session.add(deposit)
+                db.session.commit()
+                
+                # ለተጠቃሚው በ Socket.IO የባላንስ ማሻሻያ መላክ
+                socketio.emit('balance_update', {'user_id': user.user_id, 'balance': user.balance})
+                send_telegram_notification(f"✅ *አውቶማቲክ ዲፖዚት ተሳካ*\n- ተጠቃሚ: `{user.user_id}`\n- መጠን: *{amount} ብር*\n- TID: `{tid}`")
+            else:
+                # ተጠቃሚው ካልተገኘ ለአድሚን በፔንዲንግ መልክ ያስቀምጠው
+                deposit = Deposit(
+                    user_id='unknown_user',
+                    amount=amount,
+                    transaction_ref=tid,
+                    sms_text=message,
+                    method=f'SMS Auto ({sender})',
+                    status='Pending'
+                )
+                db.session.add(deposit)
+                db.session.commit()
+                send_telegram_notification(f"⚠️ *ያልታወቀ የኤስኤምኤስ ክፍያ ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
             
         return "success", 200
     except Exception as e:
