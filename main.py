@@ -448,9 +448,9 @@ def receive_sms():
         
         print(f"Received SMS from {sender}: {message}")
         
-        # 1. ቫሊዴሽን እና ቨርፊኬሽን (Validation & Verification): መርቻንት ቁጥር 609446 እና BIRUK RETA (ወይም BIRUK RETA DARGE) መኖራቸውን ማረጋገጥ
-        if "609446" not in message or ("BIRUK RETA" not in message and "BIRUK RETA DARGE" not in message):
-            print("Ignored SMS: Not an official merchant transaction for 609446 - BIRUK RETA.")
+        # 1. ቫሊዴሽን (Validation): የንግድ ስምዎ (BIRUK RETA ወይም BIRUK RETA DARGE) በኤስኤምኤሱ ውስጥ መኖሩን ማረጋገጥ
+        if "BIRUK RETA" not in message and "BIRUK RETA DARGE" not in message:
+            print("Ignored SMS: Not a transaction for BIRUK RETA.")
             return "ignored - not merchant", 200
 
         tid = extract_transaction_info(message)
@@ -496,7 +496,7 @@ def receive_sms():
                         amount=amount,
                         transaction_ref=tid,
                         sms_text=message,
-                        method='Telebirr Merchant (609446 - BIRUK RETA)',
+                        method='Telebirr Transaction (BIRUK RETA)',
                         status='Approved'
                     )
                     db.session.add(deposit)
@@ -511,12 +511,12 @@ def receive_sms():
                     amount=amount,
                     transaction_ref=tid,
                     sms_text=message,
-                    method='Telebirr Merchant (609446 - BIRUK RETA)',
+                    method='Telebirr Transaction (BIRUK RETA)',
                     status='Pending'
                 )
                 db.session.add(deposit)
                 db.session.commit()
-                send_telegram_notification(f"⚠️ *ያልታወቀ የመርቻንት ክፍያ ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
+                send_telegram_notification(f"⚠️ *ያልታወቀ የክፍያ መልዕክት ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
             
         return "success", 200
     except Exception as e:
@@ -536,7 +536,7 @@ def handle_request_deposit(data):
     if not tx_ref and sms_text:
       tx_ref = extract_transaction_info(sms_text) or ''
     
-    method = data.get('method', 'Telebirr Merchant (609446)')
+    method = data.get('method', 'Telebirr Transaction')
 
     if not user_id or not amount or (not tx_ref and not sms_text):
       emit('error_msg', {'msg': 'እባክዎ የዲፖዚት መረጃውን ሙሉ በሙሉ ይሙሉ።'}, room=request.sid)
