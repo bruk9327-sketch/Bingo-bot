@@ -187,11 +187,24 @@ def send_telegram_notification(message, reply_markup=None):
 
 @socketio.on('connect')
 def handle_connect():
+  # 1. መሰረታዊ የካርቴላዎች እና የጊዜ ሁኔታን መላክ
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
   emit(
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
+  
+  # 2. ጨዋታው እየተካሄደ ከሆነ (Refresh ሲደረግ ጨዋታው እንዳይጠፋ)
+  if game_active:
+      total_pool = len(sold_cards_in_round) * 10.00
+      derash = total_pool * 0.90
+      
+      # ሀ. ጨዋታው መጀመሩን መግለፅ
+      emit('game_started', {'derash': derash})
+      
+      # ለ. እስከ አሁን የወጡትን ቁጥሮች በሙሉ መልሶ መላክ
+      for ball in drawn_balls:
+          emit('number_drawn', {'number': ball})
 
 
 @socketio.on('login_user')
@@ -448,7 +461,7 @@ def receive_sms():
         
         print(f"Received SMS from {sender}: {message}")
         
-        # 1. ቫሊዴሽን (Validation): የንግድ ስምዎ (BIRUK RETA ወይም BIRUK RETA DARGE) በኤስኤምኤሱ ውስጥ መኖሩን ማረጋገጥ
+        # የንግድ ስምዎ (BIRUK RETA ወይም BIRUK RETA DARGE) በኤስኤምኤሱ ውስጥ መኖሩን ማረጋገጥ
         if "BIRUK RETA" not in message and "BIRUK RETA DARGE" not in message:
             print("Ignored SMS: Not a transaction for BIRUK RETA.")
             return "ignored - not merchant", 200
@@ -462,21 +475,18 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
-            # መጀመሪያ በ TID የተደረገ የፔንዲንግ ዲፖዚት ጥያቄ አለ ወይ ማየት
             deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             user = None
             
             if deposit_req and deposit_req.user_id != 'unknown_user':
                 user = User.query.filter_by(user_id=deposit_req.user_id).first()
             
-            # ካልተገኘ በመጨረሻ ክፍያ የጠየቀ (Pending የነበረ) ተጠቃሚን መውሰድ
             if not user:
                 latest_pending = Deposit.query.filter_by(status='Pending').order_by(Deposit.id.desc()).first()
                 if latest_pending and latest_pending.user_id != 'unknown_user':
                     user = User.query.filter_by(user_id=latest_pending.user_id).first()
                     deposit_req = latest_pending
 
-            # አሁንም ካልተገኘ ኤስኤምኤሱ ውስጥ የሚታየውን ስልክ ቁጥር መፈለግ
             if not user:
                 phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
                 if phone_match:
