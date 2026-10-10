@@ -448,6 +448,11 @@ def receive_sms():
         
         print(f"Received SMS from {sender}: {message}")
         
+        # 1. የቴሌብር መርቻንት ቁጥር (609446) እና የንግድ ስም በኤስኤምኤሱ ውስጥ መኖራቸውን ማረጋገጥ
+        if "609446" not in message and "BIRUK RETA DARGE" not in message:
+            print("Ignored SMS: Not an official merchant transaction for 609446.")
+            return "ignored - not merchant", 200
+
         tid = extract_transaction_info(message)
         amount = extract_amount_from_sms(message)
         
@@ -457,21 +462,21 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
-            # 1. መጀመሪያ በ TID የተደረገ የፔንዲንግ ዲፖዚት ጥያቄ አለ ወይ ማየት
+            # መጀመሪያ በ TID የተደረገ የፔንዲንግ ዲፖዚት ጥያቄ አለ ወይ ማየት
             deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             user = None
             
             if deposit_req and deposit_req.user_id != 'unknown_user':
                 user = User.query.filter_by(user_id=deposit_req.user_id).first()
             
-            # 2. ካልተገኘ በመጨረሻ ክፍያ የጠየቀ (Pending የነበረ) ተጠቃሚን መውሰድ
+            # ካልተገኘ በመጨረሻ ክፍያ የጠየቀ (Pending የነበረ) ተጠቃሚን መውሰድ
             if not user:
                 latest_pending = Deposit.query.filter_by(status='Pending').order_by(Deposit.id.desc()).first()
                 if latest_pending and latest_pending.user_id != 'unknown_user':
                     user = User.query.filter_by(user_id=latest_pending.user_id).first()
                     deposit_req = latest_pending
 
-            # 3. አሁንም ካልተገኘ ኤስኤምኤሱ ውስጥ የሚታየውን ያልተደበቀ ስልክ ቁጥር መፈለግ
+            # አሁንም ካልተገኘ ኤስኤምኤሱ ውስጥ የሚታየውን ስልክ ቁጥር መፈለግ
             if not user:
                 phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
                 if phone_match:
@@ -491,7 +496,7 @@ def receive_sms():
                         amount=amount,
                         transaction_ref=tid,
                         sms_text=message,
-                        method=f'SMS Auto ({sender})',
+                        method='Telebirr Merchant (609446)',
                         status='Approved'
                     )
                     db.session.add(deposit)
@@ -506,12 +511,12 @@ def receive_sms():
                     amount=amount,
                     transaction_ref=tid,
                     sms_text=message,
-                    method=f'SMS Auto ({sender})',
+                    method='Telebirr Merchant (609446)',
                     status='Pending'
                 )
                 db.session.add(deposit)
                 db.session.commit()
-                send_telegram_notification(f"⚠️ *ያልታወቀ የኤስኤምኤስ ክፍያ ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
+                send_telegram_notification(f"⚠️ *ያልታወቀ የመርቻንት ክፍያ ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
             
         return "success", 200
     except Exception as e:
