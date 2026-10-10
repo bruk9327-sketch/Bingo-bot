@@ -205,6 +205,10 @@ def handle_connect():
       # ለ. እስከ አሁን የወጡትን ቁጥሮች በሙሉ መልሶ መላክ
       for ball in drawn_balls:
           emit('number_drawn', {'number': ball})
+          
+      # ሐ. ተጫዋቹ የገዛቸውን ካርቴላዎች መፈለግ እና መልሶ ማሳየት (በዚህ ዙር ለተገዙት)
+      # (ለጊዜው client-side ላይ user_id ን መሰረት አድርጎ ከገዛ ካርቴላውን እንዲመልስ ለማድረግ የsold_cards_in_round መረጃን እንልካለን)
+      emit('sync_sold_cards', {'sold_cards': sold_cards_in_round})
 
 
 @socketio.on('login_user')
