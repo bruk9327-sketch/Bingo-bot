@@ -206,8 +206,7 @@ def handle_connect():
       for ball in drawn_balls:
           emit('number_drawn', {'number': ball})
           
-      # ሐ. ተጫዋቹ የገዛቸውን ካርቴላዎች መፈለግ እና መልሶ ማሳየት (በዚህ ዙር ለተገዙት)
-      # (ለጊዜው client-side ላይ user_id ን መሰረት አድርጎ ከገዛ ካርቴላውን እንዲመልስ ለማድረግ የsold_cards_in_round መረጃን እንልካለን)
+      # ሐ. ተጫዋቹ የገዛቸውን ካርቴላዎች መፈለግ እና መልሶ ማሳየት
       emit('sync_sold_cards', {'sold_cards': sold_cards_in_round})
 
 
@@ -479,24 +478,26 @@ def receive_sms():
                 
             PROCESSED_TIDS.add(tid)
             
-            deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             user = None
+            deposit_req = None
             
+            # 1. መጀመሪያ በ TID የተደረገ ትክክለኛ የፔንዲንግ ዲፖዚት ጥያቄ መኖሩን ማየት
+            deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             if deposit_req and deposit_req.user_id != 'unknown_user':
                 user = User.query.filter_by(user_id=deposit_req.user_id).first()
-            
-            if not user:
-                latest_pending = Deposit.query.filter_by(status='Pending').order_by(Deposit.id.desc()).first()
-                if latest_pending and latest_pending.user_id != 'unknown_user':
-                    user = User.query.filter_by(user_id=latest_pending.user_id).first()
-                    deposit_req = latest_pending
 
+            # 2. በ TID ካልተገኘ፡ ኤስኤምኤሱ ውስጥ የሚታየውን የስልክ ቁጥር በመጠቀም ተጠቃሚውን መፈለግ
             if not user:
-                phone_match = re.search(r'(09\d{8}|2519\d{8})', message)
+                phone_match = re.search(r'(09\d{8}|2519\d{8}|2517\d{8})', message)
                 if phone_match:
                     phone_str = phone_match.group(1)
-                    user = User.query.filter(User.phone.like(f"%{phone_str[-9:]}%")).first()
-            
+                    last_9_digits = phone_str[-9:]
+                    user = User.query.filter(User.phone.like(f"%{last_9_digits}%")).first()
+                    
+                    if user:
+                        deposit_req = Deposit.query.filter_by(user_id=user.user_id, status='Pending').order_by(Deposit.id.desc()).first()
+
+            # 3. ተጠቃሚው ከተገኘ ባላንሱን በደህና መጨመር
             if user:
                 user.balance = float(user.balance) + amount
                 
@@ -518,7 +519,7 @@ def receive_sms():
                 db.session.commit()
                 
                 socketio.emit('balance_update', {'user_id': user.user_id, 'balance': user.balance})
-                send_telegram_notification(f"✅ *አውቶማቲክ ዲፖዚት ተሳካ*\n- ተጠቃሚ: `{user.user_id}`\n- መጠን: *{amount} ብር*\n- TID: `{tid}`")
+                send_telegram_notification(f"✅ *አውቶማቲክ ዲፖዚት ተሳካ*\n- ተጠቃሚ: `{user.user_id}`\n- ስም: {user.full_name}\n- መጠን: *{amount} ብር*\n- TID: `{tid}`")
             else:
                 deposit = Deposit(
                     user_id='unknown_user',
@@ -530,7 +531,7 @@ def receive_sms():
                 )
                 db.session.add(deposit)
                 db.session.commit()
-                send_telegram_notification(f"⚠️ *ያልታወቀ የክፍያ መልዕክት ገባ*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
+                send_telegram_notification(f"⚠️ *ያልታወቀ የክፍያ መልዕክት ገባ (ተጠቃሚ አልተገኘም)*\n- መጠን: *{amount} ብር*\n- TID: `{tid}`\n- መልዕክት: {message}")
             
         return "success", 200
     except Exception as e:
