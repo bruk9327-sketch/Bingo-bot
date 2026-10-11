@@ -2,86 +2,117 @@
 <html lang="am">
 <head>
     <meta charset="UTF-8">
-    <title>የአድሚን የደንበኞች ድጋፍ አስተዳደር - BKBINGO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የደንበኞች ድጋፍ ማዕከል - BKBINGO PRO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #0b132b;
-            color: #f4f7ff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px;
+        body { 
+            background-color: #0b132b; 
+            color: #f4f7ff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
         }
         .container {
             max-width: 900px;
         }
-        .card-custom {
-            background-color: #1c2541;
-            border: 1px solid #3a506b;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+        .card-custom { 
+            background-color: #1c2541; 
+            border: 1px solid #3a506b; 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
-        .form-control, .form-control:focus {
-            background-color: #0b132b;
-            color: #fff;
-            border-color: #3a506b;
+        .form-control, .form-control:focus { 
+            background-color: #0b132b; 
+            color: #fff; 
+            border-color: #3a506b; 
         }
-        .form-control::placeholder {
-            color: #8d99ae;
+        .form-control::placeholder { 
+            color: #8d99ae; 
+        }
+        .admin-reply-box { 
+            background: #1a3068; 
+            border-left: 4px solid #20d49b; 
+            border-radius: 6px; 
+            padding: 12px; 
+            margin-bottom: 15px; 
+        }
+        .style-msg {
+            border-left: 3px solid #6366f1;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>🛠️ የአድሚን የደንበኞች ድጋፍ ማዕከል</h2>
+        <!-- Header Controls -->
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
+            <h2 class="fw-bold">🛠️ የአድሚን የደንበኞች ድጋፍ ማዕከል</h2>
             <div>
                 <a href="/admin" class="btn btn-outline-warning btn-sm me-2">← ወደ አድሚን ዳሽቦርድ</a>
                 <a href="/" class="btn btn-outline-light btn-sm">ወደ ዋናው ገጽ</a>
             </div>
         </div>
 
-        <!-- የጥያቄዎች ዝርዝር -->
+        <!-- Tickets List -->
         <div class="tickets-list-container">
-            <h3 class="mb-3">የተጠቃሚዎች የድጋፍ ጥያቄዎች እና ቅሬታዎች</h3>
+            <h4 class="mb-3 text-info fw-bold">የተጠቃሚዎች የድጋፍ ጥያቄዎች እና ቅሬታዎች</h4>
+            
             {% if tickets %}
                 {% for ticket in tickets %}
                 <div class="card-custom">
+                    <!-- Ticket Header -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="mb-0 text-info"><strong>ርዕስ:</strong> {{ ticket.subject }}</h5>
-                        <span class="badge {{ 'bg-success' if ticket.status == 'Answered' else 'bg-warning text-dark' }}">
+                        <h5 class="mb-0 text-warning fw-bold"><strong>ርዕስ:</strong> {{ ticket.subject }}</h5>
+                        <span class="badge {{ 'bg-success' if ticket.status == 'Answered' else 'bg-danger' }} px-3 py-2">
                             {{ 'ተመልሷል' if ticket.status == 'Answered' else 'በመጠበቅ ላይ' }}
                         </span>
                     </div>
-                    <p class="mb-1 text-muted" style="font-size: 13px;">
-                        <strong>ተጠቃሚ ID:</strong> <code>{{ ticket.user_id }}</code> | <strong>ቀን:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}
+
+                    <!-- User Meta Information -->
+                    <p class="mb-2 text-muted" style="font-size: 13px;">
+                        <strong>ስም:</strong> <span class="text-light">{{ ticket.full_name }}</span> | 
+                        <strong>ዩዘርኔም/መለያ:</strong> <code class="text-info">{{ ticket.username }}</code> | 
+                        <strong>ተጠቃሚ ID:</strong> <code>{{ ticket.user_id }}</code> | 
+                        <strong>ቀን:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '' }}
                     </p>
-                    <p class="mb-3"><strong>የተጠቃሚው መልዕክት:</strong> {{ ticket.message }}</p>
-                    
+
+                    <!-- User Message -->
+                    <div class="p-3 mb-3 style-msg rounded" style="background: #0b132b;">
+                        <strong class="text-secondary d-block mb-1" style="font-size: 12px;">የተጠቃሚው መልዕክት:</strong>
+                        <p class="mb-0 text-white" style="white-space: pre-line;">{{ ticket.message }}</p>
+                    </div>
+
+                    <!-- Optional File Attachment -->
                     {% if ticket.attachment %}
-                    <p class="mb-3"><strong>የተያያዘ ፋይል/ደረሰኝ:</strong> <a href="{{ url_for('static', filename='uploads/' + ticket.attachment) }}" target="_blank" class="text-warning">ፋይሉን ክፈት</a></p>
+                    <p class="mb-3 text-warning">
+                        <strong>የተያያዘ ፋይል/ደረሰኝ:</strong> 
+                        <a href="{{ url_for('static', filename='uploads/' + ticket.attachment) }}" target="_blank" class="btn btn-sm btn-outline-warning ms-2">
+                            📁 ፋይሉን ክፈት
+                        </a>
+                    </p>
                     {% endif %}
                     
-                    <!-- ቀደም ሲል የተሰጠ ምላሽ ካለ ማሳየት -->
+                    <!-- Admin Reply Box (If Answered Previously) -->
                     {% if ticket.admin_reply %}
-                    <div class="admin-reply-box p-3 mb-3" style="background: #1a3068; border-left: 4px solid #20d49b; border-radius: 4px;">
+                    <div class="admin-reply-box">
                         <small style="color: #20d49b; font-weight: bold;">የተሰጠ ምላሽ:</small>
-                        <p class="mb-0 mt-1" style="color: #f4f7ff;">{{ ticket.admin_reply }}</p>
+                        <p class="mb-0 mt-1" style="color: #f4f7ff; white-space: pre-line;">{{ ticket.admin_reply }}</p>
                     </div>
                     {% endif %}
 
-                    <!-- ለጥያቄው ምላሽ መስጫ ፎርም -->
+                    <!-- Reply Form -->
                     <form onsubmit="sendAdminReply(event, '{{ ticket.id }}')">
                         <div class="mb-2">
                             <textarea class="form-control" id="reply_text_{{ ticket.id }}" rows="2" placeholder="ለዚህ ጥያቄ የሚሆን ምላሽ ይጻፉ..." required>{% if ticket.admin_reply %}{{ ticket.admin_reply }}{% endif %}</textarea>
                         </div>
-                        <button type="submit" class="btn btn-sm btn-primary">ምላሽ ላክ / አዘምን</button>
+                        <button type="submit" class="btn btn-sm btn-primary px-3">ምላሽ ላክ / አዘምን</button>
                     </form>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="card-custom text-center text-muted">
-                    <p class="mb-0">ምንም የቀረበ የድጋፍ ጥያቄ የለም።</p>
+                <div class="card-custom text-center text-muted py-5">
+                    <p class="mb-0 fs-5">ምንም የቀረበ የድጋፍ ጥያቄ የለም።</p>
                 </div>
             {% endif %}
         </div>
@@ -95,8 +126,8 @@
 
             fetch('/admin/support/' + ticketId + '/reply', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+                headers: { 
+                    'Content-Type': 'application/json' 
                 },
                 body: JSON.stringify({ admin_reply: replyText })
             })
