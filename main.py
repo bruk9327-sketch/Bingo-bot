@@ -399,14 +399,62 @@ def handle_verify_otp_and_reset(data):
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
 
+# ==========================================================================
+# SUPPORT TICKET SYSTEM ROUTES & SOCKETS (የተስተካከለ)
+# ==========================================================================
+
+@app.route('/api/submit-support', methods=['POST'])
+def api_submit_support():
+    try:
+        data = request.get_json() or request.form
+        full_name = data.get('full_name') or data.get('name') or 'ያልታወቀ'
+        username = data.get('username') or 'N/A'
+        subject = data.get('subject') or data.get('issue_type') or 'የድጋፍ ጥያቄ'
+        message = data.get('message') or ''
+        user_id = data.get('user_id') or session.get('user_id') or 'guest'
+
+        if not message:
+            return jsonify({'success': False, 'message': 'እባክዎ መልዕክትዎን ይጻፉ!'}), 400
+
+        ticket = SupportTicket(
+            user_id=str(user_id),
+            full_name=full_name,
+            username=username,
+            subject=subject,
+            message=message,
+            status='Pending'
+        )
+        db.session.add(ticket)
+        db.session.commit()
+
+        # ለቴሌግራም አድሚን ማሳወቂያ መላክ
+        admin_msg = (
+            f"🎧 *አዲስ የድጋፍ ጥያቄ (Support Ticket # {ticket.id})*\n\n"
+            f"- **ስም:** {full_name}\n"
+            f"- **ዩዘርኔም:** `{username}`\n"
+            f"- **ርዕስ:** {subject}\n"
+            f"- **መልዕክት:** {message}"
+        )
+        send_telegram_notification(admin_msg)
+
+        return jsonify({'success': True, 'message': 'የድጋፍ ጥያቄዎ በተሳካ ሁኔታ ተልኳል!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print("Support Submission Error:", e)
+        return jsonify({'success': False, 'message': 'የሲስተም ስህተት አጋጥሟል!'}), 500
+
+
 @socketio.on('submit_support_ticket')
 def handle_submit_support_ticket(data):
     try:
-        user_id = str(data.get('user_id') or 'guest')
-        full_name = data.get('full_name')
-        username = data.get('username')
-        issue_type = data.get('issue_type')
+        user_id = str(data.get('user_id') or session.get('user_id') or 'guest')
+        full_name = data.get('full_name') or 'ያልታወቀ'
+        username = data.get('username') or 'N/A'
+        issue_type = data.get('issue_type') or 'የድጋፍ ጥያቄ'
         message = data.get('message')
+
+        if not message:
+            return
 
         ticket = SupportTicket(
             user_id=user_id,
@@ -420,15 +468,81 @@ def handle_submit_support_ticket(data):
         db.session.commit()
 
         admin_msg = (
-            f"🎧 *አዲስ የድጋፍ ጥያቄ (Support Ticket)*\n\n"
-            f"- ስም: {full_name}\n"
-            f"- ዩዘርኔም: `{username}`\n"
-            f"- ዓይነት: {issue_type}\n"
-            f"- መልዕክት: {message}"
+            f"🎧 *አዲስ የድጋፍ ጥያቄ (Support Ticket # {ticket.id})*\n\n"
+            f"- **ስም:** {full_name}\n"
+            f"- **ዩዘርኔም:** `{username}`\n"
+            f"- **ርዕስ:** {issue_type}\n"
+            f"- **መልዕክት:** {message}"
         )
         send_telegram_notification(admin_msg)
+        emit('support_response', {'success': True, 'msg': 'ጥያቄዎ ገብቷል!'}, room=request.sid)
     except Exception as e:
-        print("Support Ticket Error:", e)
+        db.session.rollback()
+        print("Support Ticket Socket Error:", e)
+
+
+@app.route('/admin/support', methods=['GET'])
+def admin_support():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+        
+    try:
+        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
+    except Exception as e:
+        print("Support route error:", e)
+        tickets = []
+        
+    return render_template('admin_support.html', tickets=tickets)
+
+
+@app.route('/admin/support/<int:ticket_id>/reply', methods=['POST'])
+def admin_support_reply(ticket_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.get_json() or {}
+    reply_text = data.get('admin_reply')
+    
+    try:
+        ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
+        if not ticket:
+            return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
+            
+        ticket.admin_reply = reply_text
+        ticket.status = 'Answered'
+        db.session.commit()
+
+        # Socket በመጠቀም ለተጠቃሚው ቀጥታ ማሳወቂያ መላክ
+        socketio.emit('support_reply_received', {
+            'ticket_id': ticket.id,
+            'user_id': ticket.user_id,
+            'reply': reply_text
+        })
+
+        return jsonify({'success': True, 'message': 'ምላሹ በተሳካ ሁኔታ ተልኳል!'})
+    except Exception as e:
+        db.session.rollback()
+        print("Support reply error:", e)
+        return jsonify({'success': False, 'message': 'የዳታቤዝ ስህተት አጋጥሟል!'}), 500
+
+
+@app.route('/api/my-support-tickets', methods=['GET'])
+def get_user_support_tickets():
+    user_id = request.args.get('user_id') or session.get('user_id')
+    if not user_id:
+        return jsonify({'tickets': []})
+
+    tickets = SupportTicket.query.filter_by(user_id=str(user_id)).order_by(SupportTicket.id.desc()).all()
+    result = [{
+        'id': t.id,
+        'subject': t.subject,
+        'message': t.message,
+        'status': t.status,
+        'admin_reply': t.admin_reply,
+        'created_at': t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else ''
+    } for t in tickets]
+
+    return jsonify({'tickets': result})
 
 
 @socketio.on('get_registered_users')
@@ -930,43 +1044,6 @@ def admin_update_user_status(user_id):
         
     db.session.commit()
     return jsonify({'success': True, 'message': 'የተጠቃሚው ስታተስ ተዘምኗል!'})
-
-
-@app.route('/admin/support', methods=['GET'])
-def admin_support():
-    if not session.get('is_admin') and not session.get('admin_logged'):
-        return redirect(url_for('admin_login'))
-        
-    try:
-        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
-    except Exception as e:
-        print("Support route error:", e)
-        tickets = []
-        
-    return render_template('admin_support.html', tickets=tickets)
-
-
-@app.route('/admin/support/<int:ticket_id>/reply', methods=['POST'])
-def admin_support_reply(ticket_id):
-    if not session.get('is_admin') and not session.get('admin_logged'):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
-    data = request.get_json() or {}
-    reply_text = data.get('admin_reply')
-    
-    try:
-        ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
-        if not ticket:
-            return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
-            
-        ticket.admin_reply = reply_text
-        ticket.status = 'Answered'
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'ምላሹ በተሳካ ሁኔታ ተልኳል!'})
-    except Exception as e:
-        db.session.rollback()
-        print("Support reply error:", e)
-        return jsonify({'success': False, 'message': 'የዳታቤዝ ስህተት አጋጥሟል!'}), 500
 
 
 @app.route('/admin/password-reset/<int:req_id>/action', methods=['POST'])
