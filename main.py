@@ -983,6 +983,38 @@ def admin_password_reset_action(req_id):
     return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
 
 
+@app.route('/admin/transaction/<int:tx_id>/action', methods=['POST'])
+def admin_transaction_action(tx_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.get_json() or {}
+    action = data.get('action') or request.form.get('action')
+    
+    tx = Transaction.query.get(tx_id)
+    if not tx:
+        return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አልተገኘም'})
+        
+    if action == 'approve' or action == 'complete':
+        tx.status = 'completed'
+        if tx.type == 'deposit':
+            user = User.query.filter_by(user_id=tx.user_id).first()
+            if user:
+                user.balance = float(user.balance) + float(tx.amount)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ጸድቋል!'})
+    elif action == 'reject' or action == 'delete':
+        if tx.type == 'withdrawal':
+            user = User.query.filter_by(user_id=tx.user_id).first()
+            if user:
+                user.balance = float(user.balance) + float(tx.amount)
+        db.session.delete(tx)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ተሰርዟል!'})
+        
+    return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
+
+
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     error_msg = None
