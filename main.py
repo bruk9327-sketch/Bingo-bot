@@ -842,14 +842,41 @@ def admin_dashboard():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
     
-    total_users = User.query.count() or 0
-    total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
-    total_revenue = db.session.query(func.sum(Transaction.amount)).filter(Transaction.type == 'deposit', Transaction.status == 'completed').scalar() or 0.0
-    total_profit = total_revenue * 0.25 
+    try:
+        total_users = User.query.count() or 0
+        total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
+        
+        revenue_result = db.session.query(func.sum(Transaction.amount)).filter(
+            sa.or_(Transaction.type == 'deposit', Transaction.status == 'approved'),
+            Transaction.status != 'rejected'
+        ).scalar()
+        total_revenue = float(revenue_result or 0.0)
+        total_profit = total_revenue * 0.25 
+        
+        pending_deposits = Deposit.query.filter_by(status='Pending').all()
+        pending_withdrawals = Transaction.query.filter_by(type='withdrawal', status='pending').all()
+        
+        password_resets = PasswordResetRequest.query.order_by(PasswordResetRequest.id.desc()).all()
+    except Exception as e:
+        print("Admin Dashboard Error:", e)
+        total_users = 0
+        total_orders = 0
+        total_revenue = 0.0
+        total_profit = 0.0
+        pending_deposits = []
+        pending_withdrawals = []
+        password_resets = []
     
-    password_resets = PasswordResetRequest.query.order_by(PasswordResetRequest.id.desc()).all()
-    
-    return render_template('admin.html', total_users=total_users, total_orders=total_orders, total_revenue=total_revenue, total_profit=total_profit, pending_deposits=[], pending_withdrawals=[], password_resets=password_resets)
+    return render_template(
+        'admin.html', 
+        total_users=total_users, 
+        total_orders=total_orders, 
+        total_revenue=total_revenue, 
+        total_profit=total_profit, 
+        pending_deposits=pending_deposits, 
+        pending_withdrawals=pending_withdrawals, 
+        password_resets=password_resets
+    )
 
 
 @app.route('/admin/users', methods=['GET'])
