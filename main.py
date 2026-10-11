@@ -125,6 +125,9 @@ class User(db.Model):
   email = db.Column(db.String(120), nullable=True)
   password = db.Column(db.String(255), nullable=True)
   balance = db.Column(db.Float, default=0.00)
+  is_active = db.Column(db.Boolean, default=True)
+  is_suspended = db.Column(db.Boolean, default=False)
+  kyc_verified = db.Column(db.Boolean, default=False)
 
 
 class AdminUser(db.Model):
@@ -164,6 +167,20 @@ class PasswordResetRequest(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class SupportTicket(db.Model):
+    __tablename__ = 'support_tickets'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=True)
+    full_name = db.Column(db.String(150), nullable=False)
+    username = db.Column(db.String(100), nullable=False)
+    subject = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    attachment = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), default='Pending')
+    admin_reply = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 with app.app_context():
   db.create_all()
 
@@ -187,26 +204,21 @@ def send_telegram_notification(message, reply_markup=None):
 
 @socketio.on('connect')
 def handle_connect():
-  # 1. መሰረታዊ የካርቴላዎች እና የጊዜ ሁኔታን መላክ
   emit('update_selected_cards', {'taken_cards': taken_cards_global})
   emit(
       'timer_update',
       {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
   )
   
-  # 2. ጨዋታው እየተካሄደ ከሆነ (Refresh ሲደረግ ጨዋታው እንዳይጠፋ)
   if game_active:
       total_pool = len(sold_cards_in_round) * 10.00
       derash = total_pool * 0.90
       
-      # ሀ. ጨዋታው መጀመሩን መግለፅ
       emit('game_started', {'derash': derash})
       
-      # ለ. እስከ አሁን የወጡትን ቁጥሮች በሙሉ መልሶ መላክ
       for ball in drawn_balls:
           emit('number_drawn', {'number': ball})
           
-      # ሐ. ተጫዋቹ የገዛቸውን ካርቴላዎች መፈለግ እና መልሶ ማሳየት
       emit('sync_sold_cards', {'sold_cards': sold_cards_in_round})
 
 
@@ -229,6 +241,9 @@ def handle_login_user(data):
   ).first()
 
   if user and user.password == password:
+    if user.is_suspended:
+      emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
+      return
     emit('auth_response', {
         'success': True,
         'msg': 'እንኳን ደህና መጡ!',
@@ -274,7 +289,10 @@ def handle_register_user(data):
         email=email,
         phone=phone,
         password=password,
-        balance=0.00
+        balance=0.00,
+        is_active=True,
+        is_suspended=False,
+        kyc_verified=False
     )
     db.session.add(user)
     db.session.commit()
@@ -372,6 +390,38 @@ def handle_verify_otp_and_reset(data):
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
 
+@socketio.on('submit_support_ticket')
+def handle_submit_support_ticket(data):
+    try:
+        user_id = str(data.get('user_id') or 'guest')
+        full_name = data.get('full_name')
+        username = data.get('username')
+        issue_type = data.get('issue_type')
+        message = data.get('message')
+
+        ticket = SupportTicket(
+            user_id=user_id,
+            full_name=full_name,
+            username=username,
+            subject=issue_type,
+            message=message,
+            status='Pending'
+        )
+        db.session.add(ticket)
+        db.session.commit()
+
+        admin_msg = (
+            f"🎧 *አዲስ የድጋፍ ጥያቄ (Support Ticket)*\n\n"
+            f"- ስም: {full_name}\n"
+            f"- ዩዘርኔም: `{username}`\n"
+            f"- ዓይነት: {issue_type}\n"
+            f"- መልዕክት: {message}"
+        )
+        send_telegram_notification(admin_msg)
+    except Exception as e:
+        print("Support Ticket Error:", e)
+
+
 @socketio.on('get_registered_users')
 def handle_get_registered_users(data):
   users_list = [
@@ -464,7 +514,6 @@ def receive_sms():
         
         print(f"Received SMS from {sender}: {message}")
         
-        # የንግድ ስምዎ (BIRUK RETA ወይም BIRUK RETA DARGE) በኤስኤምኤሱ ውስጥ መኖሩን ማረጋገጥ
         if "BIRUK RETA" not in message and "BIRUK RETA DARGE" not in message:
             print("Ignored SMS: Not a transaction for BIRUK RETA.")
             return "ignored - not merchant", 200
@@ -481,12 +530,10 @@ def receive_sms():
             user = None
             deposit_req = None
             
-            # 1. መጀመሪያ በ TID የተደረገ ትክክለኛ የፔንዲንግ ዲፖዚት ጥያቄ መኖሩን ማየት
             deposit_req = Deposit.query.filter_by(transaction_ref=tid, status='Pending').first()
             if deposit_req and deposit_req.user_id != 'unknown_user':
                 user = User.query.filter_by(user_id=deposit_req.user_id).first()
 
-            # 2. በ TID ካልተገኘ፡ ኤስኤምኤሱ ውስጥ የሚታየውን የስልክ ቁጥር በመጠቀም ተጠቃሚውን መፈለግ
             if not user:
                 phone_match = re.search(r'(09\d{8}|2519\d{8}|2517\d{8})', message)
                 if phone_match:
@@ -497,7 +544,6 @@ def receive_sms():
                     if user:
                         deposit_req = Deposit.query.filter_by(user_id=user.user_id, status='Pending').order_by(Deposit.id.desc()).first()
 
-            # 3. ተጠቃሚው ከተገኘ ባላንሱን በደህና መጨመር
             if user:
                 user.balance = float(user.balance) + amount
                 
@@ -804,6 +850,77 @@ def admin_dashboard():
     password_resets = PasswordResetRequest.query.order_by(PasswordResetRequest.id.desc()).all()
     
     return render_template('admin.html', total_users=total_users, total_orders=total_orders, total_revenue=total_revenue, total_profit=total_profit, pending_deposits=[], pending_withdrawals=[], password_resets=password_resets)
+
+
+@app.route('/admin/users', methods=['GET'])
+def admin_users():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+    
+    status_filter = request.args.get('status', 'all')
+    query = User.query
+    
+    if status_filter == 'active':
+        query = query.filter_by(is_active=True)
+    elif status_filter == 'suspended':
+        query = query.filter_by(is_suspended=True)
+    elif status_filter == 'kyc':
+        query = query.filter_by(kyc_verified=True)
+        
+    users = query.all()
+    return render_template('admin_users.html', users=users, current_filter=status_filter)
+
+
+@app.route('/admin/users/<user_id>/update-status', methods=['POST'])
+def admin_update_user_status(user_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.get_json() or {}
+    new_status = data.get('status')
+    
+    user = User.query.filter_by(id=user_id).first() or User.query.filter_by(user_id=user_id).first()
+    if not user:
+        return jsonify({'success': False, 'message': 'ተጠቃሚው አልተገኘም'})
+        
+    if new_status == 'suspended':
+        user.is_suspended = True
+        user.is_active = False
+    elif new_status == 'active':
+        user.is_suspended = False
+        user.is_active = True
+    elif new_status == 'kyc_verify':
+        user.kyc_verified = True
+        
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'የተጠቃሚው ስታተስ ተዘምኗል!'})
+
+
+@app.route('/admin/support', methods=['GET'])
+def admin_support():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return redirect(url_for('admin_login'))
+        
+    tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
+    return render_template('admin_support.html', tickets=tickets)
+
+
+@app.route('/admin/support/<int:ticket_id>/reply', methods=['POST'])
+def admin_support_reply(ticket_id):
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.get_json() or {}
+    reply_text = data.get('admin_reply')
+    
+    ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
+    if not ticket:
+        return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
+        
+    ticket.admin_reply = reply_text
+    ticket.status = 'Answered'
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'ምላሹ በተሳካ ሁኔታ ተልኳል!'})
 
 
 @app.route('/admin/password-reset/<int:req_id>/action', methods=['POST'])
