@@ -182,7 +182,16 @@ class SupportTicket(db.Model):
 
 
 with app.app_context():
-  db.create_all()
+    db.create_all()
+    # የጠፉ አምዶችን በራስ-ሰር ለመጨመር (Safety Migration)
+    try:
+        db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
+        db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;'))
+        db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Column migration notice:", e)
 
 
 def send_telegram_notification(message, reply_markup=None):
