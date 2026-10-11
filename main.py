@@ -22,7 +22,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 
-# የ SSL ማስጠንቀቂያዎችን ማጥፋት (በ IP አድራሻ ለሚሰሩ ጌትዌዮች አስፈላጊ ነው)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -56,13 +55,9 @@ sold_cards_in_round = []
 drawn_balls = []
 available_numbers = list(range(1, 76))
 
-# ጊዜያዊ የ OTP ማከማቻ ዲክሽነሪ (Memory Storage for OTP)
 OTP_STORAGE = {}
 
 
-# ==========================================================================
-# 1. Background Game Loop
-# ==========================================================================
 def background_game_loop():
   global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
   while True:
@@ -171,9 +166,9 @@ class SupportTicket(db.Model):
     __tablename__ = 'support_tickets'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(100), nullable=True)
-    full_name = db.Column(db.String(150), nullable=False)
-    username = db.Column(db.String(100), nullable=False)
-    subject = db.Column(db.String(200), nullable=False)
+    full_name = db.Column(db.String(150), nullable=True)
+    username = db.Column(db.String(100), nullable=True)
+    subject = db.Column(db.String(200), nullable=True)
     message = db.Column(db.Text, nullable=False)
     attachment = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(20), default='Pending')
@@ -188,6 +183,12 @@ with app.app_context():
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;'))
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
+        
+        db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);'))
+        db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS username VARCHAR(100);'))
+        db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS subject VARCHAR(200);'))
+        db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS admin_reply TEXT;'))
+        
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -399,10 +400,6 @@ def handle_verify_otp_and_reset(data):
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
 
-# ==========================================================================
-# SUPPORT TICKET SYSTEM ROUTES & SOCKETS (የተስተካከለ)
-# ==========================================================================
-
 @app.route('/api/submit-support', methods=['POST'])
 def api_submit_support():
     try:
@@ -427,7 +424,6 @@ def api_submit_support():
         db.session.add(ticket)
         db.session.commit()
 
-        # ለቴሌግራም አድሚን ማሳወቂያ መላክ
         admin_msg = (
             f"🎧 *አዲስ የድጋፍ ጥያቄ (Support Ticket # {ticket.id})*\n\n"
             f"- **ስም:** {full_name}\n"
@@ -478,7 +474,7 @@ def handle_submit_support_ticket(data):
         emit('support_response', {'success': True, 'msg': 'ጥያቄዎ ገብቷል!'}, room=request.sid)
     except Exception as e:
         db.session.rollback()
-        print("Support Ticket Socket Error:", e)
+        print("Support Ticket Error:", e)
 
 
 @app.route('/admin/support', methods=['GET'])
@@ -487,7 +483,7 @@ def admin_support():
         return redirect(url_for('admin_login'))
         
     try:
-        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
+        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all()
     except Exception as e:
         print("Support route error:", e)
         tickets = []
@@ -504,7 +500,7 @@ def admin_support_reply(ticket_id):
     reply_text = data.get('admin_reply')
     
     try:
-        ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
+        ticket = SupportTicket.query.get(ticket_id)
         if not ticket:
             return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
             
@@ -512,7 +508,6 @@ def admin_support_reply(ticket_id):
         ticket.status = 'Answered'
         db.session.commit()
 
-        # Socket በመጠቀም ለተጠቃሚው ቀጥታ ማሳወቂያ መላክ
         socketio.emit('support_reply_received', {
             'ticket_id': ticket.id,
             'user_id': ticket.user_id,
