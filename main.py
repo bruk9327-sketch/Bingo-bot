@@ -937,7 +937,12 @@ def admin_support():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return redirect(url_for('admin_login'))
         
-    tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
+    try:
+        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all() if 'SupportTicket' in globals() else []
+    except Exception as e:
+        print("Support route error:", e)
+        tickets = []
+        
     return render_template('admin_support.html', tickets=tickets)
 
 
@@ -949,14 +954,19 @@ def admin_support_reply(ticket_id):
     data = request.get_json() or {}
     reply_text = data.get('admin_reply')
     
-    ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
-    if not ticket:
-        return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
-        
-    ticket.admin_reply = reply_text
-    ticket.status = 'Answered'
-    db.session.commit()
-    return jsonify({'success': True, 'message': 'ምላሹ በተሳካ ሁኔታ ተልኳል!'})
+    try:
+        ticket = SupportTicket.query.get(ticket_id) if 'SupportTicket' in globals() else None
+        if not ticket:
+            return jsonify({'success': False, 'message': 'ጥያቄው አልተገኘም'})
+            
+        ticket.admin_reply = reply_text
+        ticket.status = 'Answered'
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'ምላሹ በተሳካ ሁኔታ ተልኳል!'})
+    except Exception as e:
+        db.session.rollback()
+        print("Support reply error:", e)
+        return jsonify({'success': False, 'message': 'የዳታቤዝ ስህተት አጋጥሟል!'}), 500
 
 
 @app.route('/admin/password-reset/<int:req_id>/action', methods=['POST'])
