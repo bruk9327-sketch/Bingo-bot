@@ -365,7 +365,7 @@
             </div>
             
             <p class="text-[10px] text-slate-300 mb-3 leading-relaxed">
-                በቢንጎ ጨዋታዎ ላይ ያጋጠሙዎትን ችግሮች ወይም ጥያቄዎች እዚህ በመሞላት ይላኩ; ድጋፍችን በፍጥነት ይመልሳል።[span_7](start_span)[span_7](end_span)
+                በቢንጎ ጨዋታዎ ላይ ያጋጠሙዎትን ችግሮች ወይም ጥያቄዎች እዚህ በመሞላት ይላኩ; ድጋፍችን በፍጥነት ይመልሳል።[span_0](start_span)[span_0](end_span)
             </p>
 
             <form onsubmit="submitSupportForm(event)" class="space-y-2.5 text-left">
@@ -720,35 +720,49 @@
             }
         }
 
-        function submitSupportForm(e) {
-            e.preventDefault();
-            const fullName = document.getElementById('support-fullname').value.trim();
-            const username = document.getElementById('support-username').value.trim();
-            const issueType = document.getElementById('support-issue-type').value;
-            const message = document.getElementById('support-message').value.trim();
+        function submitSupportForm(event) {
+            event.preventDefault();
 
-            if (!fullName || !username || !issueType || !message) {
-                return alert("⚠️ እባክዎ ሁሉንም አስፈላጊ መረጃዎች ይሙሉ!");
+            const fullName = document.getElementById('support-fullname')?.value || 'ያልታወቀ';
+            const username = document.getElementById('support-username')?.value || 'N/A';
+            const issueType = document.getElementById('support-issue-type')?.value || 'የድጋፍ ጥያቄ';
+            const message = document.getElementById('support-message')?.value;
+            const currentUserId = window.userId || localStorage.getItem('bk_user_id') || 'guest';
+
+            if (!message) {
+                alert('እባክዎ መግለጫውን ይጻፉ!');
+                return;
             }
 
-            // You can emit this via socket or handle as needed
-            socket.emit('submit_support_ticket', {
-                user_id: window.userId,
-                full_name: fullName,
-                username: username,
-                issue_type: issueType,
-                message: message
+            fetch('/api/submit-support', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: currentUserId,
+                    full_name: fullName,
+                    username: username,
+                    subject: issueType,
+                    message: message
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ የድጋፍ መጠየቂያ ጥያቄዎ በተሳካ ሁኔታ ተልኳል! ፈጣን ምላሽ እንሰጣለን።');
+                    document.getElementById('support-message').value = '';
+                    document.getElementById('support-fullname').value = '';
+                    document.getElementById('support-username').value = '';
+                    closeSupportModal();
+                } else {
+                    alert('❌ ' + (data.message || 'ስህተት ተፈጥሯል'));
+                }
+            })
+            .catch(err => {
+                console.error('Error submitting support:', err);
+                alert('የኔትወርክ ስህተት አጋጥሟል!');
             });
-
-            alert("✅ የድጋፍ መጠየቂያ ጥያቄዎ በተሳካ ሁኔታ ተልኳል! ፈጣን ምላሽ እንሰጣለን።");
-            closeSupportModal();
-            // Reset form
-            document.getElementById('support-fullname').value = '';
-            document.getElementById('support-username').value = '';
-            document.getElementById('support-issue-type').selectedIndex = 0;
-            document.getElementById('support-message').value = '';
-            document.getElementById('support-file').value = '';
-            document.getElementById('support-file-label').innerText = "ፋይል ይምረጡ";
         }
 
         function openBalanceModal() { 
