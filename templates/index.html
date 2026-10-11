@@ -476,7 +476,7 @@
                     <option value="CBE">Commercial Bank of Ethiopia (ንግድ ባንክ)</option>
                 </select>
                 <input type="text" id="withdraw-account" placeholder="የሂሳብ/ስልክ ቁጥር" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
-                <input type="number" id="withdraw-amount" placeholder="የሚወጣው መጠን (ETB)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
+                <input type="number" id="withdraw-amount" placeholder="የሚወጣው መጠን (ETB - ቢያንስ 100 ብር)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white">
                 <button onclick="submitWithdraw()" class="w-full py-3 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">ጥያቄ ላክ</button>
             </div>
         </div>
@@ -660,7 +660,7 @@
             }
 
             if (password !== confirmPassword) {
-                return alert("⚠️ የentered ያደረጓቸው የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
+                return alert("⚠️ ያስገቡት የይለፍ ቃሎች እርስ በእርስ አይመሳሰሉም!");
             }
 
             socket.emit('register_user', {
@@ -863,8 +863,6 @@
         // AUTOMATIC PARSING OF TELEBIRR & CBEBIRR SMS RECEIPTS
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
-            
-            // Extract amount (supports both Telebirr and CBEBirr formats e.g., "20.00Br" or "20.00 ETB")
             const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:Br|ETB|ብር|Birr)?/i);
             if (amountMatch && amountMatch[1]) {
                 const cleanAmt = amountMatch[1].replace(',', '');
@@ -886,7 +884,6 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!"); 
             }
 
-            // Advanced TID Extraction for Telebirr & CBEBirr (e.g. Txn ID DJB31R9QOM9 or TID=...)
             let txRef = smsInput;
             const txnIdMatch = smsInput.match(/(?:Txn ID|TID=)\s*([A-Za-z0-9]+)/i);
             if (txnIdMatch && txnIdMatch[1]) {
@@ -909,7 +906,6 @@
             document.getElementById('sms_text_input').value = '';
         }
 
-        // DEPOSIT RESPONSE HANDLER (Success / Rejection Alert)
         socket.on('deposit_response', (data) => {
             if (data.status === 'success') {
                 alert("✅ " + data.message);
@@ -918,6 +914,9 @@
             }
         });
 
+        // ==========================================
+        // 🚀 WITHDRAWAL SUBMISSION & RESPONSE HANDLER (Minimum 100 ETB Limit)
+        // ==========================================
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
@@ -927,11 +926,34 @@
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
-            if (!amount || amount <= 0 || !account) return alert("⚠️ እባክዎ ትክክለኛ መረጃ ያስገቡ!");
-            socket.emit('request_withdrawal', { user_id: window.userId, amount: amount, account: account, method: method });
-            alert(`📤 የ ${amount} ብር የዊዝድሮ ጥያቄዎ በ ${method} ተልኳል!`);
+            if (!amount || amount <= 0 || !account) {
+                return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት/ስልክ ቁጥር ያስገቡ!");
+            }
+
+            // ጥብቅ የክፍያ ገደብ (Minimum 100 ETB Limit)
+            if (amount < 100) {
+                return alert("⚠️ ዝቅተኛው የማውጣት (Withdrawal) መጠን 100 ብር እና ከዚያ በላይ መሆን አለበት!");
+            }
+
+            socket.emit('request_withdrawal', { 
+                user_id: window.userId, 
+                amount: amount, 
+                account: account, 
+                method: method 
+            });
+            
             closeWithdrawModal();
+            document.getElementById('withdraw-amount').value = '';
+            document.getElementById('withdraw-account').value = '';
         }
+
+        socket.on('withdrawal_response', (data) => {
+            if (data.success) {
+                alert("✅ " + data.msg);
+            } else {
+                alert("❌ " + data.msg);
+            }
+        });
 
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
