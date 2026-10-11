@@ -432,7 +432,7 @@
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit)</h3>
+                <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit Validation)</h3>
                 <button onclick="closeDepositModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
             <div class="space-y-3 text-left">
@@ -860,15 +860,19 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
 
+        // AUTOMATIC PARSING OF TELEBIRR & CBEBIRR SMS RECEIPTS
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
-            const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:ETB|ብር|Birr)?/i);
+            
+            // Extract amount (supports both Telebirr and CBEBirr formats e.g., "20.00Br" or "20.00 ETB")
+            const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:Br|ETB|ብር|Birr)?/i);
             if (amountMatch && amountMatch[1]) {
                 const cleanAmt = amountMatch[1].replace(',', '');
                 document.getElementById('deposit_amount').value = parseFloat(cleanAmt);
             }
         }
 
+        // SUBMIT DEPOSIT WITH AUTOMATIC VALIDATION
         function submitDeposit() {
             const amount = parseFloat(document.getElementById('deposit_amount').value);
             const smsInput = document.getElementById('sms_text_input').value.trim();
@@ -882,21 +886,37 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና የኤስኤምኤስ ደረሰኝ ያስገቡ!"); 
             }
 
+            // Advanced TID Extraction for Telebirr & CBEBirr (e.g. Txn ID DJB31R9QOM9 or TID=...)
             let txRef = smsInput;
-            const tidMatch = smsInput.match(/TID=([A-Za-z0-9]+)/i);
-            if (tidMatch && tidMatch[1]) {
-                txRef = tidMatch[1];
+            const txnIdMatch = smsInput.match(/(?:Txn ID|TID=)\s*([A-Za-z0-9]+)/i);
+            if (txnIdMatch && txnIdMatch[1]) {
+                txRef = txnIdMatch[1];
             } else {
-                const generalMatch = smsInput.match(/\b([A-Z0-9]{10,})\b/);
+                const generalMatch = smsInput.match(/\b([A-Z0-9]{10,15})\b/);
                 if (generalMatch && generalMatch[1]) txRef = generalMatch[1];
             }
 
-            socket.emit('request_deposit', { user_id: window.userId, amount: amount, tx_ref: txRef, sms_text: smsInput, method: method });
+            socket.emit('request_deposit', { 
+                user_id: window.userId, 
+                amount: amount, 
+                tx_ref: txRef, 
+                sms_text: smsInput, 
+                method: method 
+            });
+            
             closeDepositModal();
-            alert("📥 የዲፖዚት ጥያቄዎ በተሳካ ሁኔታ ተልኳል!");
             document.getElementById('deposit_amount').value = '';
             document.getElementById('sms_text_input').value = '';
         }
+
+        // DEPOSIT RESPONSE HANDLER (Success / Rejection Alert)
+        socket.on('deposit_response', (data) => {
+            if (data.status === 'success') {
+                alert("✅ " + data.message);
+            } else {
+                alert("❌ " + (data.message || data.msg || 'የተሳሳተ ወይም ያልተረጋገጠ ደረሰኝ ነው!'));
+            }
+        });
 
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
