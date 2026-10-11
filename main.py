@@ -18,10 +18,6 @@ from sqlalchemy import func
 import requests
 import urllib3
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -150,6 +146,8 @@ class Transaction(db.Model):
   user_id = db.Column(db.String(100), nullable=False)
   type = db.Column(db.String(50), nullable=False)
   amount = db.Column(db.Float, nullable=False)
+  account = db.Column(db.String(100), nullable=True)
+  method = db.Column(db.String(50), nullable=True)
   status = db.Column(db.String(20), default='pending')
   created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -176,7 +174,6 @@ class SupportTicket(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
-# Verified Authentic SMS Receipts Storage for Validation
 class VerifiedSMSReceipt(db.Model):
     __tablename__ = 'verified_sms_receipts'
     id = db.Column(db.Integer, primary_key=True)
@@ -193,6 +190,8 @@ with app.app_context():
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;'))
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;'))
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
+        db.session.execute(sa.text('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS account VARCHAR(100);'))
+        db.session.execute(sa.text('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS method VARCHAR(50);'))
         
         db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);'))
         db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS username VARCHAR(100);'))
@@ -601,10 +600,8 @@ def handle_admin_broadcast(data):
     socketio.emit('receive_broadcast', {'text': message})
 
 
-# Robust Regex Helper Functions for Transaction Info & Amount Extraction
 def extract_transaction_info(sms_text):
   try:
-    # Match standard TID / Txn ID patterns (e.g., DJB31R9QOM9)
     tid_match = re.search(r'(?:Txn ID|TID)\s*[:=]?\s*([A-Za-z0-9]{8,15})', sms_text, re.IGNORECASE)
     if tid_match:
       return tid_match.group(1).upper()
@@ -639,7 +636,6 @@ def extract_sender_phone(sms_text):
     return None
 
 
-# Webhook for receiving real-time SMS from CBEBirr / Telebirr
 @app.route('/api/receive-sms', methods=['POST'])
 def receive_sms():
     try:
@@ -658,7 +654,6 @@ def receive_sms():
         sender_phone = extract_sender_phone(message)
         
         if tid and amount > 0:
-            # Store in verified SMS table so user submissions can be validated against it
             existing_sms = VerifiedSMSReceipt.query.filter_by(transaction_ref=tid).first()
             if not existing_sms:
                 verified_receipt = VerifiedSMSReceipt(
@@ -676,7 +671,6 @@ def receive_sms():
         return "error", 500
 
 
-# Socket.io Deposit Request Handling with 100% Perfect Automated Validation
 @socketio.on('request_deposit')
 def handle_request_deposit(data):
   try:
@@ -691,7 +685,6 @@ def handle_request_deposit(data):
       emit('deposit_response', {'status': 'error', 'message': '⚠️ እባክዎ ሙሉ መረጃ እና የኤስኤምኤስ ደረሰኝ በትክክል ይሙሉ!'}, room=request.sid)
       return
 
-    # Extract TID & Amount from user's submitted SMS text
     extracted_tid = extract_transaction_info(sms_text) or tx_ref
     extracted_amount = extract_amount_from_sms(sms_text)
 
@@ -699,24 +692,18 @@ def handle_request_deposit(data):
       emit('deposit_response', {'status': 'error', 'message': '❌ የተሳሳተ ወይም ያልተረጋገጠ ደረሰኝ ነው! (TID አልተገኘም)'}, room=request.sid)
       return
 
-    # Check 1: Has this TID already been processed or used by any user?
     if extracted_tid in PROCESSED_TIDS or Deposit.query.filter_by(transaction_ref=extracted_tid, status='Approved').first():
       emit('deposit_response', {'status': 'error', 'message': '❌ ይህ የክፍያ ደረሰኝ (TID) ከዚህ በፊት ጥቅም ላይ ውሏል! (Duplicate Receipt)'}, room=request.sid)
       return
 
-    # Check 2: Does this TID exist in our official received SMS database?
     verified_sms = VerifiedSMSReceipt.query.filter_by(transaction_ref=extracted_tid).first()
     
-    # If not found automatically via SMS webhook, fallback to strict verification or check if admin needs review,
-    # but for instant automated verification, we ensure it matches the verified records or valid structure.
-    # Here we perform Check 3: Amount Validation
     if verified_sms:
       if float(verified_sms.amount) != float(user_entered_amount):
         emit('deposit_response', {'status': 'error', 'message': f'❌ የገባው የብር መጠን ({user_entered_amount} ብር) ከትክክለኛው የደረሰኝ መጠን ({verified_sms.amount} ብር) ጋር አይዛመድም!'}, room=request.sid)
         return
       actual_amount = verified_sms.amount
     else:
-      # If webhook hasn't caught it yet but format is correct, we can validate amount against extracted amount
       if extracted_amount > 0 and float(extracted_amount) != float(user_entered_amount):
         emit('deposit_response', {'status': 'error', 'message': f'❌ የገባው የብር መጠን ከደረሰኙ መጠን ጋር አይዛመድም!'}, room=request.sid)
         return
@@ -726,10 +713,8 @@ def handle_request_deposit(data):
       emit('deposit_response', {'status': 'error', 'message': '❌ የተሳሳተ የገንዘብ መጠን!'}, room=request.sid)
       return
 
-    # Mark as processed
     PROCESSED_TIDS.add(extracted_tid)
 
-    # Update User Balance Instantly
     user = User.query.filter_by(user_id=user_id).first()
     if not user:
       emit('deposit_response', {'status': 'error', 'message': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
@@ -756,7 +741,6 @@ def handle_request_deposit(data):
     db.session.add(tx_record)
     db.session.commit()
 
-    # Notify via Telegram & Web socket
     send_telegram_notification(f"✅ *አውቶማቲክ ዲፖዚት ጸደቀ*\n- ተጠቃሚ: `{user_id}`\n- መጠን: *{actual_amount} ብር*\n- TID: `{extracted_tid}`")
 
     emit('balance_update', {'user_id': user_id, 'balance': float(user.balance)}, room=request.sid)
@@ -775,36 +759,69 @@ def handle_request_deposit(data):
     emit('deposit_response', {'status': 'error', 'message': '⚠️ የክፍያ ማረጋገጫ ሲስተም ስህተት አጋጥሟል!'}, room=request.sid)
 
 
+# ==========================================
+# 🚀 ዊዝድሮው ጥያቄ (ከ 100 ብር በታች እንዳይጠየቅ እና በአድሚን Approve እንዲደረግ)
+# ==========================================
 @socketio.on('request_withdrawal')
 def handle_request_withdrawal(data):
-  user_id = str(data.get('user_id'))
-  amount = float(data.get('amount', 0))
-  account = data.get('account')
-  method = data.get('method')
+  try:
+    user_id = str(data.get('user_id'))
+    amount = float(data.get('amount', 0))
+    account = str(data.get('account') or '').strip()
+    method = str(data.get('method') or 'Telebirr').strip()
 
-  if not user_id or amount <= 0 or not account:
-    return
+    if not user_id or not account:
+      emit('withdrawal_response', {'success': False, 'msg': '⚠️ እባክዎ የሂሳብ/ስልክ ቁጥር በትክክል ይሙሉ!'}, room=request.sid)
+      return
 
-  user = User.query.filter_by(user_id=user_id).first()
-  if not user or float(user.balance) < amount:
-    return
+    # 1. አነስተኛ የገንዘብ ገደብ (Minimum Withdrawal Limit: 100 ETB)
+    if amount < 100.00:
+      emit('withdrawal_response', {'success': False, 'msg': '⚠️ ዝቅተኛው የማውጣት መጠን 100 ብር እና ከዚያ በላይ መሆን አለበት!'}, room=request.sid)
+      return
 
-  user.balance = float(user.balance) - amount
-  
-  tx_record = Transaction(
-      user_id=user_id,
-      type='withdrawal',
-      amount=amount,
-      status='pending'
-  )
-  db.session.add(tx_record)
-  db.session.commit()
+    # 2. የተጠቃሚውን ባላንስ ከዳታቤዝ ማረጋገጥ (Balance Validation)
+    user = User.query.filter_by(user_id=user_id).first()
+    if not user:
+      emit('withdrawal_response', {'success': False, 'msg': '⚠️ ተጠቃሚው አልተገኘም!'}, room=request.sid)
+      return
 
-  emit(
-      'balance_update',
-      {'user_id': user_id, 'balance': user.balance},
-      room=request.sid,
-  )
+    if float(user.balance) < amount:
+      emit('withdrawal_response', {'success': False, 'msg': f'⚠️ በቂ ቀሪ ሂሳብ የለዎትም! (ያሎት: {user.balance} ETB)'}, room=request.sid)
+      return
+
+    # 3. ገንዘቡን ወዲያውኑ ሳይቀንሱ ጥያቄውን በ Transaction (pending) መልክ ማስቀመጥ
+    tx_record = Transaction(
+        user_id=user_id,
+        type='withdrawal',
+        amount=amount,
+        account=account,
+        method=method,
+        status='pending'
+    )
+    db.session.add(tx_record)
+    db.session.commit()
+
+    # 4. ለአድሚን በቴሌግራም ማሳወቂያ መላክ
+    admin_msg = (
+        f"📤 *አዲስ የገንዘብ ማውጣት (Withdrawal) ጥያቄ*\n\n"
+        f"- ጥያቄ ID: `{tx_record.id}`\n"
+        f"- ተጠቃሚ ID: `{user_id}`\n"
+        f"- ስም: {user.full_name or 'N/A'}\n"
+        f"- መጠን: *{amount} ብር*\n"
+        f"- ዘዴ: {method}\n"
+        f"- አካውንት/ስልክ: `{account}`"
+    )
+    send_telegram_notification(admin_msg)
+
+    emit('withdrawal_response', {
+        'success': True, 
+        'msg': f'📤 የ {amount} ብር የዊዝድሮ ጥያቄዎ በተሳካ ሁኔታ ተልኳል! አድሚኑ ሲያረጋግጠው አካውንትዎ ይለቀቃል።'
+    }, room=request.sid)
+
+  except Exception as e:
+    db.session.rollback()
+    print("Withdrawal Request Error:", e)
+    emit('withdrawal_response', {'success': False, 'msg': '⚠️ የሲስተም ስህተት አጋጥሟል!'}, room=request.sid)
 
 
 @socketio.on('get_user_balance')
@@ -952,13 +969,20 @@ def admin_dashboard():
     
     try:
         total_users = User.query.count() or 0
-        total_orders = Transaction.query.filter_by(type='game_bet').count() or 0
+        active_users = User.query.filter_by(is_active=True).count() or 0
         
         revenue_result = db.session.query(func.sum(Transaction.amount)).filter(
-            sa.or_(Transaction.type == 'deposit', Transaction.status == 'approved'),
+            sa.or_(Transaction.type == 'deposit', Transaction.status == 'completed'),
             Transaction.status != 'rejected'
         ).scalar()
         total_revenue = float(revenue_result or 0.0)
+
+        withdrawal_result = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'withdrawal',
+            Transaction.status == 'completed'
+        ).scalar()
+        total_withdrawals = float(withdrawal_result or 0.0)
+        
         total_profit = total_revenue * 0.25 
         
         pending_deposits = Deposit.query.filter_by(status='Pending').all()
@@ -968,8 +992,9 @@ def admin_dashboard():
     except Exception as e:
         print("Admin Dashboard Error:", e)
         total_users = 0
-        total_orders = 0
+        active_users = 0
         total_revenue = 0.0
+        total_withdrawals = 0.0
         total_profit = 0.0
         pending_deposits = []
         pending_withdrawals = []
@@ -977,9 +1002,10 @@ def admin_dashboard():
     
     return render_template(
         'admin.html', 
-        total_users=total_users, 
-        total_orders=total_orders, 
-        total_revenue=total_revenue, 
+        total_users=total_users,
+        active_users=active_users,
+        total_revenue=total_revenue,
+        total_withdrawals=total_withdrawals,
         total_profit=total_profit, 
         pending_deposits=pending_deposits, 
         pending_withdrawals=pending_withdrawals, 
@@ -1055,6 +1081,9 @@ def admin_password_reset_action(req_id):
     return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
 
 
+# ==========================================
+# 👑 አድሚን ትራንዛክሽን ማስተዳደሪያ (Approve / Reject Withdrawals & Deposits)
+# ==========================================
 @app.route('/admin/transaction/<int:tx_id>/action', methods=['POST'])
 def admin_transaction_action(tx_id):
     if not session.get('is_admin') and not session.get('admin_logged'):
@@ -1067,20 +1096,34 @@ def admin_transaction_action(tx_id):
     if not tx:
         return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አልተገኘም'})
         
+    user = User.query.filter_by(user_id=tx.user_id).first()
+
     if action == 'approve' or action == 'complete':
-        tx.status = 'completed'
-        if tx.type == 'deposit':
-            user = User.query.filter_by(user_id=tx.user_id).first()
+        if tx.type == 'withdrawal':
+            if not user:
+                return jsonify({'success': False, 'message': 'ተጠቃሚው አልተገኘም'})
+            if float(user.balance) < float(tx.amount):
+                return jsonify({'success': False, 'message': 'ተጠቃሚው በቂ ባላንስ የለውም!'})
+            
+            # አድሚኑ አપ્રൂቭ ሲያደርግ ብቻ ገንዘቡ ከተጠቃሚው ባላንስ ይቀንሳል
+            user.balance = float(user.balance) - float(tx.amount)
+            tx.status = 'completed'
+            
+            socketio.emit('balance_update', {'user_id': user.user_id, 'balance': float(user.balance)})
+            send_telegram_notification(f"✅ *ዊዝድሮ ጥያቄ ጸደቀ*\n- ተጠቃሚ: `{user.user_id}`\n- የተወጣው መጠን: *{tx.amount} ብር*")
+
+        elif tx.type == 'deposit':
+            tx.status = 'completed'
             if user:
                 user.balance = float(user.balance) + float(tx.amount)
+                socketio.emit('balance_update', {'user_id': user.user_id, 'balance': float(user.balance)})
+
         db.session.commit()
         return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ጸድቋል!'})
+
     elif action == 'reject' or action == 'delete':
-        if tx.type == 'withdrawal':
-            user = User.query.filter_by(user_id=tx.user_id).first()
-            if user:
-                user.balance = float(user.balance) + float(tx.amount)
-        db.session.delete(tx)
+        # ዊዝድሮ ሲሰረዝ ባላንሱ ምንም አይነካም (ምክንያቱም ገና ሳይቀነስ በፔንዲንግ ነበርና)
+        tx.status = 'rejected'
         db.session.commit()
         return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ተሰርዟል!'})
         
