@@ -545,6 +545,11 @@
             initCartelaGrid();
         });
 
+        // Broadcast Push Notification Listener for clients
+        socket.on('receive_broadcast', (data) => {
+            alert("📢 አዲስ ማስታወቂያ ከአድሚን:\n\n" + data.text);
+        });
+
         function switchAuthMode(mode) {
             const btnSignIn = document.getElementById('auth-tab-signin');
             const btnSignUp = document.getElementById('auth-tab-signup');
@@ -720,7 +725,6 @@
         }
         function closeSupportModal() { document.getElementById('support-modal').classList.add('hidden'); }
 
-        // SUPPORT MODAL TABS SWITCHING
         function switchSupportTab(tab) {
             const btnSend = document.getElementById('tab-support-send');
             const btnReplies = document.getElementById('tab-support-replies');
@@ -782,7 +786,6 @@
             });
         }
 
-        // FETCH USER TICKETS & REPLIES
         function fetchMySupportTickets() {
             const currentUserId = window.userId || localStorage.getItem('bk_user_id');
             const container = document.getElementById('user-tickets-container');
@@ -833,7 +836,6 @@
             });
         }
 
-        // Real-time reply listener via Socket.io
         socket.on('support_reply_received', (data) => {
             if (String(data.user_id) === String(window.userId)) {
                 alert('📩 ከአድሚኑ አዲስ የድጋፍ ምላሽ ደርሶዎታል!');
@@ -860,7 +862,6 @@
             document.getElementById('selection-screen').classList.remove('hidden');
         }
 
-        // AUTOMATIC PARSING OF TELEBIRR & CBEBIRR SMS RECEIPTS
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
             const amountMatch = text.match(/([\d,]+\.\d{2})\s*(?:Br|ETB|ብር|Birr)?/i);
@@ -870,7 +871,6 @@
             }
         }
 
-        // SUBMIT DEPOSIT WITH AUTOMATIC VALIDATION
         function submitDeposit() {
             const amount = parseFloat(document.getElementById('deposit_amount').value);
             const smsInput = document.getElementById('sms_text_input').value.trim();
@@ -914,9 +914,6 @@
             }
         });
 
-        // ==========================================
-        // 🚀 WITHDRAWAL SUBMISSION & RESPONSE HANDLER (Minimum 100 ETB Limit)
-        // ==========================================
         function submitWithdraw() {
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
@@ -930,7 +927,6 @@
                 return alert("⚠️ እባክዎ ትክክለኛ የገንዘብ መጠን እና አካውንት/ስልክ ቁጥር ያስገቡ!");
             }
 
-            // ጥብቅ የክፍያ ገደብ (Minimum 100 ETB Limit)
             if (amount < 100) {
                 return alert("⚠️ ዝቅተኛው የማውጣት (Withdrawal) መጠን 100 ብር እና ከዚያ በላይ መሆን አለበት!");
             }
