@@ -12,7 +12,7 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:radial-gradient(circle at 45% -10%,#243a85 0,#0a1636 35%,#06112b 75%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;min-height:100vh}
-button,input{font:inherit}
+button,input,textarea,select{font:inherit}
 .app{display:flex;min-height:100vh}
 .sidebar{width:245px;flex:0 0 245px;background:rgba(4,15,39,.94);border-right:1px solid #243766;padding:18px 14px;position:fixed;top:0;bottom:0;left:0;overflow:auto;z-index:20}
 .brand{height:62px;display:flex;align-items:center;gap:12px;padding:0 7px 14px;border-bottom:1px solid #1d315e;margin-bottom:14px}
@@ -20,16 +20,15 @@ button,input{font:inherit}
 .brand h1{font-size:26px;margin:0;font-weight:900;letter-spacing:-1px}.brand h1 span{color:#ffd23b}
 .brand small{display:block;color:#c7d0e8;font-size:10px;margin-top:2px;letter-spacing:.5px}
 .nav{margin-top:10px}.nav-section{margin:10px 0}
-.nav-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 9px;border-radius:9px;color:#eef2ff;font-weight:700;font-size:13px;cursor:pointer}
+.nav-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 9px;border-radius:9px;color:#eef2ff;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none}
 .nav-item:hover,.nav-item.active{background:linear-gradient(90deg,#3430ff,#5034ee);box-shadow:0 8px 20px #302eff35}
 .nav-left{display:flex;align-items:center;gap:12px}.nav-icon{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:#222e59;font-size:14px}
 .active .nav-icon{background:rgba(255,255,255,.17)}
-.chev{font-size:15px;color:#b8c4e2}.sub{padding:3px 0 5px 43px}.sub div{font-size:12px;color:#b7c3dd;padding:6px 0;cursor:pointer}.sub div:hover{color:#fff}
 .main{margin-left:245px;width:calc(100% - 245px);min-width:0}
 .topbar{height:77px;border-bottom:1px solid #253867;display:flex;align-items:center;justify-content:space-between;padding:0 25px;background:rgba(6,17,43,.82);backdrop-filter:blur(10px);position:sticky;top:0;z-index:10}
 .top-title{font-size:17px;font-weight:800}.top-title small{display:block;font-size:11px;color:#aebbd6;font-weight:500;margin-top:4px}
 .search{width:330px;height:37px;border:1px solid #38528d;border-radius:22px;background:#0a1738;color:white;padding:0 16px;outline:none;font-size:11px}.search::placeholder{color:#8f9dbc}
-.top-right{display:flex;align-items:center;gap:18px}.bell{position:relative;font-size:19px}.badge{position:absolute;right:-7px;top:-8px;background:#e84968;color:white;font-size:9px;width:17px;height:17px;border-radius:50%;display:grid;place-items:center}
+.top-right{display:flex;align-items:center;gap:18px}
 .admin{display:flex;align-items:center;gap:10px}.avatar{width:37px;height:37px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#177bff,#263c91);font-weight:800}.admin strong{font-size:12px}.admin small{display:block;color:#98a7c6;font-size:10px;margin-top:2px}
 .content{padding:18px 17px 0}
 .hero{height:96px;border:1px solid #33538d;border-radius:9px;background:linear-gradient(90deg,#0c214d88,#122b5d66),url('https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1600&q=70') center/cover;position:relative;overflow:hidden;display:flex;align-items:center;padding:0 25px;margin-bottom:16px}
@@ -48,11 +47,7 @@ button,input{font:inherit}
 .table{width:100%;border-collapse:collapse;font-size:11px}
 .table th{color:#8998b6;font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid #243961}
 .table td{padding:9px 10px;border-bottom:1px solid #1b2d53;color:#dce4f5;white-space:nowrap}
-.btn-sm{padding:4px 8px;font-size:10px;border-radius:4px;cursor:pointer;border:none;font-weight:bold;}
-.btn-outline-light{background:transparent;border:1px solid #aab7d4;color:#f4f7ff;}
-.btn-outline-success{background:transparent;border:1px solid #20d49b;color:#20d49b;}
-.btn-outline-danger{background:transparent;border:1px solid #ef5367;color:#ef5367;}
-.btn-outline-info{background:transparent;border:1px solid #16bde8;color:#16bde8;}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px;cursor:pointer;border:none;font-weight:bold;}
 .btn-primary{background:#3157ff;color:#fff;}
 .btn-success{background:#20d49b;color:#000;}
 .btn-danger{background:#ef5367;color:#fff;}
@@ -61,10 +56,9 @@ button,input{font:inherit}
 .bg-success{background:#20d49b;color:#000;}
 .bg-warning{background:#f5ad23;color:#000;}
 .bg-info{background:#16bde8;color:#000;}
-.menu-toggle{display:none;background:none;border:0;color:#fff;font-size:24px}
 .footer{border-top:1px solid #233863;padding:12px 17px;color:#9aa9c6;font-size:9px;display:flex;justify-content:space-between}
 @media(max-width:800px){
- .sidebar{transform:translateX(-100%);transition:.25s}.sidebar.open{transform:translateX(0)}.main{margin-left:0;width:100%}.menu-toggle{display:block}.tables{grid-template-columns:1fr}
+ .sidebar{transform:translateX(-100%);transition:.25s}.sidebar.open{transform:translateX(0)}.main{margin-left:0;width:100%}.tables{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -73,30 +67,22 @@ button,input{font:inherit}
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo">🎯</div><div><h1>BK<span>BINGO</span></h1><small>Admin Panel</small></div></div>
   <nav class="nav">
-    <div class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span><a href="/admin" style="color:inherit; text-decoration:none;">Dashboard</a></div></div>
-    <div class="nav-section">
-      <div class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users</div><span class="chev">⌄</span></div>
-      <div class="sub">
-        <div><a href="/admin/users?status=all" style="color:inherit; text-decoration:none;">• &nbsp;All Users</a></div>
-        <div><a href="/admin/users?status=kyc" style="color:inherit; text-decoration:none;">• &nbsp;KYC</a></div>
-        <div><a href="/admin/users?status=active" style="color:inherit; text-decoration:none;">• &nbsp;Active Users</a></div>
-        <div><a href="/admin/users?status=suspended" style="color:inherit; text-decoration:none;">• &nbsp;Suspended Users</a></div>
-      </div>
-    </div>
-    <div class="nav-section">
-      <div class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support</div><span class="chev">⌄</span></div>
-      <div class="sub">
-        <div><a href="/admin/support" style="color:inherit; text-decoration:none;">• &nbsp;Support Tickets</a></div>
-      </div>
+    <a href="/admin" class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span>Dashboard</div></a>
+    <a href="/admin/users" class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users Management</div></a>
+    <a href="/admin/support" class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support Tickets</div></a>
+    <div style="margin-top: 30px;">
+      <a href="/admin/logout" class="nav-item" style="background: rgba(239, 83, 103, 0.2); color: #ef5367; border: 1px solid rgba(239, 83, 103, 0.4);">
+        <div class="nav-left"><span class="nav-icon" style="background: #ef5367; color: #fff;">🚪</span>Sign Out</div>
+      </a>
     </div>
   </nav>
 </aside>
 
 <main class="main">
 <header class="topbar">
-  <div style="display:flex;align-items:center;gap:12px"><button class="menu-toggle" onclick="toggleMenu()">☰</button><div class="top-title">BKBINGO Admin Dashboard<small>Play • Win • Grow</small></div></div>
+  <div style="display:flex;align-items:center;gap:12px"><div class="top-title">BKBINGO Admin Dashboard<small>Play • Win • Grow</small></div></div>
   <input class="search" id="search" placeholder="Search users, transactions..." oninput="searchData()">
-  <div class="top-right"><div class="bell">🔔<span class="badge">3</span></div><div class="admin"><div class="avatar">AD</div><div><strong>Admin</strong><small>Super Admin</small></div></div></div>
+  <div class="top-right"><div class="admin"><div class="avatar">AD</div><div><strong>Admin</strong><small>Super Admin</small></div></div></div>
 </header>
 
 <section class="content">
@@ -122,19 +108,34 @@ button,input{font:inherit}
     </div>
   </div>
 
-  <!-- Users Management Section -->
+  <!-- BROADCAST WITH PHOTO, VIDEO & PUSH NOTIFICATION SECTION -->
+  <div class="card">
+    <div class="card-title">
+      <span>📢 ብሮድካስት እና ሚዲያ ኖቲፊኬሽን መላኪያ (Broadcast & Media Notification)</span>
+    </div>
+    <form id="broadcast-form" onsubmit="sendBroadcast(event)" enctype="multipart/form-data" class="space-y-3">
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 11px; color: #aab7d4; display: block; margin-bottom: 5px;">የመልዕክት ጽሁፍ (Message Content)</label>
+        <textarea id="broadcast-msg" rows="3" placeholder="ለተጠቃሚዎች የሚተላለፍ ማስታወቂያ ወይም አዲስ መረጃ እዚህ ይጻፉ..." style="width: 100%; background: #07122d; border: 1px solid #2a4274; border-radius: 8px; padding: 10px; color: #fff; font-size: 12px;" required></textarea>
+      </div>
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <div style="flex: 1;">
+          <label style="font-size: 11px; color: #aab7d4; display: block; margin-bottom: 5px;">ፎቶ ወይም ቪዲዮ አባሪ (Optional Media)</label>
+          <input type="file" id="broadcast-media" accept="image/*,video/*" style="width: 100%; background: #07122d; border: 1px solid #2a4274; border-radius: 8px; padding: 8px; color: #fff; font-size: 11px;">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary" style="padding: 10px 20px; font-weight: bold;">🚀 ለሁሉም ተጠቃሚዎች ኖቲፊኬሽን ላክ (Send Broadcast)</button>
+    </form>
+  </div>
+
+  <!-- Users Management Preview Section -->
   <div class="card">
     <div class="card-title">
       <span>የተጠቃሚዎች ዝርዝር (Users Management)</span>
-    </div>
-    <div style="margin-bottom: 15px; display: flex; gap: 8px;">
-        <a href="/admin/users?status=all" class="btn btn-outline-light btn-sm">All Users</a>
-        <a href="/admin/users?status=active" class="btn btn-outline-success btn-sm">Active Users</a>
-        <a href="/admin/users?status=suspended" class="btn btn-outline-danger btn-sm">Suspended Users</a>
-        <a href="/admin/users?status=kyc" class="btn btn-outline-info btn-sm">KYC Verified</a>
+      <a href="/admin/users" style="font-size: 11px; color: #3157ff; text-decoration: none;">ሁሉንም ይመልከቱ →</a>
     </div>
     <div style="overflow-x: auto;">
-      <table class="table">
+      <table class="table searchable-table">
           <thead>
               <tr>
                   <th>ID</th>
@@ -149,7 +150,7 @@ button,input{font:inherit}
                 {% for user in users %}
                 <tr>
                     <td>{{ user.id }}</td>
-                    <td>{{ user.username }}</td>
+                    <td>{{ user.username or user.full_name }}</td>
                     <td>{{ user.email or user.phone }}</td>
                     <td>
                         {% if user.is_suspended %}
@@ -161,7 +162,6 @@ button,input{font:inherit}
                         {% endif %}
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="viewUser('{{ user.user_id }}')">ዕይት</button>
                         {% if user.is_suspended %}
                             <button class="btn btn-sm btn-success" onclick="changeStatus('{{ user.id }}', 'active')">አንቃ</button>
                         {% else %}
@@ -184,7 +184,7 @@ button,input{font:inherit}
     <!-- Pending Deposits Table -->
     <div class="table-card">
       <div class="card-title">Pending Deposits</div>
-      <table class="table">
+      <table class="table searchable-table">
         <thead>
           <tr><th>User ID</th><th>Amount</th><th>Action</th></tr>
         </thead>
@@ -195,8 +195,8 @@ button,input{font:inherit}
               <td>{{ tx.user_id }}</td>
               <td>{{ tx.amount }} ETB</td>
               <td>
-                <button class="btn btn-sm" style="background:#20d49b; color:#fff;" onclick="handleTxAction('{{ tx.id }}', 'approve')">ፍቀድ</button>
-                <button class="btn btn-sm" style="background:#ef5367; color:#fff;" onclick="handleTxAction('{{ tx.id }}', 'reject')">ሰርዝ</button>
+                <button class="btn btn-sm btn-success" onclick="handleTxAction('{{ tx.id }}', 'approve')">ፍቀድ</button>
+                <button class="btn btn-sm btn-danger" onclick="handleTxAction('{{ tx.id }}', 'reject')">ሰርዝ</button>
               </td>
             </tr>
             {% endfor %}
@@ -207,10 +207,10 @@ button,input{font:inherit}
       </table>
     </div>
 
-    <!-- Pending Withdrawals Table (የዊዝድሮ ማረጋገጫ ክፍል) -->
+    <!-- Pending Withdrawals Table -->
     <div class="table-card">
       <div class="card-title">Pending Withdrawals (የማውጣት ጥያቄዎች)</div>
-      <table class="table">
+      <table class="table searchable-table">
         <thead>
           <tr><th>User ID</th><th>Amount</th><th>Account</th><th>Action</th></tr>
         </thead>
@@ -222,8 +222,8 @@ button,input{font:inherit}
               <td>{{ w.amount }} ETB</td>
               <td>{{ w.account or 'N/A' }}</td>
               <td>
-                <button class="btn btn-sm" style="background:#20d49b; color:#fff;" onclick="handleTxAction('{{ w.id }}', 'approve')">Approve</button>
-                <button class="btn btn-sm" style="background:#ef5367; color:#fff;" onclick="handleTxAction('{{ w.id }}', 'reject')">Reject</button>
+                <button class="btn btn-sm btn-success" onclick="handleTxAction('{{ w.id }}', 'approve')">Approve</button>
+                <button class="btn btn-sm btn-danger" onclick="handleTxAction('{{ w.id }}', 'reject')">Reject</button>
               </td>
             </tr>
             {% endfor %}
@@ -237,9 +237,9 @@ button,input{font:inherit}
   </div>
 
   <!-- Password Reset Requests Table -->
-  <div class="card">
+  <div class="card" style="margin-bottom: 30px;">
     <div class="card-title">🔐 የይለፍ ቃል ማግኛ ጥያቄዎች (Password Reset Requests)</div>
-    <table class="table">
+    <table class="table searchable-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -281,76 +281,108 @@ button,input{font:inherit}
 </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-function toggleMenu(){document.getElementById('sidebar').classList.toggle('open')}
+const socket = io();
 
 function searchData(){
-  const q=document.getElementById('search').value.toLowerCase();
-  document.querySelectorAll('.table tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none');
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.searchable-table tbody tr').forEach(r => {
+    r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+  });
 }
 
-function viewUser(userId) {
-    alert('የተጠቃሚው መታወቂያ: ' + userId);
+function sendBroadcast(event) {
+  event.preventDefault();
+  const message = document.getElementById('broadcast-msg').value.trim();
+  const mediaInput = document.getElementById('broadcast-media').files[0];
+
+  if (!message) return alert('እባክዎ የመልዕክት ጽሁፍ ይጻፉ!');
+
+  const formData = new FormData();
+  formData.append('message', message);
+  if (mediaInput) {
+    formData.append('media', mediaInput);
+  }
+
+  fetch('/admin/broadcast', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert('✅ ብሮድካስቱ እና ኖቲፊኬሽኑ ለተጠቃሚዎች በተሳካ ሁኔታ ተልኳል!');
+      document.getElementById('broadcast-msg').value = '';
+      document.getElementById('broadcast-media').value = '';
+    } else {
+      alert('❌ ስህተት: ' + data.message);
+    }
+  })
+  .catch(err => {
+    console.error('Error:', err);
+    alert('የኔትወርክ ስህተት አጋጥሟል!');
+  });
 }
 
 function changeStatus(userId, status) {
-    fetch(`/admin/users/${userId}/update-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: status })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) { location.reload(); }
-        else { alert('ኦፕሬሽኑ አልተሳካም!'); }
-    })
-    .catch(err => { console.error('Error:', err); alert('የኔትወርክ ስህተት አጋጥሟል!'); });
+  fetch(`/admin/users/${userId}/update-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: status })
+  })
+  .then(res => res.json())
+  .then(data => {
+      if (data.success) { location.reload(); }
+      else { alert('ኦፕሬሽኑ አልተሳካም!'); }
+  })
+  .catch(err => { console.error('Error:', err); alert('የኔትወርክ ስህተት አጋጥሟል!'); });
 }
 
 function handleTxAction(txId, actionType) {
-    if (!confirm('ይህንን እርምጃ መፈጸም እንደሚፈልጉ እርግጠኛ ኖት?')) return;
+  if (!confirm('ይህንን እርምጃ መፈጸም እንደሚፈልጉ እርግጠኛ ኖት?')) return;
 
-    fetch(`/admin/transaction/${txId}/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionType })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            location.reload();
-        } else {
-            alert('ስህተት: ' + data.message);
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        alert('የኔትወርክ ስህተት አጋጥሟል!');
-    });
+  fetch(`/admin/transaction/${txId}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionType })
+  })
+  .then(res => res.json())
+  .then(data => {
+      if (data.success) {
+          alert(data.message);
+          location.reload();
+      } else {
+          alert('ስህተት: ' + data.message);
+      }
+  })
+  .catch(err => {
+      console.error('Error:', err);
+      alert('የኔትወርክ ስህተት አጋጥሟል!');
+  });
 }
 
 function handlePasswordResetAction(reqId, actionType) {
-    if (!confirm('ይህንን እርምጃ መፈጸም እንደሚፈልጉ እርግጠኛ ኖት?')) return;
+  if (!confirm('ይህንን እርምጃ መፈጸም እንደሚፈልጉ እርግጠኛ ኖት?')) return;
 
-    fetch(`/admin/password-reset/${reqId}/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionType })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            location.reload();
-        } else {
-            alert('ስህተት: ' + data.message);
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        alert('የኔትወርክ ስህተት አጋጥሟል!');
-    });
+  fetch(`/admin/password-reset/${reqId}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionType })
+  })
+  .then(res => res.json())
+  .then(data => {
+      if (data.success) {
+          alert(data.message);
+          location.reload();
+      } else {
+          alert('ስህተት: ' + data.message);
+      }
+  })
+  .catch(err => {
+      console.error('Error:', err);
+      alert('የኔ_ወርክ ስህተት አጋጥሟል!');
+  });
 }
 </script>
 </body>
