@@ -759,9 +759,6 @@ def handle_request_deposit(data):
     emit('deposit_response', {'status': 'error', 'message': '⚠️ የክፍያ ማረጋገጫ ሲስተም ስህተት አጋጥሟል!'}, room=request.sid)
 
 
-# ==========================================
-# 🚀 ዊዝድሮው ጥያቄ (ከ 100 ብር በታች እንዳይጠየቅ እና በአድሚን Approve እንዲደረግ)
-# ==========================================
 @socketio.on('request_withdrawal')
 def handle_request_withdrawal(data):
   try:
@@ -774,12 +771,10 @@ def handle_request_withdrawal(data):
       emit('withdrawal_response', {'success': False, 'msg': '⚠️ እባክዎ የሂሳብ/ስልክ ቁጥር በትክክል ይሙሉ!'}, room=request.sid)
       return
 
-    # 1. አነስተኛ የገንዘብ ገደብ (Minimum Withdrawal Limit: 100 ETB)
     if amount < 100.00:
       emit('withdrawal_response', {'success': False, 'msg': '⚠️ ዝቅተኛው የማውጣት መጠን 100 ብር እና ከዚያ በላይ መሆን አለበት!'}, room=request.sid)
       return
 
-    # 2. የተጠቃሚውን ባላንስ ከዳታቤዝ ማረጋገጥ (Balance Validation)
     user = User.query.filter_by(user_id=user_id).first()
     if not user:
       emit('withdrawal_response', {'success': False, 'msg': '⚠️ ተጠቃሚው አልተገኘም!'}, room=request.sid)
@@ -789,7 +784,6 @@ def handle_request_withdrawal(data):
       emit('withdrawal_response', {'success': False, 'msg': f'⚠️ በቂ ቀሪ ሂሳብ የለዎትም! (ያሎት: {user.balance} ETB)'}, room=request.sid)
       return
 
-    # 3. ገንዘቡን ወዲያውኑ ሳይቀንሱ ጥያቄውን በ Transaction (pending) መልክ ማስቀመጥ
     tx_record = Transaction(
         user_id=user_id,
         type='withdrawal',
@@ -801,7 +795,6 @@ def handle_request_withdrawal(data):
     db.session.add(tx_record)
     db.session.commit()
 
-    # 4. ለአድሚን በቴሌግራም ማሳወቂያ መላክ
     admin_msg = (
         f"📤 *አዲስ የገንዘብ ማውጣት (Withdrawal) ጥያቄ*\n\n"
         f"- ጥያቄ ID: `{tx_record.id}`\n"
@@ -1081,9 +1074,6 @@ def admin_password_reset_action(req_id):
     return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
 
 
-# ==========================================
-# 👑 አድሚን ትራንዛክሽን ማስተዳደሪያ (Approve / Reject Withdrawals & Deposits)
-# ==========================================
 @app.route('/admin/transaction/<int:tx_id>/action', methods=['POST'])
 def admin_transaction_action(tx_id):
     if not session.get('is_admin') and not session.get('admin_logged'):
@@ -1105,7 +1095,6 @@ def admin_transaction_action(tx_id):
             if float(user.balance) < float(tx.amount):
                 return jsonify({'success': False, 'message': 'ተጠቃሚው በቂ ባላንስ የለውም!'})
             
-            # አድሚኑ አપ્રൂቭ ሲያደርግ ብቻ ገንዘቡ ከተጠቃሚው ባላንስ ይቀንሳል
             user.balance = float(user.balance) - float(tx.amount)
             tx.status = 'completed'
             
@@ -1122,12 +1111,75 @@ def admin_transaction_action(tx_id):
         return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ጸድቋል!'})
 
     elif action == 'reject' or action == 'delete':
-        # ዊዝድሮ ሲሰረዝ ባላንሱ ምንም አይነካም (ምክንያቱም ገና ሳይቀነስ በፔንዲንግ ነበርና)
         tx.status = 'rejected'
         db.session.commit()
         return jsonify({'success': True, 'message': 'ትራንዛክሽኑ ተሰርዟል!'})
         
     return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
+
+
+# ==========================================
+# 📢 አድሚን ብሮድካስት እና ፑሽ ኖቲፊኬሽን (Broadcast API Endpoint)
+# ==========================================
+@app.route('/admin/broadcast', methods=['POST'])
+def admin_broadcast_api():
+    if not session.get('is_admin') and not session.get('admin_logged'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    message = request.form.get('message')
+    media_file = request.files.get('media')
+
+    if not message:
+        return jsonify({'success': False, 'message': 'እባክዎ የመልዕክት ጽሁፍ ያስገቡ!'}), 400
+
+    try:
+        # ለሁሉም የተገናኙ ዌብሶኬት ተጠቃሚዎች ኖቲፊኬሽን መላክ
+        socketio.emit('receive_broadcast', {'text': message})
+
+        # ለቴሌግራም ቦት ተጠቃሚዎች ፎቶ፣ ቪዲዮ ወይም ጽሁፍ በብሮድካስት መልክ መላክ
+        if TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
+            all_users = User.query.all()
+            for u in all_users:
+                try:
+                    chat_id = u.user_id
+                    if media_file:
+                        filename = media_file.filename.lower()
+                        if filename.endswith(('.mp4', '.mov', '.avi')):
+                            requests.post(
+                                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo",
+                                data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
+                                files={'video': media_file.read()}
+                            )
+                        else:
+                            requests.post(
+                                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
+                                data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
+                                files={'photo': media_file.read()}
+                            )
+                        media_file.seek(0)
+                    else:
+                        requests.post(
+                            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                            json={'chat_id': chat_id, 'text': message, 'parse_mode': 'Markdown'}
+                        )
+                except Exception as ex:
+                    print(f"Telegram broadcast error for user: {ex}")
+
+        return jsonify({'success': True, 'message': 'ብሮድካስቱ በተሳካ ሁኔታ ተልኳል!'}), 200
+    except Exception as e:
+        print("Broadcast Route Error:", e)
+        return jsonify({'success': False, 'message': 'የብሮድካስት ስህተት አጋጥሟል!'}), 500
+
+
+# ==========================================
+# 🚪 አድሚን Sign Out (Logout Route)
+# ==========================================
+@app.route('/admin/logout', methods=['GET'])
+def admin_logout():
+    session.pop('admin_logged', None)
+    session.pop('is_admin', None)
+    flash('ከአድሚን ፓነል ውጣዋል!', 'success')
+    return redirect(url_for('admin_login'))
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
