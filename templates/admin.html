@@ -20,7 +20,7 @@ button,input,textarea,select{font:inherit}
 .brand h1{font-size:26px;margin:0;font-weight:900;letter-spacing:-1px}.brand h1 span{color:#ffd23b}
 .brand small{display:block;color:#c7d0e8;font-size:10px;margin-top:2px;letter-spacing:.5px}
 .nav{margin-top:10px}.nav-section{margin:10px 0}
-.nav-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 9px;border-radius:9px;color:#eef2ff;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none}
+.nav-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 9px;border-radius:9px;color:#eef2ff;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;margin-bottom:6px}
 .nav-item:hover,.nav-item.active{background:linear-gradient(90deg,#3430ff,#5034ee);box-shadow:0 8px 20px #302eff35}
 .nav-left{display:flex;align-items:center;gap:12px}.nav-icon{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:#222e59;font-size:14px}
 .active .nav-icon{background:rgba(255,255,255,.17)}
@@ -70,7 +70,7 @@ button,input,textarea,select{font:inherit}
     <a href="/admin" class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span>Dashboard</div></a>
     <a href="/admin/users" class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users Management</div></a>
     <a href="/admin/support" class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support Tickets</div></a>
-    <div style="margin-top: 30px;">
+    <div style="margin-top: 25px; border-top: 1px solid #1d315e; padding-top: 15px;">
       <a href="/admin/logout" class="nav-item" style="background: rgba(239, 83, 103, 0.2); color: #ef5367; border: 1px solid rgba(239, 83, 103, 0.4);">
         <div class="nav-left"><span class="nav-icon" style="background: #ef5367; color: #fff;">🚪</span>Sign Out</div>
       </a>
@@ -111,24 +111,22 @@ button,input,textarea,select{font:inherit}
   <!-- BROADCAST WITH PHOTO, VIDEO & PUSH NOTIFICATION SECTION -->
   <div class="card">
     <div class="card-title">
-      <span>📢 ብሮድካስት እና ሚዲያ ኖቲፊኬሽን መላኪያ (Broadcast & Media Notification)</span>
+      <span>📢 ብሮድካስት እና ሚዲያ ኖቲፊኬሽን (Broadcast & Media Notification)</span>
     </div>
-    <form id="broadcast-form" onsubmit="sendBroadcast(event)" enctype="multipart/form-data" class="space-y-3">
+    <form id="broadcast-form" onsubmit="sendBroadcast(event)" enctype="multipart/form-data">
       <div style="margin-bottom: 10px;">
         <label style="font-size: 11px; color: #aab7d4; display: block; margin-bottom: 5px;">የመልዕክት ጽሁፍ (Message Content)</label>
         <textarea id="broadcast-msg" rows="3" placeholder="ለተጠቃሚዎች የሚተላለፍ ማስታወቂያ ወይም አዲስ መረጃ እዚህ ይጻፉ..." style="width: 100%; background: #07122d; border: 1px solid #2a4274; border-radius: 8px; padding: 10px; color: #fff; font-size: 12px;" required></textarea>
       </div>
-      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-        <div style="flex: 1;">
-          <label style="font-size: 11px; color: #aab7d4; display: block; margin-bottom: 5px;">ፎቶ ወይም ቪዲዮ አባሪ (Optional Media)</label>
-          <input type="file" id="broadcast-media" accept="image/*,video/*" style="width: 100%; background: #07122d; border: 1px solid #2a4274; border-radius: 8px; padding: 8px; color: #fff; font-size: 11px;">
-        </div>
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 11px; color: #aab7d4; display: block; margin-bottom: 5px;">ፎቶ ወይም ቪዲዮ አባሪ (Optional Media)</label>
+        <input type="file" id="broadcast-media" accept="image/*,video/*" style="width: 100%; background: #07122d; border: 1px solid #2a4274; border-radius: 8px; padding: 8px; color: #fff; font-size: 11px;">
       </div>
       <button type="submit" class="btn btn-sm btn-primary" style="padding: 10px 20px; font-weight: bold;">🚀 ለሁሉም ተጠቃሚዎች ኖቲፊኬሽን ላክ (Send Broadcast)</button>
     </form>
   </div>
 
-  <!-- Users Management Preview Section -->
+  <!-- Users Management Section -->
   <div class="card">
     <div class="card-title">
       <span>የተጠቃሚዎች ዝርዝር (Users Management)</span>
@@ -183,7 +181,7 @@ button,input,textarea,select{font:inherit}
     
     <!-- Pending Deposits Table -->
     <div class="table-card">
-      <div class="card-title">Pending Deposits</div>
+      <div class="card-title">Pending Deposits (የተቀማጭ ጥያቄዎች)</div>
       <table class="table searchable-table">
         <thead>
           <tr><th>User ID</th><th>Amount</th><th>Action</th></tr>
@@ -234,6 +232,49 @@ button,input,textarea,select{font:inherit}
       </table>
     </div>
 
+  </div>
+
+  <!-- SUPPORT TICKETS SECTION -->
+  <div class="card">
+    <div class="card-title">🎧 የደንበኞች ድጋፍ ጥያቄዎች (Support Tickets)</div>
+    <div style="overflow-x: auto;">
+      <table class="table searchable-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>ተጠቃሚ / ስም</th>
+            <th>ርዕስ (Subject)</th>
+            <th>መልዕክት</th>
+            <th>ስታተስ</th>
+            <th>እርምጃ / ምላሽ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if tickets %}
+            {% for ticket in tickets %}
+            <tr>
+              <td>{{ ticket.id }}</td>
+              <td>{{ ticket.full_name or ticket.username }}</td>
+              <td>{{ ticket.subject }}</td>
+              <td style="max-width: 200px; white-space: normal; word-break: break-all;">{{ ticket.message }}</td>
+              <td>
+                {% if ticket.status == 'Answered' %}
+                  <span class="badge bg-success">Answered</span>
+                {% else %}
+                  <span class="badge bg-warning">Pending</span>
+                {% endif %}
+              </td>
+              <td>
+                <button class="btn btn-sm btn-primary" onclick="replySupport('{{ ticket.id }}')">ምላሽ ስጥ</button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" style="text-align: center; color: #aab7d4; padding: 20px;">ምንም አዲስ የድጋፍ ጥያቄ የለም።</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Password Reset Requests Table -->
@@ -325,6 +366,30 @@ function sendBroadcast(event) {
   });
 }
 
+function replySupport(ticketId) {
+    const replyText = prompt("ለዚህ ተጠቃሚ የሚሰጡትን ምላሽ (Reply) እዚህ ይጻፉ:");
+    if (!replyText) return;
+
+    fetch(`/admin/support/${ticketId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_reply: replyText })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('ስህተት: ' + data.message);
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        alert('የኔትወርክ ስህተት አጋጥሟል!');
+    });
+}
+
 function changeStatus(userId, status) {
   fetch(`/admin/users/${userId}/update-status`, {
       method: 'POST',
@@ -381,7 +446,7 @@ function handlePasswordResetAction(reqId, actionType) {
   })
   .catch(err => {
       console.error('Error:', err);
-      alert('የኔ_ወርክ ስህተት አጋጥሟል!');
+      alert('የኔትወርክ ስህተት አጋጥሟል!');
   });
 }
 </script>
