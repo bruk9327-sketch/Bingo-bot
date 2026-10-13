@@ -982,6 +982,10 @@ def admin_dashboard():
         pending_withdrawals = Transaction.query.filter_by(type='withdrawal', status='pending').all()
         
         password_resets = PasswordResetRequest.query.order_by(PasswordResetRequest.id.desc()).all()
+        
+        # የድጋፍ ጥያቄዎችን (Support Tickets) ወደ አድሚን ገጽ ማምጣት
+        tickets = SupportTicket.query.order_by(SupportTicket.id.desc()).all()
+        
     except Exception as e:
         print("Admin Dashboard Error:", e)
         total_users = 0
@@ -992,6 +996,7 @@ def admin_dashboard():
         pending_deposits = []
         pending_withdrawals = []
         password_resets = []
+        tickets = []
     
     return render_template(
         'admin.html', 
@@ -1002,7 +1007,8 @@ def admin_dashboard():
         total_profit=total_profit, 
         pending_deposits=pending_deposits, 
         pending_withdrawals=pending_withdrawals, 
-        password_resets=password_resets
+        password_resets=password_resets,
+        tickets=tickets
     )
 
 
@@ -1133,10 +1139,8 @@ def admin_broadcast_api():
         return jsonify({'success': False, 'message': 'እባክዎ የመልዕክት ጽሁፍ ያስገቡ!'}), 400
 
     try:
-        # ለሁሉም የተገናኙ ዌብሶኬት ተጠቃሚዎች ኖቲፊኬሽን መላክ
         socketio.emit('receive_broadcast', {'text': message})
 
-        # ለቴሌግራም ቦት ተጠቃሚዎች ፎቶ፣ ቪዲዮ ወይም ጽሁፍ በብሮድካስት መልክ መላክ
         if TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
             all_users = User.query.all()
             for u in all_users:
