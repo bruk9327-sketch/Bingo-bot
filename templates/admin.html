@@ -70,9 +70,11 @@ button,input,textarea,select{font:inherit}
     <a href="/admin" class="nav-item active"><div class="nav-left"><span class="nav-icon">⌂</span>Dashboard</div></a>
     <a href="/admin/users" class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users Management</div></a>
     <a href="/admin/support" class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support Tickets</div></a>
-    <div style="margin-top: 25px; border-top: 1px solid #1d315e; padding-top: 15px;">
+    
+    <!-- Admin Sign Out Button positioned clearly at the bottom of the sidebar -->
+    <div style="margin-top: 35px; border-top: 1px solid #1d315e; padding-top: 15px;">
       <a href="/admin/logout" class="nav-item" style="background: rgba(239, 83, 103, 0.2); color: #ef5367; border: 1px solid rgba(239, 83, 103, 0.4);">
-        <div class="nav-left"><span class="nav-icon" style="background: #ef5367; color: #fff;">🚪</span>Sign Out</div>
+        <div class="nav-left"><span class="nav-icon" style="background: #ef5367; color: #fff;">🚪</span>Sign Out (ውጣ)</div>
       </a>
     </div>
   </nav>
@@ -326,10 +328,12 @@ button,input,textarea,select{font:inherit}
 <script>
 const socket = io();
 
+// Active Search implementation for all searchable tables
 function searchData(){
-  const q = document.getElementById('search').value.toLowerCase();
+  const q = document.getElementById('search').value.toLowerCase().trim();
   document.querySelectorAll('.searchable-table tbody tr').forEach(r => {
-    r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+    const text = r.innerText.toLowerCase();
+    r.style.display = text.includes(q) ? '' : 'none';
   });
 }
 
