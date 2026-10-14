@@ -321,17 +321,21 @@
         </div>
     </div>
 
-    <!-- HISTORY MODAL -->
+    <!-- HISTORY MODAL (DYNAMICALLY LOADED) -->
     <div id="history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-sky-500 shadow-2xl text-left">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-sky-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-black text-sky-400">📜 የጨዋታና ክፍያ ታሪክ (History)</h3>
                 <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
-            <p class="text-[11px] text-slate-300 mb-3">የመጨረሻዎቹ የጨዋታዎችዎ እና የዲፖዚት/ዊዝድሮ ታሪክዎ:</p>
-            <div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-slate-400 text-center min-h-[120px] flex items-center justify-center">
-                ምንም አዲስ የታሪክ መዝገብ የለም።
+            <p class="text-[11px] text-slate-300 mb-2">የመጨረሻዎቹ የዲፖዚት እና የሂሳብ እንቅስቃሴ ታሪክዎ:</p>
+            
+            <div id="user-history-container" class="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                <div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-slate-400 text-center py-6">
+                    በመጫን ላይ...
+                </div>
             </div>
+
             <button onclick="closeHistoryModal()" class="w-full mt-3 py-2.5 bg-sky-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
         </div>
     </div>
@@ -714,8 +718,59 @@
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        function openHistoryModal() { document.getElementById('history-modal').classList.remove('hidden'); }
-        function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
+        // DYNAMIC HISTORY MODAL LOADER
+        function openHistoryModal() { 
+            document.getElementById('history-modal').classList.remove('hidden');
+            fetchUserHistory();
+        }
+
+        function closeHistoryModal() { 
+            document.getElementById('history-modal').classList.add('hidden'); 
+        }
+
+        function fetchUserHistory() {
+            const currentUserId = window.userId || localStorage.getItem('bk_user_id');
+            const container = document.getElementById('user-history-container');
+            if(!container) return;
+
+            if(!currentUserId) {
+                container.innerHTML = `<p class="text-xs text-amber-400 text-center py-4">እባክዎ መጀመሪያ ይግቡ (Sign In)!</p>`;
+                return;
+            }
+
+            container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">በመጫን ላይ...</p>`;
+
+            fetch('/api/user-history?user_id=' + encodeURIComponent(currentUserId))
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.history && data.history.length > 0) {
+                    container.innerHTML = '';
+                    data.history.forEach(item => {
+                        const historyCard = document.createElement('div');
+                        historyCard.className = "bg-slate-900 p-2.5 rounded-2xl border border-slate-800 flex justify-between items-center text-xs";
+                        
+                        historyCard.innerHTML = `
+                            <div>
+                                <span class="font-black text-sky-300 block">${item.type}</span>
+                                <span class="text-[9px] text-slate-400">${item.date}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-black text-emerald-400 block">${item.amount}</span>
+                                <span class="text-[9px] px-2 py-0.5 rounded font-bold bg-slate-800 text-slate-300">${item.status}</span>
+                            </div>
+                        `;
+                        container.appendChild(historyCard);
+                    });
+                } else {
+                    container.innerHTML = `<div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-slate-400 text-center py-6">ምንም አዲስ የታሪክ መዝገብ የለም።</div>`;
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching history:', err);
+                container.innerHTML = `<div class="bg-slate-900 p-3 rounded-2xl border border-slate-800 text-xs text-rose-400 text-center py-6">ታሪኩን ማምጣት አልተቻለም!</div>`;
+            });
+        }
+
         function openRulesModal() { document.getElementById('rules-modal').classList.remove('hidden'); }
         function closeRulesModal() { document.getElementById('rules-modal').classList.add('hidden'); }
         
