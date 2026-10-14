@@ -71,6 +71,11 @@ button,input,textarea,select{font:inherit}
     <a href="/admin/users" class="nav-item"><div class="nav-left"><span class="nav-icon">👥</span>Users Management</div></a>
     <a href="/admin/support" class="nav-item"><div class="nav-left"><span class="nav-icon">🎧</span>Support Tickets</div></a>
     
+    <!-- Admin History Button in Sidebar -->
+    <a href="#" onclick="openAdminHistoryModal(event)" class="nav-item">
+      <div class="nav-left"><span class="nav-icon">📜</span>History Logs</div>
+    </a>
+    
     <!-- Admin Sign Out Button positioned clearly at the bottom of the sidebar -->
     <div style="margin-top: 35px; border-top: 1px solid #1d315e; padding-top: 15px;">
       <a href="/admin/logout" class="nav-item" style="background: rgba(239, 83, 103, 0.2); color: #ef5367; border: 1px solid rgba(239, 83, 103, 0.4);">
@@ -167,6 +172,7 @@ button,input,textarea,select{font:inherit}
                         {% else %}
                             <button class="btn btn-sm btn-danger" onclick="changeStatus('{{ user.id }}', 'suspended')">አግድ</button>
                         {% endif %}
+                        <button class="btn btn-sm btn-primary" onclick="viewUserHistory('{{ user.user_id }}')">ታሪክ</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -324,6 +330,27 @@ button,input,textarea,select{font:inherit}
 </main>
 </div>
 
+<!-- ADMIN HISTORY MODAL -->
+<div id="admin-history-modal" style="display:none; position:fixed; inset:0; background:rgba(7,18,45,0.85); backdrop-filter:blur(8px); z-index:100; align-items:center; justify-content:center; padding:15px;">
+  <div style="background:linear-gradient(180deg,#0e1d42,#0b1837); border:2px solid #16bde8; border-radius:14px; width:100%; max-width:550px; padding:20px; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #263b70; padding-bottom:10px;">
+      <h3 style="margin:0; font-size:16px; color:#16bde8;">📜 የተጠቃሚ ክፍያ እና ትራንዛክሽን ታሪክ (History Log)</h3>
+      <button onclick="closeAdminHistoryModal()" style="background:none; border:none; color:#aab7d4; font-size:18px; cursor:pointer; font-weight:bold;">✕</button>
+    </div>
+    
+    <div style="margin-bottom:12px; display:flex; gap:8px;">
+      <input type="text" id="history-search-userid" placeholder="የተጠቃሚ ID ያስገቡ (ለምሳሌ: 09...)" style="flex:1; background:#07122d; border:1px solid #38528d; border-radius:8px; padding:8px 12px; color:#fff; font-size:11px;">
+      <button onclick="fetchAdminUserHistory()" class="btn btn-sm btn-primary" style="padding:8px 15px;">ፈልግ</button>
+    </div>
+
+    <div id="admin-history-container" style="max-height:320px; overflow-y:auto; space-y:8px;">
+      <div style="text-center; color:#aab7d4; padding:20px; font-size:11px;">እባክዎ የተጠቃሚ ID አስገብተው ይፈልጉ ወይም ከታች ካሉት ተጠቃሚዎች "ታሪክ" የሚለውን ይጫኑ።</div>
+    </div>
+
+    <button onclick="closeAdminHistoryModal()" style="width:100%; margin-top:15px; padding:10px; background:#16bde8; color:#07122d; font-weight:bold; border:none; border-radius:8px; cursor:pointer; font-size:12px;">ዝጋ (Close)</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 <script>
 const socket = io();
@@ -334,6 +361,62 @@ function searchData(){
   document.querySelectorAll('.searchable-table tbody tr').forEach(r => {
     const text = r.innerText.toLowerCase();
     r.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+function openAdminHistoryModal(e) {
+  if(e) e.preventDefault();
+  document.getElementById('admin-history-modal').style.display = 'flex';
+}
+
+function closeAdminHistoryModal() {
+  document.getElementById('admin-history-modal').style.display = 'none';
+}
+
+function viewUserHistory(userId) {
+  document.getElementById('history-search-userid').value = userId;
+  openAdminHistoryModal();
+  fetchAdminUserHistory();
+}
+
+function fetchAdminUserHistory() {
+  const userId = document.getElementById('history-search-userid').value.trim();
+  const container = document.getElementById('admin-history-container');
+  if (!userId) {
+    alert('እባክዎ የተጠቃሚ ID ያስገቡ!');
+    return;
+  }
+
+  container.innerHTML = `<div style="text-align:center; color:#aab7d4; padding:20px; font-size:11px;">በመጫን ላይ...</div>`;
+
+  fetch('/api/user-history?user_id=' + encodeURIComponent(userId))
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.history && data.history.length > 0) {
+      container.innerHTML = '';
+      data.history.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.style.cssText = "background:#07122d; border:1px solid #263b70; border-radius:8px; padding:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px;";
+        
+        itemDiv.innerHTML = `
+          <div>
+            <strong style="color:#16bde8; display:block;">${item.type}</strong>
+            <span style="color:#aab7d4; font-size:9px;">${item.date}</span>
+          </div>
+          <div style="text-align:right;">
+            <strong style="color:#20d49b; display:block;">${item.amount}</strong>
+            <span style="background:#101f46; color:#f5ad23; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold;">${item.status}</span>
+          </div>
+        `;
+        container.appendChild(itemDiv);
+      });
+    } else {
+      container.innerHTML = `<div style="text-align:center; color:#aab7d4; padding:20px; font-size:11px;">ለዚህ ተጠቃሚ ምንም የታሪክ መዝገብ አልተገኘም።</div>`;
+    }
+  })
+  .catch(err => {
+    console.error('Error fetching admin history:', err);
+    container.innerHTML = `<div style="text-align:center; color:#ef5367; padding:20px; font-size:11px;">ታሪኩን ማምጣት አልተቻለም!</div>`;
   });
 }
 
@@ -429,6 +512,10 @@ function handleTxAction(txId, actionType) {
       console.error('Error:', err);
       alert('የኔትወርክ ስህተት አጋጥሟል!');
   });
+}
+
+function handlePasswordResetAccountAction(reqId, actionType) {
+  handlePasswordResetAction(reqId, actionType);
 }
 
 function handlePasswordResetAction(reqId, actionType) {
