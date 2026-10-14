@@ -138,6 +138,7 @@ class Deposit(db.Model):
   sms_text = db.Column(db.Text, nullable=True)
   method = db.Column(db.String(50), nullable=True)
   status = db.Column(db.String(20), default='Pending')
+  created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Transaction(db.Model):
@@ -192,6 +193,7 @@ with app.app_context():
         db.session.execute(sa.text('ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_verified BOOLEAN DEFAULT FALSE;'))
         db.session.execute(sa.text('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS account VARCHAR(100);'))
         db.session.execute(sa.text('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS method VARCHAR(50);'))
+        db.session.execute(sa.text('ALTER TABLE deposits ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;'))
         
         db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);'))
         db.session.execute(sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS username VARCHAR(100);'))
@@ -407,6 +409,46 @@ def handle_verify_otp_and_reset(data):
     del OTP_STORAGE[identity]
 
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
+
+
+# ==========================================
+# 📜 ዩዘር ሂስትሪ ኤፒአይ (User History API)
+# ==========================================
+@app.route('/api/user-history', methods=['GET'])
+def get_user_history():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'history': []}), 400
+
+    try:
+        # የዲፖዚት ታሪኮች
+        deposits = Deposit.query.filter_by(user_id=str(user_id)).order_by(Deposit.id.desc()).all()
+        # የትራንዛክሽን ታሪኮች (ዊዝድሮ እና ሌሎች)
+        transactions = Transaction.query.filter_by(user_id=str(user_id)).order_by(Transaction.id.desc()).all()
+
+        history_list = []
+
+        for d in deposits:
+            history_list.append({
+                'type': f"ዲፖዚት ({d.method or 'Telebirr'})",
+                'amount': f"+{d.amount} ETB",
+                'status': d.status,
+                'date': d.created_at.strftime('%Y-%m-%d %H:%M') if d.created_at else 'N/A'
+            })
+
+        for t in transactions:
+            sign = "+" if t.type == 'deposit' else "-"
+            history_list.append({
+                'type': f"{t.type.capitalize()} ({t.method or 'N/A'})",
+                'amount': f"{sign}{t.amount} ETB",
+                'status': t.status,
+                'date': t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else 'N/A'
+            })
+
+        return jsonify({'success': True, 'history': history_list}), 200
+    except Exception as e:
+        print("User History Error:", e)
+        return jsonify({'success': False, 'history': []}), 500
 
 
 @app.route('/api/submit-support', methods=['POST'])
@@ -1125,9 +1167,6 @@ def admin_transaction_action(tx_id):
     return jsonify({'success': False, 'message': 'ልክ ያልሆነ እርምጃ'})
 
 
-# ==========================================
-# 📢 አድሚን ብሮድካስት እና ፑሽ ኖቲፊኬሽን (Broadcast API Endpoint)
-# ==========================================
 @app.route('/admin/broadcast', methods=['POST'])
 def admin_broadcast_api():
     if not session.get('is_admin') and not session.get('admin_logged'):
@@ -1140,7 +1179,6 @@ def admin_broadcast_api():
         return jsonify({'success': False, 'message': 'እባክዎ የመልዕክት ጽሁፍ ያስገቡ!'}), 400
 
     try:
-        # ለሁሉም የተገናኙ ዌብሶኬት ተጠቃሚዎች ኖቲፊኬሽን በ ፖፕ-አፕ (Alert) መልክ እንዲደርስ ማድረግ
         socketio.emit('receive_broadcast', {'text': message})
 
         if TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
@@ -1177,9 +1215,6 @@ def admin_broadcast_api():
         return jsonify({'success': False, 'message': 'የብሮድካስት ስህተት አጋጥሟል!'}), 500
 
 
-# ==========================================
-# 🚪 አድሚን Sign Out (Logout Route)
-# ==========================================
 @app.route('/admin/logout', methods=['GET'])
 def admin_logout():
     session.pop('admin_logged', None)
