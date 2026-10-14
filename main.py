@@ -637,6 +637,34 @@ def handle_admin_broadcast(data):
     socketio.emit('receive_broadcast', {'text': message})
 
 
+# ==========================================
+# LIVE CHAT & EMOJI REACTION SOCKET EVENT
+# ==========================================
+@socketio.on('send_chat_message')
+def handle_send_chat_message(data):
+    user_id = str(data.get('user_id', ''))
+    message = str(data.get('message', '')).strip()
+
+    if not user_id or not message:
+        return
+
+    # የላኪውን ተጠቃሚ ስም ከዳታቤዝ መፈለግ
+    user = User.query.filter_by(user_id=user_id).first()
+    sender_name = user.full_name or user.username or f"ተጫዋች {user_id[-4:]}"
+
+    # መልእክቱ በጣም ረጅም እንዳይሆን መገደብ (እስከ 150 ፊደላት)
+    if len(message) > 150:
+        message = message[:150]
+
+    # ለሁሉም ኦንላይን ላለ ተጫዋች መልእክቱን ማሰራጨት (Broadcast)
+    socketio.emit('new_chat_message', {
+        'user_id': user_id,
+        'sender_name': sender_name,
+        'message': message,
+        'time': datetime.now().strftime('%H:%M')
+    })
+
+
 def extract_transaction_info(sms_text):
   try:
     tid_match = re.search(r'(?:Txn ID|TID)\s*[:=]?\s*([A-Za-z0-9]{8,15})', sms_text, re.IGNORECASE)
@@ -889,7 +917,6 @@ def handle_select_card(data):
   except:
     pass
 
-  # የካርቴላ ቁጥር ከ 1 እስከ 500 መሆኑን ማረጋገጥ
   if not isinstance(card_id, int) or card_id < 1 or card_id > 500:
     emit('error_msg', {'msg': 'የተሳሳተ የካርቴላ ቁጥር! (ከ 1 እስከ 500 ይምረጡ)'}, room=request.sid)
     return
@@ -928,7 +955,6 @@ def handle_select_card(data):
 
 def generate_bingo_matrix(seed_val):
   try:
-    # ካርቴላው ከ 1 እስከ 500 ባሉት ቁጥሮች ልክ እንዲመነጭ የተደረገ ማስተካከያ
     seed_int = int(seed_val)
     if seed_int < 1:
       seed_int = 1
