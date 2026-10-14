@@ -228,7 +228,7 @@
         </div>
 
         <div class="flex justify-between items-center px-1">
-            <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-104)</span>
+            <span class="text-xs font-black text-white">ካርቴላ ይምረጡ (1-500)</span>
             <span class="text-[11px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg">ዋጋ: 10 ETB</span>
         </div>
 
@@ -1011,7 +1011,8 @@
             if(!gridContainer) return;
             gridContainer.innerHTML = '';
             
-            for (let i = 1; i <= 104; i++) {
+            // የካርቴላ ብዛት ወደ 500 ከፍ ብሏል
+            for (let i = 1; i <= 500; i++) {
                 const btn = document.createElement('div');
                 const isSelected = mySelectedCards.includes(i);
                 const isTaken = Array.isArray(takenCards) && takenCards.includes(i) && !isSelected;
