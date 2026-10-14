@@ -411,9 +411,6 @@ def handle_verify_otp_and_reset(data):
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
 
-# ==========================================
-# 📜 ዩዘር ሂስትሪ ኤፒአይ (User History API)
-# ==========================================
 @app.route('/api/user-history', methods=['GET'])
 def get_user_history():
     user_id = request.args.get('user_id')
@@ -421,9 +418,7 @@ def get_user_history():
         return jsonify({'success': False, 'history': []}), 400
 
     try:
-        # የዲፖዚት ታሪኮች
         deposits = Deposit.query.filter_by(user_id=str(user_id)).order_by(Deposit.id.desc()).all()
-        # የትራንዛክሽን ታሪኮች (ዊዝድሮ እና ሌሎች)
         transactions = Transaction.query.filter_by(user_id=str(user_id)).order_by(Transaction.id.desc()).all()
 
         history_list = []
@@ -894,6 +889,11 @@ def handle_select_card(data):
   except:
     pass
 
+  # የካርቴላ ቁጥር ከ 1 እስከ 500 መሆኑን ማረጋገጥ
+  if not isinstance(card_id, int) or card_id < 1 or card_id > 500:
+    emit('error_msg', {'msg': 'የተሳሳተ የካርቴላ ቁጥር! (ከ 1 እስከ 500 ይምረጡ)'}, room=request.sid)
+    return
+
   user = User.query.filter_by(user_id=user_id).first()
   if not user:
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
@@ -928,9 +928,16 @@ def handle_select_card(data):
 
 def generate_bingo_matrix(seed_val):
   try:
-    random.seed(int(seed_val))
+    # ካርቴላው ከ 1 እስከ 500 ባሉት ቁጥሮች ልክ እንዲመነጭ የተደረገ ማስተካከያ
+    seed_int = int(seed_val)
+    if seed_int < 1:
+      seed_int = 1
+    elif seed_int > 500:
+      seed_int = 500
+    random.seed(seed_int)
   except:
     random.seed(1)
+    
   b = random.sample(range(1, 16), 5)
   i = random.sample(range(16, 31), 5)
   n = random.sample(range(31, 46), 4)
