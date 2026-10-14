@@ -115,6 +115,25 @@ button,input,textarea,select{font:inherit}
     </div>
   </div>
 
+  <!-- LIVE CHAT MONITOR SECTION (አድሚኑ የተጫዋቾችን ቻት የሚከታተልበት ሳጥን) -->
+  <div class="card" style="border-color: #9b45ff; background: linear-gradient(180deg, #101f46, #091330);">
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #d82ac4; display: flex; align-items: center; gap: 8px;">
+        💬 የቀጥታ ቻት ክትትል (Live Chat Monitor)
+      </span>
+      <span style="font-size: 10px; background: rgba(32, 212, 155, 0.2); color: #20d49b; border: 1px solid rgba(32, 212, 155, 0.4); padding: 3px 8px; border-radius: 12px; font-weight: bold;">
+        🟢 Real-Time Active
+      </span>
+    </div>
+    
+    <!-- ቻቶቹ የሚታዩበት ዋናው የውስጥ ሳጥን -->
+    <div id="admin-chat-monitor-box" style="height: 220px; overflow-y: auto; background: #07122d; border: 1px solid #263b70; border-radius: 8px; padding: 12px; space-y: 8px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="text-align: center; color: #aab7d4; font-size: 11px; margin-top: 80px; font-style: italic;">
+        ተጫዋቾች ቻት ሲያደርጉ እዚህ በቅጽበት ይታያል... 🎯
+      </div>
+    </div>
+  </div>
+
   <!-- BROADCAST WITH PHOTO, VIDEO & PUSH NOTIFICATION SECTION -->
   <div class="card">
     <div class="card-title">
@@ -344,7 +363,7 @@ button,input,textarea,select{font:inherit}
     </div>
 
     <div id="admin-history-container" style="max-height:320px; overflow-y:auto; space-y:8px;">
-      <div style="text-center; color:#aab7d4; padding:20px; font-size:11px;">እባክዎ የተጠቃሚ ID አስገብተው ይፈልጉ ወይም ከታች ካሉት ተጠቃሚዎች "ታሪክ" የሚለውን ይጫኑ።</div>
+      <div style="text-align:center; color:#aab7d4; padding:20px; font-size:11px;">እባክዎ የተጠቃሚ ID አስገብተው ይፈልጉ ወይም ከታች ካሉት ተጠቃሚዎች "ታሪክ" የሚለውን ይጫኑ።</div>
     </div>
 
     <button onclick="closeAdminHistoryModal()" style="width:100%; margin-top:15px; padding:10px; background:#16bde8; color:#07122d; font-weight:bold; border:none; border-radius:8px; cursor:pointer; font-size:12px;">ዝጋ (Close)</button>
@@ -354,6 +373,34 @@ button,input,textarea,select{font:inherit}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 <script>
 const socket = io();
+
+// Live Chat Monitor Listener for Admin Dashboard
+socket.on('new_chat_message', (data) => {
+    const chatMonitorBox = document.getElementById('admin-chat-monitor-box');
+    if (!chatMonitorBox) return;
+
+    // የመጀመሪያውን የእንኳን ደህና መጡ ጽሁፍ ማጥፋት (ካለ)
+    if (chatMonitorBox.children.length === 1 && chatMonitorBox.children[0].style.fontStyle === 'italic') {
+        chatMonitorBox.innerHTML = '';
+    }
+
+    const msgItem = document.createElement('div');
+    msgItem.style.cssText = "background: #0f1d40; border: 1px solid #263b70; border-radius: 6px; padding: 8px 10px; font-size: 11px; display: flex; justify-content: space-between; align-items: flex-start;";
+
+    msgItem.innerHTML = `
+        <div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 2px;">
+                <strong style="color: #16bde8;">${data.sender_name}</strong>
+                <span style="font-size: 9px; color: #aab7d4;">(ID: ${data.user_id})</span>
+            </div>
+            <p style="margin: 0; color: #f4f7ff; word-break: break-all; font-size: 12px;">${data.message}</p>
+        </div>
+        <span style="font-size: 9px; color: #f5ad23; background: rgba(245, 173, 35, 0.1); padding: 2px 5px; border-radius: 4px;">${data.time}</span>
+    `;
+
+    chatMonitorBox.appendChild(msgItem);
+    chatMonitorBox.scrollTop = chatMonitorBox.scrollHeight;
+});
 
 // Active Search implementation for all searchable tables
 function searchData(){
