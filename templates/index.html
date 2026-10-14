@@ -291,6 +291,39 @@
             </div>
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
         </div>
+
+        <!-- Live Social Chat & Emoji Box -->
+        <div class="glass-panel p-3 rounded-2xl border border-purple-500/30 space-y-2 mt-3">
+            <div class="flex justify-between items-center border-b border-slate-700/80 pb-1.5">
+                <span class="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                    💬 የቀጥታ ውይይት (Live Chat)
+                </span>
+                <span class="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">LIVE</span>
+            </div>
+
+            <!-- የመልእክቶች ማሳያ ሳጥን (Messages Container) -->
+            <div id="chat-messages-box" class="h-32 overflow-y-auto space-y-1.5 p-1 text-xs">
+                <div class="text-[10px] text-slate-400 text-center italic">እንኳን ወደ BKBINGO PRO የቀጥታ ቻት በደህና መጡ! 👋</div>
+            </div>
+
+            <!-- ፈጣን ኢሞጂዎች (Quick Emoji Reactions) -->
+            <div class="flex gap-1.5 overflow-x-auto py-1">
+                <button onclick="sendQuickEmoji('🔥')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">🔥</button>
+                <button onclick="sendQuickEmoji('🎉')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">🎉</button>
+                <button onclick="sendQuickEmoji('😂')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">😂</button>
+                <button onclick="sendQuickEmoji('👏')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">👏</button>
+                <button onclick="sendQuickEmoji('🤑')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">🤑</button>
+                <button onclick="sendQuickEmoji('😎')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">😎</button>
+            </div>
+
+            <!-- የመልእክት መፃፊያ እና መላኪያ (Input & Send Button) -->
+            <div class="flex gap-2">
+                <input type="text" id="chat-input-msg" placeholder="መልእክት ይጻፉ..." class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all">
+                    ላክ
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- FORGOT PASSWORD & OTP RECOVERY MODAL -->
@@ -1011,7 +1044,6 @@
             if(!gridContainer) return;
             gridContainer.innerHTML = '';
             
-            // የካርቴላ ብዛት ወደ 500 ከፍ ብሏል
             for (let i = 1; i <= 500; i++) {
                 const btn = document.createElement('div');
                 const isSelected = mySelectedCards.includes(i);
@@ -1230,6 +1262,63 @@
             if(previewContainer) previewContainer.innerHTML = '';
             initCartelaGrid();
             if(userId) socket.emit('get_user_balance', { user_id: userId });
+        });
+
+        // ==========================================
+        // LIVE CHAT & EMOJI REACTION FUNCTIONS
+        // ==========================================
+        function sendChatMessage() {
+            const inputEl = document.getElementById('chat-input-msg');
+            const msg = inputEl.value.trim();
+
+            if (!window.userId) {
+                alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return;
+            }
+
+            if (!msg) return;
+
+            socket.emit('send_chat_message', {
+                user_id: window.userId,
+                message: msg
+            });
+
+            inputEl.value = '';
+        }
+
+        function sendQuickEmoji(emoji) {
+            if (!window.userId) {
+                alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                return;
+            }
+
+            socket.emit('send_chat_message', {
+                user_id: window.userId,
+                message: emoji
+            });
+        }
+
+        socket.on('new_chat_message', (data) => {
+            const chatBox = document.getElementById('chat-messages-box');
+            if (!chatBox) return;
+
+            const isMyMsg = String(data.user_id) === String(window.userId);
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex flex-col ${isMyMsg ? 'items-end' : 'items-start'}`;
+
+            msgDiv.innerHTML = `
+                <div class="max-w-[85%] rounded-xl px-2.5 py-1.5 ${isMyMsg ? 'bg-purple-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'}">
+                    <div class="flex justify-between items-center gap-2 mb-0.5">
+                        <span class="text-[9px] font-bold ${isMyMsg ? 'text-purple-200' : 'text-amber-400'}">${isMyMsg ? 'እርስዎ' : data.sender_name}</span>
+                        <span class="text-[8px] opacity-60">${data.time}</span>
+                    </div>
+                    <p class="text-[11px] leading-snug break-words">${data.message}</p>
+                </div>
+            `;
+
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
         });
     </script>
 </body>
