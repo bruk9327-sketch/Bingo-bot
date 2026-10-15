@@ -1251,44 +1251,58 @@ def admin_broadcast_api():
     if not session.get('is_admin') and not session.get('admin_logged'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
-    message = request.form.get('message')
+    message = request.form.get('message', '')
     media_file = request.files.get('media')
 
-    if not message:
-        return jsonify({'success': False, 'message': 'እባክዎ የመልዕክት ጽሁፍ ያስገቡ!'}), 400
+    if not message and not media_file:
+        return jsonify({'success': False, 'message': 'እባክዎ የመልዕክት ጽሁፍ ወይም ፋይል ያስገቡ!'}), 400
 
     try:
-        socketio.emit('receive_broadcast', {'text': message})
+        if message:
+            socketio.emit('receive_broadcast', {'text': message})
 
-        if TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
+        if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
             all_users = User.query.all()
+            
             for u in all_users:
+                chat_id = u.user_id
+                
+                if not chat_id or not str(chat_id).isdigit():
+                    continue
+
                 try:
-                    chat_id = u.user_id
                     if media_file:
-                        filename = media_file.filename.lower()
-                        if filename.endswith(('.mp4', '.mov', '.avi')):
+                        media_file.seek(0)
+                        file_data = media_file.read()
+                        media_file.seek(0)
+                        
+                        filename = media_file.filename.lower() if media_file.filename else ''
+                        
+                        if filename.endswith(('.mp4', '.mov', '.avi', '.mkv')):
                             requests.post(
                                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo",
                                 data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
-                                files={'video': media_file.read()}
+                                files={'video': (media_file.filename, file_data, media_file.content_type)},
+                                timeout=10
                             )
                         else:
                             requests.post(
                                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
                                 data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
-                                files={'photo': media_file.read()}
+                                files={'photo': (media_file.filename, file_data, media_file.content_type)},
+                                timeout=10
                             )
-                        media_file.seek(0)
                     else:
                         requests.post(
                             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                            json={'chat_id': chat_id, 'text': message, 'parse_mode': 'Markdown'}
+                            json={'chat_id': chat_id, 'text': message, 'parse_mode': 'Markdown'},
+                            timeout=5
                         )
                 except Exception as ex:
-                    print(f"Telegram broadcast error for user: {ex}")
+                    print(f"Telegram broadcast error for user {chat_id}: {ex}")
 
-        return jsonify({'success': True, 'message': 'ብሮድካስቱ በተሳካ ሁኔታ ተልኳል!'}), 200
+        return jsonify({'success': True, 'message': 'ብሮድካስቱ በቴሌግራም እና በዌብሳይት በተሳካ ሁኔታ ተልኳል!'}), 200
+
     except Exception as e:
         print("Broadcast Route Error:", e)
         return jsonify({'success': False, 'message': 'የብሮድካስት ስህተት አጋጥሟል!'}), 500
