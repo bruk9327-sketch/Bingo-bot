@@ -331,6 +331,55 @@ def handle_register_user(data):
     emit('auth_response', {'success': False, 'msg': f'ስህተት ተፈጥሯል: {str(e)}'}, room=request.sid)
 
 
+@socketio.on('telegram_login')
+def handle_telegram_login(data):
+    """
+    በቴሌግራም ሚኒ አፕ (Mini App) በኩል የሚገቡ ተጫዋቾችን በቀጥታ ወደ Main Dashboard እንዲገቡ ማድረግ
+    """
+    tg_user = data.get('telegram_user', {})
+    user_id = str(tg_user.get('id', ''))
+    first_name = tg_user.get('first_name', '')
+    last_name = tg_user.get('last_name', '')
+    username = tg_user.get('username', f"user_{user_id}")
+    full_name = f"{first_name} {last_name}".strip() or username
+
+    if not user_id:
+        emit('auth_response', {'success': False, 'msg': 'የቴሌግራም መረጃ ማግኘት አልተቻለም!'}, room=request.sid)
+        return
+
+    # ተጠቃሚው በዳታቤዝ ውስጥ ካለ መፈለግ
+    user = User.query.filter_by(user_id=user_id).first()
+
+    # ተጠቃሚው ከዚህ ቀደም ካልተመዘገበ በአውቶማቲክ መመዝገብ
+    if not user:
+        user = User(
+            user_id=user_id,
+            full_name=full_name,
+            username=username,
+            phone=f"TG_{user_id}",
+            password=f"tg_pass_{user_id}",
+            balance=0.00,
+            is_active=True,
+            is_suspended=False,
+            kyc_verified=False
+        )
+        db.session.add(user)
+        db.session.commit()
+
+    if user.is_suspended:
+        emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
+        return
+
+    # በቀጥታ ተጠቃሚውን አውቶማቲክ Log In ማድረግ
+    emit('auth_response', {
+        'success': True,
+        'msg': f'እንኳን ደህና መጡ {full_name}!',
+        'user_id': user.user_id,
+        'balance': user.balance,
+        'full_name': user.full_name
+    }, room=request.sid)
+
+
 @socketio.on('send_otp_request')
 def handle_send_otp_request(data):
     identity = str(data.get('identity') or '').strip()
@@ -648,15 +697,12 @@ def handle_send_chat_message(data):
     if not user_id or not message:
         return
 
-    # የላኪውን ተጠቃሚ ስም ከዳታቤዝ መፈለግ
     user = User.query.filter_by(user_id=user_id).first()
     sender_name = user.full_name or user.username or f"ተጫዋች {user_id[-4:]}"
 
-    # መልእክቱ በጣም ረጅም እንዳይሆን መገደብ (እስከ 150 ፊደላት)
     if len(message) > 150:
         message = message[:150]
 
-    # ለሁሉም ኦንላይን ላለ ተጫዋች መልእክቱን ማሰራጨት (Broadcast)
     socketio.emit('new_chat_message', {
         'user_id': user_id,
         'sender_name': sender_name,
