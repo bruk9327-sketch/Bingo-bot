@@ -556,11 +556,20 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
 
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.expand();
-        }
-
+        // ቴሌግራም Mini App አውቶማቲክ መግቢያ (Telegram WebApp Auto Login)
         document.addEventListener("DOMContentLoaded", () => {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.expand(); // ሙሉ ስክሪን ማድረግ
+
+                const tgUser = tg.initDataUnsafe?.user;
+                
+                // ተጠቃሚው በቴሌግራም በኩል ከሆነ የገባው አውቶማቲክ Log In ያደርገዋል
+                if (tgUser && tgUser.id) {
+                    socket.emit('telegram_login', { telegram_user: tgUser });
+                }
+            }
+
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
 
@@ -715,7 +724,6 @@
         }
 
         socket.on('auth_response', (data) => {
-            alert((data.success ? "✅ " : "⚠️ ") + data.msg);
             if (data.success) {
                 userId = data.user_id;
                 window.userId = userId;
@@ -726,6 +734,8 @@
                 document.getElementById('game-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
+            } else {
+                alert("⚠️ " + data.msg);
             }
         });
 
