@@ -1278,19 +1278,19 @@ def admin_broadcast_api():
                         
                         filename = media_file.filename.lower() if media_file.filename else ''
                         
-                        if filename.endswith(('.mp4', '.mov', '.avi', '.mkv')):
+                        if filename.endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm')):
                             requests.post(
                                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo",
                                 data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
                                 files={'video': (media_file.filename, file_data, media_file.content_type)},
-                                timeout=10
+                                timeout=15
                             )
                         else:
                             requests.post(
                                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
                                 data={'chat_id': chat_id, 'caption': message, 'parse_mode': 'Markdown'},
                                 files={'photo': (media_file.filename, file_data, media_file.content_type)},
-                                timeout=10
+                                timeout=15
                             )
                     else:
                         requests.post(
