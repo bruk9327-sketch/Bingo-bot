@@ -453,7 +453,7 @@ def handle_send_otp_request(data):
         msg = Message(
             subject="BKBINGO PRO - የይለፍ ቃል ማግኛ ኮድ (OTP)",
             recipients=[user.email],
-            body=f"ሰላም {user.full_name or 'ተጫዋች'}፣\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
+            body=f"ሰላም {user.full_name or 'ተጫዋች'}၊\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
         )
         mail.send(msg)
 
@@ -1150,28 +1150,17 @@ def check_bingo_win(board):
   if not board or not isinstance(board, list):
     return False
   try:
-    # ቦርዱ በትክክል 5x5 መሆኑን ማረጋገጥ
-    if len(board) != 5:
-      return False
-      
-    # ረድፎችን (Rows) ማረጋገጥ
     for r in range(5):
       if all(board[r][c] for c in range(5)):
         return True
-        
-    # አምዶችን (Columns) ማረጋገጥ
     for c in range(5):
       if all(board[r][c] for r in range(5)):
         return True
-        
-    # ሰያፍ መስመሮችን (Diagonals) ማረጋገጥ
     if all(board[i][i] for i in range(5)):
       return True
     if all(board[i][4 - i] for i in range(5)):
       return True
-      
-  except Exception as e:
-    print("Check Bingo Error:", e)
+  except Exception:
     pass
   return False
 
