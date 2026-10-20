@@ -12,3 +12,4 @@ gevent-websocket==0.10.1
 psycopg2-binary==2.9.9
 cryptography
 psycopg[binary]
+Flask-Mail==0.9.1
