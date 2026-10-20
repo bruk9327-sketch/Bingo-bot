@@ -17,11 +17,22 @@ import sqlalchemy as sa
 from sqlalchemy import func
 import requests
 import urllib3
+from flask_mail import Mail, Message
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
+
+# SMTP (Flask-Mail) Configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER', 'your_email@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS', 'your_app_password')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER', 'your_email@gmail.com')
+
+mail = Mail(app)
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///bkbingo.db')
 if database_url.startswith('postgres://'):
@@ -245,9 +256,6 @@ def handle_connect():
 
 @socketio.on('get_user_active_cards')
 def handle_get_user_active_cards(data):
-    """
-    ተጫዋቹ ገጹን ሲያድስ (Refresh) ወይም ሲገባ የገዛቸውን ንቁ ካርቴላዎች እንዲያገኝ የሚያደርግ ኢቨንት
-    """
     user_id = str(data.get('user_id') or '')
     if not user_id:
         return
@@ -404,7 +412,7 @@ def handle_telegram_login(data):
 def handle_send_otp_request(data):
     identity = str(data.get('identity') or '').strip()
     if not identity:
-        emit('otp_sent_response', {'success': False, 'msg': 'እባክዎ ትክክለኛ መለያ ያስገቡ!'}, room=request.sid)
+        emit('otp_sent_response', {'success': False, 'msg': 'እባክዎ የተመዘገቡበትን ኢሜይል ወይም መለያ ያስገቡ!'}, room=request.sid)
         return
 
     user = User.query.filter(
@@ -416,25 +424,37 @@ def handle_send_otp_request(data):
         )
     ).first()
 
-    if not user:
-        emit('otp_sent_response', {'success': False, 'msg': 'ይህ መለያ በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
+    if not user or not user.email:
+        emit('otp_sent_response', {'success': False, 'msg': 'ይህ አካውንት ወይም የተያያዘ ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
         return
 
     otp_code = str(random.randint(100000, 999999))
-    OTP_STORAGE[identity] = {
+    
+    # ኮዱን በኢሜይል አድራሻው keyነት ማስቀመጥ
+    OTP_STORAGE[user.email] = {
         'otp': otp_code,
-        'expires': time.time() + 300
+        'expires': time.time() + 300  # ለ 5 ደቂቃ ብቻ የሚያገለግል
     }
 
-    admin_msg = (
-        f"🔐 *የይለፍ ቃል ማግኛ OTP ጥያቄ*\n\n"
-        f"- ተጠቃሚ: `{identity}`\n"
-        f"- የ OTP ኮድ: *`{otp_code}`*\n"
-        f"- (ለ 5 ደቂቃ ብቻ ያገለግላል)"
-    )
-    send_telegram_notification(admin_msg)
+    try:
+        msg = Message(
+            subject="BKBINGO PRO - የይለፍ ቃል ማግኛ ኮድ (OTP)",
+            recipients=[user.email],
+            body=f"ሰላም {user.full_name or 'ተጫዋች'}፣\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
+        )
+        mail.send(msg)
 
-    emit('otp_sent_response', {'success': True, 'msg': 'የማረጋገጫ ኮድ (OTP) ተልኳል። እባክዎ ኮዱን ያስገቡ።'}, room=request.sid)
+        emit('otp_sent_response', {
+            'success': True, 
+            'msg': f'የማረጋገጫ ኮድ (OTP) በኢሜይል አድራሻዎ ({user.email}) ተልኳል።'
+        }, room=request.sid)
+
+    except Exception as e:
+        print("SMTP Email Send Error:", e)
+        emit('otp_sent_response', {
+            'success': False, 
+            'msg': 'ኢሜይል መላክ አልተቻለም፤ እባክዎ የ SMTP ቅንብሮችዎን ይፈትሹ!'
+        }, room=request.sid)
 
 
 @socketio.on('verify_otp_and_reset')
@@ -447,7 +467,18 @@ def handle_verify_otp_and_reset(data):
         emit('password_reset_response', {'success': False, 'msg': 'እባክዎ መረጃውን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
         return
 
-    stored_data = OTP_STORAGE.get(identity)
+    user = User.query.filter(
+        sa.or_(
+            User.email == identity,
+            User.phone == identity,
+            User.username == identity,
+            User.user_id == identity
+        )
+    ).first()
+
+    target_key = user.email if user and user.email else identity
+    stored_data = OTP_STORAGE.get(target_key)
+
     if not stored_data:
         emit('password_reset_response', {'success': False, 'msg': 'እባክዎ መጀመሪያ የኮድ ጥያቄ ይላኩ!'}, room=request.sid)
         return
@@ -460,22 +491,13 @@ def handle_verify_otp_and_reset(data):
         emit('password_reset_response', {'success': False, 'msg': 'ያስገቡት የ OTP ኮድ ስህተት ነው!'}, room=request.sid)
         return
 
-    user = User.query.filter(
-        sa.or_(
-            User.email == identity,
-            User.phone == identity,
-            User.username == identity,
-            User.user_id == identity
-        )
-    ).first()
-
     if not user:
         emit('password_reset_response', {'success': False, 'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
         return
 
     user.password = new_password
     db.session.commit()
-    del OTP_STORAGE[identity]
+    del OTP_STORAGE[target_key]
 
     emit('password_reset_response', {'success': True, 'msg': 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል! አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ።'}, room=request.sid)
 
