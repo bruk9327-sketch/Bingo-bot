@@ -301,12 +301,10 @@
                 <span class="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">LIVE</span>
             </div>
 
-            <!-- የመልእክቶች ማሳያ ሳጥን (Messages Container) -->
             <div id="chat-messages-box" class="h-32 overflow-y-auto space-y-1.5 p-1 text-xs">
                 <div class="text-[10px] text-slate-400 text-center italic">እንኳን ወደ BKBINGO PRO የቀጥታ ቻት በደህና መጡ! 👋</div>
             </div>
 
-            <!-- ፈጣን ኢሞጂዎች (Quick Emoji Reactions) -->
             <div class="flex gap-1.5 overflow-x-auto py-1">
                 <button onclick="sendQuickEmoji('🔥')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">🔥</button>
                 <button onclick="sendQuickEmoji('🎉')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">🎉</button>
@@ -316,7 +314,6 @@
                 <button onclick="sendQuickEmoji('😎')" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg text-sm border border-slate-700 cursor-pointer">😎</button>
             </div>
 
-            <!-- የመልእክት መፃፊያ እና መላኪያ (Input & Send Button) -->
             <div class="flex gap-2">
                 <input type="text" id="chat-input-msg" placeholder="መልእክት ይጻፉ..." class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                 <button onclick="sendChatMessage()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all">
@@ -354,7 +351,7 @@
         </div>
     </div>
 
-    <!-- HISTORY MODAL (DYNAMICALLY LOADED) -->
+    <!-- HISTORY MODAL -->
     <div id="history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-sky-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
@@ -390,7 +387,7 @@
         </div>
     </div>
 
-    <!-- SUPPORT MODAL WITH TABS FOR SENDING & VIEWING REPLIES -->
+    <!-- SUPPORT MODAL -->
     <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-purple-500 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
@@ -401,13 +398,11 @@
                 <button onclick="closeSupportModal()" class="text-slate-400 hover:text-white font-bold text-base cursor-pointer">✕</button>
             </div>
 
-            <!-- TAB BUTTONS -->
             <div class="grid grid-cols-2 gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800 mb-3">
                 <button type="button" onclick="switchSupportTab('send')" id="tab-support-send" class="py-2 rounded-xl text-xs font-black bg-purple-600 text-white shadow">አዲስ ጥያቄ ላክ</button>
                 <button type="button" onclick="switchSupportTab('replies')" id="tab-support-replies" class="py-2 rounded-xl text-xs font-black text-slate-400">የተሰጡ ምላሾች (My Tickets)</button>
             </div>
 
-            <!-- TAB 1: SEND REQUEST FORM -->
             <div id="support-tab-send-content">
                 <p class="text-[10px] text-slate-300 mb-3 leading-relaxed">
                     በቢንጎ ጨዋታዎ ላይ ያጋጠሙዎትን ችግሮች ወይም ጥያቄዎች እዚህ በመሞላት ይላኩ; ድጋፍችን በፍጥነት ይመልሳል።
@@ -446,7 +441,6 @@
                 </form>
             </div>
 
-            <!-- TAB 2: MY TICKETS & ADMIN REPLIES -->
             <div id="support-tab-replies-content" class="hidden space-y-3">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-bold text-amber-400">የጥያቄዎችዎ ዝርዝር እና ምላሾች</span>
@@ -464,7 +458,6 @@
         </div>
     </div>
 
-    <!-- MODALS -->
     <!-- DEPOSIT MODAL -->
     <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
@@ -556,15 +549,11 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
 
-        // ቴሌግራም Mini App አውቶማቲክ መግቢያ (Telegram WebApp Auto Login)
         document.addEventListener("DOMContentLoaded", () => {
             if (window.Telegram && window.Telegram.WebApp) {
                 const tg = window.Telegram.WebApp;
-                tg.expand(); // ሙሉ ስክሪን ማድረግ
-
+                tg.expand();
                 const tgUser = tg.initDataUnsafe?.user;
-                
-                // ተጠቃሚው በቴሌግራም በኩል ከሆነ የገባው አውቶማቲክ Log In ያደርገዋል
                 if (tgUser && tgUser.id) {
                     socket.emit('telegram_login', { telegram_user: tgUser });
                 }
@@ -577,6 +566,8 @@
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
+                // ገጹን ሲያድስ ንቁ ካርቴላዎችን መጠየቅ
+                socket.emit('get_user_active_cards', { user_id: userId });
             } else {
                 document.getElementById('menu-dashboard').classList.add('hidden');
                 document.getElementById('auth-screen').classList.remove('hidden');
@@ -587,11 +578,54 @@
         socket.on('connect', () => {
             if (userId) {
                 socket.emit('get_user_balance', { user_id: userId });
+                socket.emit('get_user_active_cards', { user_id: userId });
             }
             initCartelaGrid();
         });
 
-        // Broadcast Push Notification Listener for clients
+        // ሪፍሬሽ ሲደረግ ወይም ተመልሶ ሲገባ የነበሩትን ካርቴላዎች መልሶ መጫን (Restore State)
+        socket.on('restore_user_cards', (data) => {
+            if (data.cards && data.cards.length > 0) {
+                mySelectedCards = [];
+                data.cards.forEach(c => {
+                    if (!mySelectedCards.includes(c.card_id)) {
+                        mySelectedCards.push(c.card_id);
+                    }
+                    cardsDatabase[c.card_id] = c.matrix;
+                    if (!markedNumbersMap[c.card_id]) {
+                        markedNumbersMap[c.card_id] = new Set();
+                    }
+                });
+
+                if (data.drawn_balls && data.drawn_balls.length > 0) {
+                    drawnNumbersSet.clear();
+                    drawnNumbersList = [];
+                    data.drawn_balls.forEach(num => {
+                        drawnNumbersSet.add(num);
+                        drawnNumbersList.push(num);
+                    });
+                }
+
+                if (data.game_active) {
+                    document.getElementById('menu-dashboard').classList.add('hidden');
+                    document.getElementById('selection-screen').classList.add('hidden');
+                    document.getElementById('game-screen').classList.remove('hidden');
+
+                    const container = document.getElementById('my-cards-container');
+                    if (container) {
+                        container.innerHTML = '';
+                        mySelectedCards.forEach(cid => {
+                            container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
+                        });
+                    }
+                    updateCalledNumbersUI();
+                } else {
+                    renderPreviewCards();
+                }
+                initCartelaGrid();
+            }
+        });
+
         socket.on('receive_broadcast', (data) => {
             alert("📢 አዲስ ማስታወቂያ ከአድሚን:\n\n" + data.text);
         });
@@ -734,6 +768,7 @@
                 document.getElementById('game-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
+                socket.emit('get_user_active_cards', { user_id: userId });
             } else {
                 alert("⚠️ " + data.msg);
             }
@@ -754,6 +789,7 @@
             document.getElementById('selection-screen').classList.remove('hidden');
             initCartelaGrid();
             socket.emit('get_user_balance', { user_id: userId });
+            socket.emit('get_user_active_cards', { user_id: userId });
         }
 
         function backToMenu() {
@@ -761,7 +797,6 @@
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
-        // DYNAMIC HISTORY MODAL LOADER
         function openHistoryModal() { 
             document.getElementById('history-modal').classList.remove('hidden');
             fetchUserHistory();
@@ -1274,9 +1309,6 @@
             if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
-        // ==========================================
-        // LIVE CHAT & EMOJI REACTION FUNCTIONS
-        // ==========================================
         function sendChatMessage() {
             const inputEl = document.getElementById('chat-input-msg');
             const msg = inputEl.value.trim();
