@@ -243,6 +243,32 @@ def handle_connect():
       emit('sync_sold_cards', {'sold_cards': sold_cards_in_round})
 
 
+@socketio.on('get_user_active_cards')
+def handle_get_user_active_cards(data):
+    """
+    ተጫዋቹ ገጹን ሲያድስ (Refresh) ወይም ሲገባ የገዛቸውን ንቁ ካርቴላዎች እንዲያገኝ የሚያደርግ ኢቨንት
+    """
+    user_id = str(data.get('user_id') or '')
+    if not user_id:
+        return
+
+    user_cards = []
+    for item in sold_cards_in_round:
+        if str(item.get('user_id')) == str(user_id):
+            cid = item.get('card_id')
+            matrix = generate_bingo_matrix(cid)
+            user_cards.append({
+                'card_id': cid,
+                'matrix': matrix
+            })
+
+    emit('restore_user_cards', {
+        'game_active': game_active,
+        'cards': user_cards,
+        'drawn_balls': drawn_balls
+    }, room=request.sid)
+
+
 @socketio.on('login_user')
 def handle_login_user(data):
   identifier = str(data.get('identifier') or '').strip()
@@ -333,9 +359,6 @@ def handle_register_user(data):
 
 @socketio.on('telegram_login')
 def handle_telegram_login(data):
-    """
-    በቴሌግራም ሚኒ አፕ (Mini App) በኩል የሚገቡ ተጫዋቾችን በቀጥታ ወደ Main Dashboard እንዲገቡ ማድረግ
-    """
     tg_user = data.get('telegram_user', {})
     user_id = str(tg_user.get('id', ''))
     first_name = tg_user.get('first_name', '')
@@ -347,10 +370,8 @@ def handle_telegram_login(data):
         emit('auth_response', {'success': False, 'msg': 'የቴሌግራም መረጃ ማግኘት አልተቻለም!'}, room=request.sid)
         return
 
-    # ተጠቃሚው በዳታቤዝ ውስጥ ካለ መፈለግ
     user = User.query.filter_by(user_id=user_id).first()
 
-    # ተጠቃሚው ከዚህ ቀደም ካልተመዘገበ በአውቶማቲክ መመዝገብ
     if not user:
         user = User(
             user_id=user_id,
@@ -370,7 +391,6 @@ def handle_telegram_login(data):
         emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
         return
 
-    # በቀጥታ ተጠቃሚውን አውቶማቲክ Log In ማድረግ
     emit('auth_response', {
         'success': True,
         'msg': f'እንኳን ደህና መጡ {full_name}!',
@@ -686,9 +706,6 @@ def handle_admin_broadcast(data):
     socketio.emit('receive_broadcast', {'text': message})
 
 
-# ==========================================
-# LIVE CHAT & EMOJI REACTION SOCKET EVENT
-# ==========================================
 @socketio.on('send_chat_message')
 def handle_send_chat_message(data):
     user_id = str(data.get('user_id', ''))
@@ -754,10 +771,7 @@ def receive_sms():
         sender = data.get('sender', '')
         message = data.get('message', '')
         
-        print(f"Received SMS from {sender}: {message}")
-        
         if "BIRUK RETA" not in message and "BIRUK RETA DARGE" not in message and "you received" not in message.lower():
-            print("Ignored SMS: Not a valid merchant transaction receipt.")
             return "ignored - not merchant", 200
 
         tid = extract_transaction_info(message)
