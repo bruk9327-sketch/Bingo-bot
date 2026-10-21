@@ -512,13 +512,17 @@
         </div>
     </div>
 
-    <!-- WINNER MODAL -->
+    <!-- WINNER MODAL (Updated to support multi-winners display properly) -->
     <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-amber-500 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
             <div class="text-3xl mb-2">🎉</div>
-            <h3 id="winner-name" class="text-base font-black text-amber-400 mb-1">አሸናፊ!</h3>
-            <p class="text-xs text-slate-300 mb-3">ሽልማት: <span id="winner-prize" class="font-black text-emerald-400">0.00 ETB</span></p>
-            <div id="winner-card-matrix" class="mb-4"></div>
+            <h3 id="winner-title" class="text-base font-black text-amber-400 mb-1">ቢንጎ አሸናፊ(ዎች) ተገኙ!</h3>
+            <p class="text-xs text-slate-300 mb-3">ጠቅላላ ሽልማት: <span id="winner-total-prize" class="font-black text-emerald-400">0.00 ETB</span></p>
+            
+            <div id="winners-list-container" class="space-y-3 mb-4 text-left">
+                <!-- Multi-winners details rendered dynamically here -->
+            </div>
+
             <button onclick="closeWinnerModal()" class="w-full py-2.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
         </div>
     </div>
@@ -566,7 +570,6 @@
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
                 socket.emit('get_user_balance', { user_id: userId });
-                // ገጹን ሲያድስ ንቁ ካርቴላዎችን መጠየቅ
                 socket.emit('get_user_active_cards', { user_id: userId });
             } else {
                 document.getElementById('menu-dashboard').classList.add('hidden');
@@ -583,7 +586,6 @@
             initCartelaGrid();
         });
 
-        // ሪፍሬሽ ሲደረግ ወይም ተመልሶ ሲገባ የነበሩትን ካርቴላዎች መልሶ መጫን (Restore State)
         socket.on('restore_user_cards', (data) => {
             if (data.cards && data.cards.length > 0) {
                 mySelectedCards = [];
@@ -1281,16 +1283,36 @@
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
+        // Updated winner_announced handler to support multiple winners nicely
         socket.on('winner_announced', (data) => {
-            const wName = document.getElementById('winner-name');
-            const wPrize = document.getElementById('winner-prize');
-            if(wName) wName.innerText = `${data.winner_name || 'ተጫዋች'} አሸንፏል!`;
-            if(wPrize) wPrize.innerText = `${parseFloat(data.prize || 0).toFixed(2)} ETB`;
-            const wGrid = document.getElementById('winner-card-matrix');
-            if(wGrid) {
-                wGrid.innerHTML = '';
-                if(data.card_matrix) wGrid.appendChild(createCardHTML(data.card_id, data.card_matrix, false));
+            const totalPrizeEl = document.getElementById('winner-total-prize');
+            const winnersContainer = document.getElementById('winners-list-container');
+            
+            if(totalPrizeEl) totalPrizeEl.innerText = `${parseFloat(data.total_prize || 0).toFixed(2)} ETB`;
+            
+            if(winnersContainer) {
+                winnersContainer.innerHTML = '';
+                const winnersList = data.winners || [{
+                    winner_name: data.winner_name,
+                    prize: data.prize,
+                    card_id: data.card_id,
+                    card_matrix: data.card_matrix
+                }];
+
+                winnersList.forEach(w => {
+                    const wBox = document.createElement('div');
+                    wBox.className = "bg-slate-900 p-3 rounded-2xl border border-slate-800 space-y-2";
+                    wBox.innerHTML = `
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-black text-amber-400">🏆 ${w.winner_name}</span>
+                            <span class="font-bold text-emerald-400">${parseFloat(w.prize || 0).toFixed(2)} ETB</span>
+                        </div>
+                        <div class="text-[10px] text-slate-300">ካርቴላ #${w.card_id}</div>
+                    `;
+                    winnersContainer.appendChild(wBox);
+                });
             }
+
             document.getElementById('winner-modal').classList.remove('hidden');
         });
 
