@@ -453,7 +453,7 @@ def handle_send_otp_request(data):
         msg = Message(
             subject="BKBINGO PRO - የይለፍ ቃል ማግኛ ኮድ (OTP)",
             recipients=[user.email],
-            body=f"ሰላም {user.full_name or 'ተጫዋች'}၊\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
+            body=f"ሰላም {user.full_name or 'ተጫዋች'}፣\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
         )
         mail.send(msg)
 
@@ -1132,7 +1132,6 @@ def handle_claim_bingo(data):
   if not game_active:
     return
 
-  # ቦርዱ በትክክል ማሸነፉን በሰርቨር በኩል ማረጋገጥ (check_bingo_win)
   if check_bingo_win(board, drawn_balls):
     with winner_lock:
         already_claimed = any(w['user_id'] == user_id and w['card_id'] == card_id for w in round_winners)
@@ -1154,7 +1153,6 @@ def check_bingo_win(board, current_drawn_balls):
     if len(board) != 5:
       return False
       
-    # እያንዳንዱ ቁጥር ከወጡት ኳሶች (drawn_balls) ጋር መኖሩን ወይም 'FREE' መሆኑን ማረጋገጥ
     marked_board = []
     for r in range(5):
       row_vals = []
@@ -1172,19 +1170,17 @@ def check_bingo_win(board, current_drawn_balls):
           row_vals.append(False)
       marked_board.append(row_vals)
 
-    # ረድፎችን (Rows) ማረጋገጥ
     for r in range(5):
       if all(marked_board[r][c] for c in range(5)):
         return True
         
-    # አምዶችን (Columns) ማረጋገጥ
     for c in range(5):
       if all(marked_board[r][c] for r in range(5)):
         return True
         
-    # ሰያፍ መስመሮችን (Diagonals) ማረጋገጥ
     if all(marked_board[i][i] for i in range(5)):
       return True
+      
     if all(marked_board[i][4 - i] for i in range(5)):
       return True
       
@@ -1426,7 +1422,7 @@ def admin_broadcast_api():
 
         return jsonify({'success': True, 'message': 'ብሮድካስቱ በቴሌግራም እና በዌብሳይት በተሳካ ሁኔታ ተልኳል!'}), 200
 
-     except Exception as e:
+    except Exception as e:
         print("Broadcast Route Error:", e)
         return jsonify({'success': False, 'message': 'የብሮድካስት ስህተት አጋጥሟል!'}), 500
 
