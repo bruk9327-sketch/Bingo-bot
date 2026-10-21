@@ -1426,7 +1426,7 @@ def admin_broadcast_api():
 
         return jsonify({'success': True, 'message': 'ብሮድካስቱ በቴሌግራም እና በዌብሳይት በተሳካ ሁኔታ ተልኳል!'}), 200
 
-    .except Exception as e:
+     except Exception as e:
         print("Broadcast Route Error:", e)
         return jsonify({'success': False, 'message': 'የብሮድካስት ስህተት አጋጥሟል!'}), 500
 
