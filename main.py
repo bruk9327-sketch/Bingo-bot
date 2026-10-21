@@ -1074,52 +1074,53 @@ def generate_bingo_matrix(seed_val):
 
 def finalize_round_winners():
     global game_active, round_winners, sold_cards_in_round
-    with winner_lock:
-        if not round_winners:
-            return
+    with app.app_context():
+        with winner_lock:
+            if not round_winners:
+                return
 
-        game_active = False
-        total_pool = len(sold_cards_in_round) * 10.00
-        total_prize = max(total_pool * 0.90, 8)
-        
-        num_winners = len(round_winners)
-        prize_per_winner = round(total_prize / num_winners, 2)
-
-        winner_details = []
-
-        for winner in round_winners:
-            uid = winner['user_id']
-            cid = winner['card_id']
+            game_active = False
+            total_pool = len(sold_cards_in_round) * 10.00
+            total_prize = max(total_pool * 0.90, 8)
             
-            user = User.query.filter_by(user_id=uid).first()
-            if user:
-                user.balance = float(user.balance) + float(prize_per_winner)
-                db.session.commit()
-                full_name = user.full_name or f'ተጫዋች {uid}'
-                socketio.emit('balance_update', {'user_id': uid, 'balance': float(user.balance)})
-            else:
-                full_name = f'ተጫዋች {uid}'
+            num_winners = len(round_winners)
+            prize_per_winner = round(total_prize / num_winners, 2)
 
-            matrix = generate_bingo_matrix(cid)
-            winner_details.append({
-                'user_id': uid,
-                'winner_name': full_name,
-                'card_id': cid,
-                'card_matrix': matrix,
-                'prize': prize_per_winner
+            winner_details = []
+
+            for winner in round_winners:
+                uid = winner['user_id']
+                cid = winner['card_id']
+                
+                user = User.query.filter_by(user_id=uid).first()
+                if user:
+                    user.balance = float(user.balance) + float(prize_per_winner)
+                    db.session.commit()
+                    full_name = user.full_name or f'ተጫዋች {uid}'
+                    socketio.emit('balance_update', {'user_id': uid, 'balance': float(user.balance)})
+                else:
+                    full_name = f'ተጫዋች {uid}'
+
+                matrix = generate_bingo_matrix(cid)
+                winner_details.append({
+                    'user_id': uid,
+                    'winner_name': full_name,
+                    'card_id': cid,
+                    'card_matrix': matrix,
+                    'prize': prize_per_winner
+                })
+
+            winners_names = ", ".join([w['winner_name'] for w in winner_details])
+            send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር')
+
+            socketio.emit('winner_announced', {
+                'winners': winner_details,
+                'total_prize': total_prize,
+                'prize_per_winner': prize_per_winner,
+                'winner_count': num_winners
             })
 
-        winners_names = ", ".join([w['winner_name'] for w in winner_details])
-        send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር')
-
-        socketio.emit('winner_announced', {
-            'winners': winner_details,
-            'total_prize': total_prize,
-            'prize_per_winner': prize_per_winner,
-            'winner_count': num_winners
-        })
-
-        round_winners = []
+            round_winners = []
 
 
 @socketio.on('claim_bingo')
