@@ -1154,15 +1154,18 @@ def check_bingo_win(board, current_drawn_balls):
       return False
       
     marked_board = []
+    # drawn_balls ያሉትን ቁጥሮች ወደ ኢንቲጀር (Integer Set) እንለውጣቸዋለን
+    drawn_set = {int(b) for b in current_drawn_balls}
+
     for r in range(5):
       row_vals = []
       for c in range(5):
         val = board[r][c]
-        if val == 'FREE' or val is True or val == 1:
+        if val == 'FREE' or val is True or val == 1 or val == 'True':
           row_vals.append(True)
         elif isinstance(val, (int, float, str)) and str(val).isdigit():
           num = int(val)
-          if num in current_drawn_balls:
+          if num in drawn_set:
             row_vals.append(True)
           else:
             row_vals.append(False)
@@ -1170,17 +1173,21 @@ def check_bingo_win(board, current_drawn_balls):
           row_vals.append(False)
       marked_board.append(row_vals)
 
+    # 1. ሆሪዞንታል መስመሮች (Horizontal Rows)
     for r in range(5):
       if all(marked_board[r][c] for c in range(5)):
         return True
         
+    # 2. ቨርቲካል ዓምዶች (Vertical Columns)
     for c in range(5):
       if all(marked_board[r][c] for r in range(5)):
         return True
         
+    # 3. ዋናው ዲያጎናል (Main Diagonal)
     if all(marked_board[i][i] for i in range(5)):
       return True
       
+    # 4. ተቃራኒው ዲያጎናል (Anti-Diagonal)
     if all(marked_board[i][4 - i] for i in range(5)):
       return True
       
