@@ -512,7 +512,7 @@
         </div>
     </div>
 
-    <!-- WINNER MODAL (Updated to support multi-winners display properly) -->
+    <!-- WINNER MODAL -->
     <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-amber-500 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
             <div class="text-3xl mb-2">🎉</div>
@@ -1267,8 +1267,17 @@
                     if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
-                    let boardValidationMatrix = matrixData.map(row => row.map(val => val === 'FREE' || markedSet.has(val)));
-                    socket.emit('claim_bingo', { user_id: window.userId, card_id: cid, board: boardValidationMatrix });
+                    
+                    // ማትሪክሱን እና ምልክት የተደረገባቸውን ቁጥሮች በትክክል ወደ ቡሊያን (True/False) እንለውጣለን
+                    let boardValidationMatrix = matrixData.map(row => 
+                        row.map(val => val === 'FREE' || markedSet.has(val) || markedSet.has(String(val)))
+                    );
+                    
+                    socket.emit('claim_bingo', { 
+                        user_id: window.userId, 
+                        card_id: cid, 
+                        board: boardValidationMatrix 
+                    });
                 };
                 cardDiv.appendChild(claimBtn);
             }
@@ -1283,7 +1292,6 @@
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
-        // Updated winner_announced handler to support multiple winners nicely
         socket.on('winner_announced', (data) => {
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const winnersContainer = document.getElementById('winners-list-container');
