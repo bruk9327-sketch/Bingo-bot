@@ -64,25 +64,11 @@ available_numbers = list(range(1, 76))
 
 OTP_STORAGE = {}
 
-# አሸናፊዎችን ለመሰብሰብ የሚያገለግሉ ግሎባል ተለዋዋጮች
-round_winners = []
-winner_lock = threading.Lock()
-winner_timer = None
-
 
 def background_game_loop():
-  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers, round_winners, winner_timer
+  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers
   while True:
     try:
-      with winner_lock:
-        round_winners = []
-        if winner_timer:
-          try:
-            winner_timer.cancel()
-          except:
-            pass
-          winner_timer = None
-
       game_active = False
       game_timer = 15
       taken_cards_global = []
@@ -444,16 +430,17 @@ def handle_send_otp_request(data):
 
     otp_code = str(random.randint(100000, 999999))
     
+    # ኮዱን በኢሜይል አድራሻው keyነት ማስቀመጥ
     OTP_STORAGE[user.email] = {
         'otp': otp_code,
-        'expires': time.time() + 300
+        'expires': time.time() + 300  # ለ 5 ደቂቃ ብቻ የሚያገለግል
     }
 
     try:
         msg = Message(
             subject="BKBINGO PRO - የይለፍ ቃል ማግኛ ኮድ (OTP)",
             recipients=[user.email],
-            body=f"ሰላም {user.full_name or 'ተጫዋች'}၊\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
+            body=f"ሰላም {user.full_name or 'ተጫዋች'}፣\n\nየይለፍ ቃልዎን ለመቀየር የተጠየቀው የማረጋገጫ ኮድ (OTP): {otp_code} ነው።\nይህ ኮድ የሚያገለግለው ለ 5 ደቂቃዎች ብቻ ነው።\n\nእናመሰግናለን!\nBKBINGO PRO Team"
         )
         mail.send(msg)
 
@@ -1072,78 +1059,33 @@ def generate_bingo_matrix(seed_val):
   return matrix
 
 
-def finalize_round_winners():
-    global game_active, round_winners, sold_cards_in_round
-    with winner_lock:
-        if not round_winners:
-            return
-
-        game_active = False
-        total_pool = len(sold_cards_in_round) * 10.00
-        total_prize = max(total_pool * 0.90, 8)
-        
-        num_winners = len(round_winners)
-        prize_per_winner = round(total_prize / num_winners, 2)
-
-        winner_details = []
-
-        for winner in round_winners:
-            uid = winner['user_id']
-            cid = winner['card_id']
-            
-            user = User.query.filter_by(user_id=uid).first()
-            if user:
-                user.balance = float(user.balance) + float(prize_per_winner)
-                db.session.commit()
-                full_name = user.full_name or f'ተጫዋች {uid}'
-                socketio.emit('balance_update', {'user_id': uid, 'balance': float(user.balance)})
-            else:
-                full_name = f'ተጫዋች {uid}'
-
-            matrix = generate_bingo_matrix(cid)
-            winner_details.append({
-                'user_id': uid,
-                'winner_name': full_name,
-                'card_id': cid,
-                'card_matrix': matrix,
-                'prize': prize_per_winner
-            })
-
-        winners_names = ", ".join([w['winner_name'] for w in winner_details])
-        send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር')
-
-        socketio.emit('winner_announced', {
-            'winners': winner_details,
-            'total_prize': total_prize,
-            'prize_per_winner': prize_per_winner,
-            'winner_count': num_winners
-        })
-
-        round_winners = []
-
-
 @socketio.on('claim_bingo')
 def handle_claim_bingo(data):
-  global game_active, round_winners, winner_timer
+  global game_active
   user_id = str(data.get('user_id'))
   card_id = data.get('card_id')
   board = data.get('board')
 
-  if not game_active:
-    return
-
   if check_bingo_win(board):
-    with winner_lock:
-        already_claimed = any(w['user_id'] == user_id and w['card_id'] == card_id for w in round_winners)
-        if not already_claimed:
-            round_winners.append({
-                'user_id': user_id,
-                'card_id': card_id
-            })
+    game_active = False
+    total_pool = len(sold_cards_in_round) * 10.00
+    prize_amount = max(total_pool * 0.90, 8)
 
-        if len(round_winners) == 1:
-            winner_timer = threading.Timer(3.0, finalize_round_winners)
-            winner_timer.start()
+    user = User.query.filter_by(user_id=user_id).first()
+    if user:
+      user.balance = float(user.balance) + float(prize_amount)
+      db.session.commit()
+      balance = user.balance
+      full_name = user.full_name or f'ተጫዋች {user_id}'
+    else:
+      balance = float(prize_amount)
+      full_name = f'ተጫዋች {user_id}'
+
+    send_telegram_notification(f'🏆 *ቢንጎ አሸናፊ ተገኘ!*\n- ተጫዋች ID: `{user_id}`')
+    matrix = generate_bingo_matrix(card_id)
+    
+    emit('balance_update', {'user_id': user_id, 'balance': float(balance)}, room=request.sid)
+    socketio.emit('winner_announced', {'winner_name': full_name, 'prize': prize_amount, 'card_id': card_id, 'card_matrix': matrix})
 
 
 def check_bingo_win(board):
