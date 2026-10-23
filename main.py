@@ -454,20 +454,31 @@ def handle_link_telegram_account(data):
         emit('auth_response', {'success': False, 'msg': 'ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
         return
 
-    tg_temp_user = User.query.filter_by(user_id=tg_id).first()
-    if tg_temp_user and tg_temp_user.id != existing_user.id:
-        db.session.delete(tg_temp_user)
+    try:
+        tg_temp_user = User.query.filter_by(user_id=tg_id).first()
+        
+        if tg_temp_user and tg_temp_user.id != existing_user.id:
+            if tg_temp_user.balance > 0:
+                existing_user.balance = float(existing_user.balance) + float(tg_temp_user.balance)
+            
+            db.session.delete(tg_temp_user)
+            db.session.commit()
 
-    existing_user.user_id = tg_id
-    db.session.commit()
+        existing_user.user_id = tg_id
+        db.session.commit()
 
-    emit('auth_response', {
-        'success': True,
-        'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ብር',
-        'user_id': existing_user.user_id,
-        'balance': existing_user.balance,
-        'full_name': existing_user.full_name
-    }, room=request.sid)
+        emit('auth_response', {
+            'success': True,
+            'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ብር',
+            'user_id': existing_user.user_id,
+            'balance': existing_user.balance,
+            'full_name': existing_user.full_name
+        }, room=request.sid)
+
+    except Exception as e:
+        db.session.rollback()
+        print("Telegram Account Linking Error:", str(e))
+        emit('auth_response', {'success': False, 'msg': 'አካውንቱን ማያያዝ አልተቻለም፤ እባክዎ እንደገና ይሞክሩ!'}, room=request.sid)
 
 
 @socketio.on('send_otp_request')
