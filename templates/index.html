@@ -330,6 +330,23 @@
         </div>
     </div>
 
+    <!-- TELEGRAM ACCOUNT LINKING MODAL -->
+    <div id="telegram-link-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl text-center space-y-3">
+            <div class="text-3xl mb-1">🔗</div>
+            <h3 class="text-sm font-black text-purple-400">አካውንት ማስተሳሰር (Account Linking)</h3>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+                በብራውዘር የተመዘገበ አካውንት (ቀሪ ሂሳብ ያለው) ካለዎት ከዚህ የቴሌግራም አካውንትዎ ጋር ለማያያዝ ስልክ ቁጥርዎን ወይም ኢሜይልዎን ያስገቡ።
+            </p>
+            <input type="text" id="link-identifier" placeholder="ስልክ ቁጥር (09...) ወይም ኢሜይል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white text-center">
+            
+            <div class="flex gap-2 pt-1">
+                <button type="button" onclick="skipTelegramLinking()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">ዝለል (Skip)</button>
+                <button type="button" onclick="submitTelegramLinking()" class="w-1/2 py-2.5 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg">አያይዝ (Link)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- FORGOT PASSWORD & OTP RECOVERY MODAL -->
     <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
@@ -559,6 +576,7 @@
         let drawnNumbersSet = new Set();
         let markedNumbersMap = {};
         let cardsDatabase = {};
+        let currentTelegramUser = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             if (window.Telegram && window.Telegram.WebApp) {
@@ -566,6 +584,7 @@
                 tg.expand();
                 const tgUser = tg.initDataUnsafe?.user;
                 if (tgUser && tgUser.id) {
+                    currentTelegramUser = tgUser;
                     socket.emit('telegram_login', { telegram_user: tgUser });
                 }
             }
@@ -773,6 +792,7 @@
                 window.userId = userId;
                 localStorage.setItem('bk_user_id', userId);
 
+                document.getElementById('telegram-link-modal').classList.add('hidden');
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('selection-screen').classList.add('hidden');
                 document.getElementById('game-screen').classList.add('hidden');
@@ -783,6 +803,32 @@
                 alert("⚠️ " + data.msg);
             }
         });
+
+        // Telegram Account Linking Functions
+        function promptTelegramLinkingIfNeeded() {
+            if (currentTelegramUser && currentTelegramUser.id) {
+                document.getElementById('telegram-link-modal').classList.remove('hidden');
+            }
+        }
+
+        function submitTelegramLinking() {
+            const identifier = document.getElementById('link-identifier').value.trim();
+            if (!identifier) {
+                return alert("⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
+            }
+            if (!currentTelegramUser || !currentTelegramUser.id) {
+                return alert("⚠️ የቴሌግራም መረጃ ማግኘት አልተቻለም!");
+            }
+
+            socket.emit('link_telegram_account', {
+                telegram_id: String(currentTelegramUser.id),
+                identifier: identifier
+            });
+        }
+
+        function skipTelegramLinking() {
+            document.getElementById('telegram-link-modal').classList.add('hidden');
+        }
 
         function logoutToAuth() {
             localStorage.removeItem('bk_user_id');
@@ -814,7 +860,7 @@
             const container = document.getElementById('my-cards-container');
             if (container) {
                 container.innerHTML = '';
-                container.style.display = 'none'; // ካርቴላዎች እንዲደበቁ ይደረጋል
+                container.style.display = 'none';
             }
             updateCalledNumbersUI();
             socket.emit('get_user_balance', { user_id: userId });
