@@ -394,10 +394,8 @@ def handle_telegram_login(data):
         emit('auth_response', {'success': False, 'msg': 'የቴሌግራም መረጃ ማግኘት አልተቻለም!'}, room=request.sid)
         return
 
-    # መጀመሪያ በቴሌግራም ID የተመዘገበ አለ ወይ እንይ
     user = User.query.filter_by(user_id=tg_id).first()
 
-    # ካልተገኘ በዩዘርኔም ወይም በስልክ ፍለጋ እናድርግ (Account Unification)
     if not user:
         user = User.query.filter(
             sa.or_(
@@ -447,7 +445,8 @@ def handle_link_telegram_account(data):
         sa.or_(
             User.email == identifier,
             User.phone == identifier,
-            User.user_id == identifier
+            User.user_id == identifier,
+            User.username == identifier
         )
     ).first()
 
@@ -455,9 +454,16 @@ def handle_link_telegram_account(data):
         emit('auth_response', {'success': False, 'msg': 'ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
         return
 
+    tg_temp_user = User.query.filter_by(user_id=tg_id).first()
+    if tg_temp_user and tg_temp_user.id != existing_user.id:
+        db.session.delete(tg_temp_user)
+
+    existing_user.user_id = tg_id
+    db.session.commit()
+
     emit('auth_response', {
         'success': True,
-        'msg': 'አካውንትዎ በተሳካ ሁኔታ ተያይዟል!',
+        'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ብር',
         'user_id': existing_user.user_id,
         'balance': existing_user.balance,
         'full_name': existing_user.full_name
