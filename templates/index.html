@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="am">
 <head>
@@ -121,10 +122,6 @@
 
         <button onclick="openGameSelection()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-purple-600/30 border border-purple-400/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
-        </button>
-
-        <button onclick="openWatchLiveScreen()" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-2xl font-black text-xs shadow-xl border border-purple-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
-            <span class="text-base">👀</span> የቀጥታ ጨዋታውን ተመልከት (Watch Live)
         </button>
 
         <a href="/admin-login" style="text-decoration: none;" class="block w-full">
@@ -253,12 +250,9 @@
                     <p class="text-[7px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="backToMenuFromGame()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
-                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
-                    <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
-                    <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
-                </div>
+            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
+                <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
+                <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
             </div>
         </div>
 
@@ -326,23 +320,6 @@
                 <button onclick="sendChatMessage()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center justify-center cursor-pointer active:scale-95 transition-all">
                     ላክ
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- TELEGRAM ACCOUNT LINKING MODAL -->
-    <div id="telegram-link-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-        <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl text-center space-y-3">
-            <div class="text-3xl mb-1">🔗</div>
-            <h3 class="text-sm font-black text-purple-400">አካውንት ማስተሳሰር (Account Linking)</h3>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-                በብራውዘር የተመዘገበ አካውንት (ቀሪ ሂሳብ ያለው) ካለዎት ከዚህ የቴሌግራም አካውንትዎ ጋር ለማያያዝ ስልክ ቁጥርዎን ወይም ኢሜይልዎን ያስገቡ።
-            </p>
-            <input type="text" id="link-identifier" placeholder="ስልክ ቁጥር (09...) ወይም ኢሜይል" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white text-center">
-            
-            <div class="flex gap-2 pt-1">
-                <button type="button" onclick="skipTelegramLinking()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">ዝለል (Skip)</button>
-                <button type="button" onclick="submitTelegramLinking()" class="w-1/2 py-2.5 bg-purple-600 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg">አያይዝ (Link)</button>
             </div>
         </div>
     </div>
@@ -576,7 +553,6 @@
         let drawnNumbersSet = new Set();
         let markedNumbersMap = {};
         let cardsDatabase = {};
-        let currentTelegramUser = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             if (window.Telegram && window.Telegram.WebApp) {
@@ -584,13 +560,7 @@
                 tg.expand();
                 const tgUser = tg.initDataUnsafe?.user;
                 if (tgUser && tgUser.id) {
-                    currentTelegramUser = tgUser;
                     socket.emit('telegram_login', { telegram_user: tgUser });
-                    
-                    // 🌟 አካውንቱ ገና ያልተያያዘ ከሆነ ብቻ ሞዳሉ ብቅ እንዲል እናደርጋለን
-                    setTimeout(() => {
-                        promptTelegramLinkingIfNeeded();
-                    }, 1200);
                 }
             }
 
@@ -647,7 +617,6 @@
                     const container = document.getElementById('my-cards-container');
                     if (container) {
                         container.innerHTML = '';
-                        container.style.display = 'block';
                         mySelectedCards.forEach(cid => {
                             container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
                         });
@@ -797,7 +766,6 @@
                 window.userId = userId;
                 localStorage.setItem('bk_user_id', userId);
 
-                // 🌟 ሞዳሉ በአግባቡ እንዲቆይ እና ወዲያው እንዳይዘጋ ከዚህ ተወግዷል
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('selection-screen').classList.add('hidden');
                 document.getElementById('game-screen').classList.add('hidden');
@@ -808,40 +776,6 @@
                 alert("⚠️ " + data.msg);
             }
         });
-
-        // Telegram Account Linking Functions
-        function promptTelegramLinkingIfNeeded() {
-            if (currentTelegramUser && currentTelegramUser.id) {
-                document.getElementById('telegram-link-modal').classList.remove('hidden');
-            }
-        }
-
-        function submitTelegramLinking() {
-            const identifier = document.getElementById('link-identifier').value.trim();
-            if (!identifier) {
-                return alert("⚠️ እባክዎ ስልክ ቁጥር (09...) ወይም ኢሜይል ያስገቡ!");
-            }
-            
-            // 🌟 ተጨማሪ ቫሊዴሽን: ስልክ ቁጥር ወይም ኢሜይል መሆኑን በትንሹ ማረጋገጥ ይቻላል
-            if (identifier.length < 4) {
-                return alert("⚠️ እባክዎ ትክክለኛ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
-            }
-
-            if (!currentTelegramUser || !currentTelegramUser.id) {
-                return alert("⚠️ የቴሌግራም መረጃ ማግኘት አልተቻለም!");
-            }
-
-            socket.emit('link_telegram_account', {
-                telegram_id: String(currentTelegramUser.id),
-                identifier: identifier
-            });
-            
-            document.getElementById('telegram-link-modal').classList.add('hidden');
-        }
-
-        function skipTelegramLinking() {
-            document.getElementById('telegram-link-modal').classList.add('hidden');
-        }
 
         function logoutToAuth() {
             localStorage.removeItem('bk_user_id');
@@ -856,37 +790,13 @@
         function openGameSelection() {
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
             initCartelaGrid();
             socket.emit('get_user_balance', { user_id: userId });
             socket.emit('get_user_active_cards', { user_id: userId });
         }
 
-        function openWatchLiveScreen() {
-            if (!window.userId) {
-                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-            }
-            document.getElementById('menu-dashboard').classList.add('hidden');
-            document.getElementById('selection-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
-
-            const container = document.getElementById('my-cards-container');
-            if (container) {
-                container.innerHTML = '';
-                container.style.display = 'none';
-            }
-            updateCalledNumbersUI();
-            socket.emit('get_user_balance', { user_id: userId });
-        }
-
         function backToMenu() {
             document.getElementById('selection-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('menu-dashboard').classList.remove('hidden');
-        }
-
-        function backToMenuFromGame() {
-            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
@@ -1252,12 +1162,7 @@
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
-                if (mySelectedCards.length > 0) {
-                    container.style.display = 'block';
-                    mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
-                } else {
-                    container.style.display = 'none';
-                }
+                mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
             }
         });
 
@@ -1364,6 +1269,7 @@
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
                     
+                    // ማትሪክሱን እና ምልክት የተደረገባቸውን ቁጥሮች በትክክል ወደ ቡሊያን (True/False) እንለውጣለን
                     let boardValidationMatrix = matrixData.map(row => 
                         row.map(val => val === 'FREE' || markedSet.has(val) || markedSet.has(String(val)))
                     );
