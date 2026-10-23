@@ -586,6 +586,11 @@
                 if (tgUser && tgUser.id) {
                     currentTelegramUser = tgUser;
                     socket.emit('telegram_login', { telegram_user: tgUser });
+                    
+                    // 🌟 ቴሌግራም ላይ ሲገባ አካውንት ማስተሳሰሪያው (Modal) እንዲጠራ ማድረግ
+                    setTimeout(() => {
+                        promptTelegramLinkingIfNeeded();
+                    }, 1000);
                 }
             }
 
