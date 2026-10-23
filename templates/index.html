@@ -819,8 +819,14 @@
         function submitTelegramLinking() {
             const identifier = document.getElementById('link-identifier').value.trim();
             if (!identifier) {
-                return alert("⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
+                return alert("⚠️ እባክዎ ስልክ ቁጥር (09...) ወይም ኢሜይል ያስገቡ!");
             }
+            
+            // 🌟 ተጨማሪ ቫሊዴሽን: ስልክ ቁጥር ወይም ኢሜይል መሆኑን በትንሹ ማረጋገጥ ይቻላል
+            if (identifier.length < 4) {
+                return alert("⚠️ እባክዎ ትክክለኛ ስልክ ቁጥር ወይም ኢሜይል ያስገቡ!");
+            }
+
             if (!currentTelegramUser || !currentTelegramUser.id) {
                 return alert("⚠️ የቴሌግራም መረጃ ማግኘት አልተቻለም!");
             }
@@ -830,7 +836,6 @@
                 identifier: identifier
             });
             
-            // አያይዝ ሲባል ሞዳሉን እንዘጋዋለን
             document.getElementById('telegram-link-modal').classList.add('hidden');
         }
 
