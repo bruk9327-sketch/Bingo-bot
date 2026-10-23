@@ -123,6 +123,10 @@
             <span class="text-base">🎲</span> ጨዋታውን ጀምር (Play)
         </button>
 
+        <button onclick="openWatchLiveScreen()" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-2xl font-black text-xs shadow-xl border border-purple-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95">
+            <span class="text-base">👀</span> የቀጥታ ጨዋታውን ተመልከት (Watch Live)
+        </button>
+
         <a href="/admin-login" style="text-decoration: none;" class="block w-full">
             <div class="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-red-600 text-white rounded-2xl font-black text-xs shadow-xl border border-amber-400/40 flex items-center justify-center gap-2 cursor-pointer">
                 <span>🔐</span> አድሚን ፓነል (Admin Panel)
@@ -249,9 +253,12 @@
                     <p class="text-[7px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
-                <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
-                <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
+            <div class="flex items-center gap-2">
+                <button onclick="backToMenuFromGame()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
+                <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
+                    <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
+                    <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
+                </div>
             </div>
         </div>
 
@@ -616,6 +623,7 @@
                     const container = document.getElementById('my-cards-container');
                     if (container) {
                         container.innerHTML = '';
+                        container.style.display = 'block';
                         mySelectedCards.forEach(cid => {
                             container.appendChild(createCardHTML(cid, cardsDatabase[cid], true));
                         });
@@ -789,13 +797,37 @@
         function openGameSelection() {
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
             initCartelaGrid();
             socket.emit('get_user_balance', { user_id: userId });
             socket.emit('get_user_active_cards', { user_id: userId });
         }
 
+        function openWatchLiveScreen() {
+            if (!window.userId) {
+                return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+            }
+            document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            const container = document.getElementById('my-cards-container');
+            if (container) {
+                container.innerHTML = '';
+                container.style.display = 'none'; // ካርቴላዎች እንዲደበቁ ይደረጋል
+            }
+            updateCalledNumbersUI();
+            socket.emit('get_user_balance', { user_id: userId });
+        }
+
         function backToMenu() {
             document.getElementById('selection-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('menu-dashboard').classList.remove('hidden');
+        }
+
+        function backToMenuFromGame() {
+            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('menu-dashboard').classList.remove('hidden');
         }
 
@@ -1161,7 +1193,12 @@
             const container = document.getElementById('my-cards-container');
             if(container) {
                 container.innerHTML = '';
-                mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
+                if (mySelectedCards.length > 0) {
+                    container.style.display = 'block';
+                    mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], true)));
+                } else {
+                    container.style.display = 'none';
+                }
             }
         });
 
@@ -1268,7 +1305,6 @@
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
                     
-                    // ማትሪክሱን እና ምልክት የተደረገባቸውን ቁጥሮች በትክክል ወደ ቡሊያን (True/False) እንለውጣለን
                     let boardValidationMatrix = matrixData.map(row => 
                         row.map(val => val === 'FREE' || markedSet.has(val) || markedSet.has(String(val)))
                     );
