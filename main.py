@@ -435,12 +435,13 @@ def handle_telegram_login(data):
 @socketio.on('link_telegram_account')
 def handle_link_telegram_account(data):
     tg_id = str(data.get('telegram_id') or '')
-    identifier = str(data.get('identifier') or '').strip() # ስልክ ወይም ኢሜይል
+    identifier = str(data.get('identifier') or '').strip() # ስልክ ቁጥር ወይም ኢሜይል
     
     if not tg_id or not identifier:
-        emit('auth_response', {'success': False, 'msg': 'እባክዎ መረጃውን ሙሉ በሙሉ ይሙሉ!'}, room=request.sid)
+        emit('auth_response', {'success': False, 'msg': 'እባክዎ ስልክ ቁጥር ወይም ኢሜይል በትክክል ይሙሉ!'}, room=request.sid)
         return
 
+    # 1. በብራውዘር የተመዘገበውን ትክክለኛ አካውንት በስልክ፣ በኢሜይል ወይም በዩዘርኔም እንፈልጋለን
     existing_user = User.query.filter(
         sa.or_(
             User.email == identifier,
@@ -451,19 +452,33 @@ def handle_link_telegram_account(data):
     ).first()
 
     if not existing_user:
-        emit('auth_response', {'success': False, 'msg': 'ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
+        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
+        return
+
+    # 2. ቫሊዴሽን: ይህ ቴሌግራም ID (tg_id) ከሌላ የተለየ አካውንት ጋር አስቀድሞ ተሳስሮ እንደሆን እንፈትሻለን
+    already_linked = User.query.filter(User.user_id == tg_id, User.id != existing_user.id).first()
+    if already_linked and not str(already_linked.user_id).startswith('TG_'):
+        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ የቴሌግራም አካውንት ከሌላ መለያ ጋር አስቀድሞ ተያይዟል!'}, room=request.sid)
+        return
+
+    # 3. ቫሊዴሽን: ያገባው ስልክ/ኢሜይል ባለቤት የሆነው ዩዘር ከዚህ በፊት ከሌላ የቴሌግራም ID ጋር ተሳስሮ ከሆነ እንከለክላለን
+    if existing_user.user_id and existing_user.user_id != tg_id and not existing_user.user_id.startswith('TG_'):
+        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ አካውንት ከሌላ የቴሌግራም መለያ ጋር ተሳስሯል!'}, room=request.sid)
         return
 
     try:
+        # በቴሌግራም ቦት ሲገባ አውቶማቲክ የተፈጠረ ጊዜያዊ ዩዘር ካለ እንፈልጋለን
         tg_temp_user = User.query.filter_by(user_id=tg_id).first()
         
         if tg_temp_user and tg_temp_user.id != existing_user.id:
+            # የቴሌግራም ጊዜያዊው ዩዘር ላይ ቀሪ ሂሳብ (balance) ካለ ወደ ነባሩ አካውንት እናስተላልፋለን
             if tg_temp_user.balance > 0:
                 existing_user.balance = float(existing_user.balance) + float(tg_temp_user.balance)
             
             db.session.delete(tg_temp_user)
             db.session.commit()
 
+        # አሁን የነባሩን ተጠቃሚ user_id ወደ ትክክለኛው የቴሌግራም ID እንለውጠዋለን
         existing_user.user_id = tg_id
         db.session.commit()
 
