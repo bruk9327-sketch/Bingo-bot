@@ -284,12 +284,10 @@ def handle_get_user_active_cards(data):
                 'matrix': matrix
             })
 
-    has_cards = len(user_cards) > 0
-
     emit('restore_user_cards', {
-        'game_active': game_active if has_cards else False,
+        'game_active': game_active,
         'cards': user_cards,
-        'drawn_balls': drawn_balls if has_cards else []
+        'drawn_balls': drawn_balls
     }, room=request.sid)
 
 
@@ -384,33 +382,25 @@ def handle_register_user(data):
 @socketio.on('telegram_login')
 def handle_telegram_login(data):
     tg_user = data.get('telegram_user', {})
-    tg_id = str(tg_user.get('id', ''))
+    user_id = str(tg_user.get('id', ''))
     first_name = tg_user.get('first_name', '')
     last_name = tg_user.get('last_name', '')
-    username = tg_user.get('username', f"user_{tg_id}")
+    username = tg_user.get('username', f"user_{user_id}")
     full_name = f"{first_name} {last_name}".strip() or username
 
-    if not tg_id:
+    if not user_id:
         emit('auth_response', {'success': False, 'msg': 'የቴሌግራም መረጃ ማግኘት አልተቻለም!'}, room=request.sid)
         return
 
-    user = User.query.filter_by(user_id=tg_id).first()
-
-    if not user:
-        user = User.query.filter(
-            sa.or_(
-                User.username == username,
-                User.phone == f"TG_{tg_id}"
-            )
-        ).first()
+    user = User.query.filter_by(user_id=user_id).first()
 
     if not user:
         user = User(
-            user_id=tg_id,
+            user_id=user_id,
             full_name=full_name,
             username=username,
-            phone=f"TG_{tg_id}",
-            password=f"tg_pass_{tg_id}",
+            phone=f"TG_{user_id}",
+            password=f"tg_pass_{user_id}",
             balance=0.00,
             is_active=True,
             is_suspended=False,
@@ -430,70 +420,6 @@ def handle_telegram_login(data):
         'balance': user.balance,
         'full_name': user.full_name
     }, room=request.sid)
-
-
-@socketio.on('link_telegram_account')
-def handle_link_telegram_account(data):
-    tg_id = str(data.get('telegram_id') or '')
-    identifier = str(data.get('identifier') or '').strip() # ስልክ ቁጥር ወይም ኢሜይል
-    
-    if not tg_id or not identifier:
-        emit('auth_response', {'success': False, 'msg': 'እባክዎ ስልክ ቁጥር ወይም ኢሜይል በትክክል ይሙሉ!'}, room=request.sid)
-        return
-
-    # 1. በብራውዘር የተመዘገበውን ትክክለኛ አካውንት በስልክ፣ በኢሜይል ወይም በዩዘርኔም እንፈልጋለን
-    existing_user = User.query.filter(
-        sa.or_(
-            User.email == identifier,
-            User.phone == identifier,
-            User.user_id == identifier,
-            User.username == identifier
-        )
-    ).first()
-
-    if not existing_user:
-        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
-        return
-
-    # 2. ቫሊዴሽን: ይህ ቴሌግራም ID (tg_id) ከሌላ የተለየ አካውንት ጋር አስቀድሞ ተሳስሮ እንደሆን እንፈትሻለን
-    already_linked = User.query.filter(User.user_id == tg_id, User.id != existing_user.id).first()
-    if already_linked and not str(already_linked.user_id).startswith('TG_'):
-        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ የቴሌግራም አካውንት ከሌላ መለያ ጋር አስቀድሞ ተያይዟል!'}, room=request.sid)
-        return
-
-    # 3. ቫሊዴሽን: ያገባው ስልክ/ኢሜይል ባለቤት የሆነው ዩዘር ከዚህ በፊት ከሌላ የቴሌግራም ID ጋር ተሳስሮ ከሆነ እንከለክላለን
-    if existing_user.user_id and existing_user.user_id != tg_id and not existing_user.user_id.startswith('TG_'):
-        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ አካውንት ከሌላ የቴሌግራም መለያ ጋር ተሳስሯል!'}, room=request.sid)
-        return
-
-    try:
-        # በቴሌግራም ቦት ሲገባ አውቶማቲክ የተፈጠረ ጊዜያዊ ዩዘር ካለ እንፈልጋለን
-        tg_temp_user = User.query.filter_by(user_id=tg_id).first()
-        
-        if tg_temp_user and tg_temp_user.id != existing_user.id:
-            # የቴሌግራም ጊዜያዊው ዩዘር ላይ ቀሪ ሂሳብ (balance) ካለ ወደ ነባሩ አካውንት እናስተላልፋለን
-            if tg_temp_user.balance > 0:
-                existing_user.balance = float(existing_user.balance) + float(tg_temp_user.balance)
-            
-            db.session.delete(tg_temp_user)
-            db.session.commit()
-
-        # አሁን የነባሩን ተጠቃሚ user_id ወደ ትክክለኛው የቴሌግራም ID እንለውጠዋለን
-        existing_user.user_id = tg_id
-        db.session.commit()
-
-        emit('auth_response', {
-            'success': True,
-            'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ብር',
-            'user_id': existing_user.user_id,
-            'balance': existing_user.balance,
-            'full_name': existing_user.full_name
-        }, room=request.sid)
-
-    except Exception as e:
-        db.session.rollback()
-        print("Telegram Account Linking Error:", str(e))
-        emit('auth_response', {'success': False, 'msg': 'አካውንቱን ማያያዝ አልተቻለም፤ እባክዎ እንደገና ይሞክሩ!'}, room=request.sid)
 
 
 @socketio.on('send_otp_request')
@@ -1229,6 +1155,7 @@ def check_bingo_win(board, current_drawn_balls):
       return False
       
     marked_board = []
+    # drawn_balls ያሉትን ቁጥሮች ወደ ኢንቲጀር (Integer Set) እንለውጣቸዋለን
     drawn_set = {int(b) for b in current_drawn_balls}
 
     for r in range(5):
@@ -1247,17 +1174,21 @@ def check_bingo_win(board, current_drawn_balls):
           row_vals.append(False)
       marked_board.append(row_vals)
 
+    # 1. ሆሪዞንታል መስመሮች (Horizontal Rows)
     for r in range(5):
       if all(marked_board[r][c] for c in range(5)):
         return True
         
+    # 2. ቨርቲካል ዓምዶች (Vertical Columns)
     for c in range(5):
       if all(marked_board[r][c] for r in range(5)):
         return True
         
+    # 3. ዋናው ዲያጎናል (Main Diagonal)
     if all(marked_board[i][i] for i in range(5)):
       return True
       
+    # 4. ተቃራኒው ዲያጎናል (Anti-Diagonal)
     if all(marked_board[i][4 - i] for i in range(5)):
       return True
       
