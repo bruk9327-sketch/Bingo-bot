@@ -284,10 +284,14 @@ def handle_get_user_active_cards(data):
                 'matrix': matrix
             })
 
+    # ተጫዋቹ በዚህ ዙር የገዛው ካርቴላ ከሌለ (ግን ጨዋታው እየሄደ ከሆነ) 
+    # ወደ ጨዋታ ስክሪን እንዳይገባ game_active ን ወደ False እንለውጣለን
+    has_cards = len(user_cards) > 0
+
     emit('restore_user_cards', {
-        'game_active': game_active,
+        'game_active': game_active if has_cards else False,
         'cards': user_cards,
-        'drawn_balls': drawn_balls
+        'drawn_balls': drawn_balls if has_cards else []
     }, room=request.sid)
 
 
