@@ -587,10 +587,10 @@
                     currentTelegramUser = tgUser;
                     socket.emit('telegram_login', { telegram_user: tgUser });
                     
-                    // 🌟 ቴሌግራም ላይ ሲገባ አካውንት ማስተሳሰሪያው (Modal) እንዲጠራ ማድረግ
+                    // 🌟 አካውንቱ ገና ያልተያያዘ ከሆነ ብቻ ሞዳሉ ብቅ እንዲል እናደርጋለን
                     setTimeout(() => {
                         promptTelegramLinkingIfNeeded();
-                    }, 1000);
+                    }, 1200);
                 }
             }
 
@@ -797,7 +797,7 @@
                 window.userId = userId;
                 localStorage.setItem('bk_user_id', userId);
 
-                document.getElementById('telegram-link-modal').classList.add('hidden');
+                // 🌟 ሞዳሉ በአግባቡ እንዲቆይ እና ወዲያው እንዳይዘጋ ከዚህ ተወግዷል
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('selection-screen').classList.add('hidden');
                 document.getElementById('game-screen').classList.add('hidden');
@@ -829,6 +829,9 @@
                 telegram_id: String(currentTelegramUser.id),
                 identifier: identifier
             });
+            
+            // አያይዝ ሲባል ሞዳሉን እንዘጋዋለን
+            document.getElementById('telegram-link-modal').classList.add('hidden');
         }
 
         function skipTelegramLinking() {
