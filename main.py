@@ -438,7 +438,7 @@ def handle_link_telegram_account(data):
     identifier = str(data.get('identifier') or '').strip()
     
     if not tg_id or not identifier:
-        emit('auth_response', {'success': False, 'msg': 'እባክዎ ስልክ ቁጥር ወይም ኢሜይል በትክክል ይሙሉ!'}, room=request.sid)
+        emit('auth_response', {'success': False, 'msg': '⚠️ እባክዎ ስልክ ቁጥር ወይም ኢሜይል በትክክል ይሙሉ!'}, room=request.sid)
         return
 
     existing_user = User.query.filter(
@@ -451,16 +451,15 @@ def handle_link_telegram_account(data):
     ).first()
 
     if not existing_user:
-        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም!'}, room=request.sid)
+        emit('auth_response', {
+            'success': False, 
+            'msg': '⚠️ ይህ ስልክ ቁጥር ወይም ኢሜይል በሲስተሙ ውስጥ አልተገኘም! እባክዎ "አዲስ አካውንት በራስ-ሰር ፍጠር" የሚለውን ይጠቀሙ።'
+        }, room=request.sid)
         return
 
     already_linked = User.query.filter(User.user_id == tg_id, User.id != existing_user.id).first()
     if already_linked and not str(already_linked.user_id).startswith('TG_'):
         emit('auth_response', {'success': False, 'msg': '⚠️ ይህ የቴሌግራም አካውንት ከሌላ መለያ ጋር አስቀድሞ ተያይዟል!'}, room=request.sid)
-        return
-
-    if existing_user.user_id and existing_user.user_id != tg_id and not existing_user.user_id.startswith('TG_'):
-        emit('auth_response', {'success': False, 'msg': '⚠️ ይህ አካውንት ከሌላ የቴሌግራም መለያ ጋር ተሳስሯል!'}, room=request.sid)
         return
 
     try:
@@ -478,7 +477,7 @@ def handle_link_telegram_account(data):
 
         emit('auth_response', {
             'success': True,
-            'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ብር',
+            'msg': f'አካውንትዎ በተሳካ ሁኔታ ተያይዟል! ቀሪ ሂሳብዎ: {existing_user.balance} ETB',
             'user_id': existing_user.user_id,
             'balance': existing_user.balance,
             'full_name': existing_user.full_name
@@ -488,6 +487,71 @@ def handle_link_telegram_account(data):
         db.session.rollback()
         print("Telegram Account Linking Error:", str(e))
         emit('auth_response', {'success': False, 'msg': 'አካውንቱን ማያያዝ አልተቻለም፤ እባክዎ እንደገና ይሞክሩ!'}, room=request.sid)
+
+
+@socketio.on('telegram_auto_register')
+def handle_telegram_auto_register(data):
+    tg_user = data.get('telegram_user', {})
+    tg_id = str(tg_user.get('id', ''))
+    identifier = str(data.get('identifier') or '').strip()
+    first_name = tg_user.get('first_name', '')
+    last_name = tg_user.get('last_name', '')
+    username = tg_user.get('username', f"user_{tg_id}")
+    full_name = f"{first_name} {last_name}".strip() or username
+
+    if not tg_id:
+        emit('auth_response', {'success': False, 'msg': 'የቴሌግራም መረጃ ማግኘት አልተቻለም!'}, room=request.sid)
+        return
+
+    if identifier:
+        conflict_user = User.query.filter(
+            sa.or_(
+                User.email == identifier,
+                User.phone == identifier
+            )
+        ).first()
+        if conflict_user and conflict_user.user_id != tg_id:
+            emit('auth_response', {'success': False, 'msg': '⚠️ ይህ ስልክ ቁጥር ወይም ኢሜይል በሌላ ተጠቃሚ ተይዟል!'}, room=request.sid)
+            return
+
+    user = User.query.filter_by(user_id=tg_id).first()
+
+    if not user:
+        user = User(
+            user_id=tg_id,
+            full_name=full_name,
+            username=username,
+            phone=identifier if identifier else f"TG_{tg_id}",
+            email=identifier if '@' in identifier else None,
+            password=f"tg_pass_{tg_id}",
+            balance=0.00,
+            is_active=True,
+            is_suspended=False,
+            kyc_verified=False
+        )
+        db.session.add(user)
+    else:
+        if identifier:
+            if '@' in identifier:
+                user.email = identifier
+            else:
+                user.phone = identifier
+        if full_name:
+            user.full_name = full_name
+
+    db.session.commit()
+
+    if user.is_suspended:
+        emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
+        return
+
+    emit('auth_response', {
+        'success': True,
+        'msg': f'እንኳን ደህና መጡ {full_name}! አዲስ አካውንትዎ ተፈጥሯል።',
+        'user_id': user.user_id,
+        'balance': user.balance,
+        'full_name': user.full_name
+    }, room=request.sid)
 
 
 @socketio.on('send_otp_request')
