@@ -56,7 +56,7 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 PROCESSED_TIDS = set()
 
 taken_cards_global = []
-game_timer = 15
+game_timer = 60  # 🌟 የቆይታ ጊዜ ወደ 60 ሰከንድ (1 ደቂቃ) ተስተካክሏል
 game_active = False
 sold_cards_in_round = []
 drawn_balls = []
@@ -84,7 +84,7 @@ def background_game_loop():
           winner_timer = None
 
       game_active = False
-      game_timer = 15
+      game_timer = 60  # 🌟 አዲስ ዙር ሲጀምር ወደ 60 ሰከንድ ይመለሳል
       taken_cards_global = []
       sold_cards_in_round = []
       drawn_balls = []
