@@ -56,7 +56,7 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 PROCESSED_TIDS = set()
 
 taken_cards_global = []
-game_timer = 60  # 🌟 የቆይታ ጊዜ ወደ 60 ሰከንድ (1 ደቂቃ) ተስተካክሏል
+game_timer = 60  # 🌟 የቆይታ ጊዜ ወደ 60 ሰከንድ (1 ደቂቃ)
 game_active = False
 sold_cards_in_round = []
 drawn_balls = []
@@ -370,7 +370,7 @@ def handle_register_user(data):
 
     emit('auth_response', {
         'success': True,
-        'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል። ለመጫወት እባክዎ ቢያንስ 20 ብር ዲፖዚት ያድርጉ!',
+        'msg': 'ምዝገባው በተሳካ ሁኔታ ተጠናቋል። ለመጫወት እባክዎ ቢያንስ 10 ብር ዲፖዚት ያድርጉ!',
         'user_id': user.user_id,
         'balance': user.balance,
         'full_name': user.full_name
@@ -1153,8 +1153,9 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
     return
 
-  if float(user.balance) < 20.00:
-    emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 20 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
+  # 🌟 ዝቅተኛው ገደብ ወደ 10 ብር ተስተካክሏል
+  if float(user.balance) < 10.00:
+    emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 10 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
     return
 
   card_price = 10.00
