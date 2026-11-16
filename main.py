@@ -56,7 +56,7 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 PROCESSED_TIDS = set()
 
 taken_cards_global = []
-game_timer = 60  # 🌟 የቆይታ ጊዜ ወደ 60 ሰከንድ (1 ደቂቃ)
+game_timer = 60  # 🌟 የቆይታ ጊዜ 60 ሰከንድ
 game_active = False
 sold_cards_in_round = []
 drawn_balls = []
@@ -64,7 +64,6 @@ available_numbers = list(range(1, 76))
 
 OTP_STORAGE = {}
 
-# አሸናፊዎችን ለመሰብሰብ የሚያገለግሉ ግሎባል ተለዋዋጮች
 round_winners = []
 winner_lock = threading.Lock()
 winner_timer = None
@@ -84,7 +83,7 @@ def background_game_loop():
           winner_timer = None
 
       game_active = False
-      game_timer = 60  # 🌟 አዲስ ዙር ሲጀምር ወደ 60 ሰከንድ ይመለሳል
+      game_timer = 60
       taken_cards_global = []
       sold_cards_in_round = []
       drawn_balls = []
@@ -1170,7 +1169,6 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
     return
 
-  # 🌟 ዝቅተኛው ገደብ ወደ 10 ብር ተስተካክሏል
   if float(user.balance) < 10.00:
     emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 10 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
     return
@@ -1293,7 +1291,8 @@ def handle_claim_bingo(data):
             })
 
         if len(round_winners) == 1:
-            winner_timer = threading.Timer(3.0, finalize_round_winners)
+            # 🌟 ከ 3 ሰከንድ ወደ 5 ሰከንድ እንዲያድግ 
+            winner_timer = threading.Timer(5.0, finalize_round_winners)
             winner_timer.start()
 
 
