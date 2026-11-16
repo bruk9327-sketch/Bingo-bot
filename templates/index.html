@@ -1112,14 +1112,20 @@
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             
-            // 🌟 ዙሩ ሲያልቅ እና አሸናፊው ከታየ በኋላ የተመረጡትን ካርቴላዎች ማጽዳት (Clean)
+            // 🌟 ዙሩ ሲያልቅ እና አሸናፊው ከታየ በኋላ የተመረጡትን ካርቴላዎች ሙሉ በሙሉ እናጸዳለን
             mySelectedCards = [];
             markedNumbersMap = {};
             cardsDatabase = {};
+            
             const previewContainer = document.getElementById('preview-cards-container');
             if(previewContainer) previewContainer.innerHTML = '';
+            
+            // 🌟 ከሰርቨር አዳዲስ የሰለፉ ካርቴላዎችን ሁኔታ እንጠይቃለን
+            if(window.userId) {
+                socket.emit('get_user_active_cards', { user_id: window.userId });
+                socket.emit('get_user_balance', { user_id: window.userId });
+            }
             initCartelaGrid();
-            if(userId) socket.emit('get_user_balance', { user_id: userId });
         }
 
         function parseReceiptInput() {
