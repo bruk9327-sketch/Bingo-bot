@@ -91,6 +91,7 @@ def background_game_loop():
       available_numbers = list(range(1, 76))
 
       socketio.emit('reset_game', {})
+      socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
 
       while game_timer > 0:
         socketio.emit(
@@ -315,6 +316,10 @@ def handle_login_user(data):
     if user.is_suspended:
       emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
       return
+      
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
+
     emit('auth_response', {
         'success': True,
         'msg': 'እንኳን ደህና መጡ!',
@@ -367,6 +372,9 @@ def handle_register_user(data):
     )
     db.session.add(user)
     db.session.commit()
+
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
 
     emit('auth_response', {
         'success': True,
@@ -423,6 +431,9 @@ def handle_telegram_login(data):
         emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
         return
 
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
+
     emit('auth_response', {
         'success': True,
         'msg': f'እንኳን ደህና መጡ {full_name}!',
@@ -474,6 +485,9 @@ def handle_link_telegram_account(data):
 
         existing_user.user_id = tg_id
         db.session.commit()
+
+        session['user_id'] = existing_user.user_id
+        session['logged_in'] = True
 
         emit('auth_response', {
             'success': True,
@@ -544,6 +558,9 @@ def handle_telegram_auto_register(data):
     if user.is_suspended:
         emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
         return
+
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
 
     emit('auth_response', {
         'success': True,
