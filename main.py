@@ -56,7 +56,7 @@ ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
 PROCESSED_TIDS = set()
 
 taken_cards_global = []
-game_timer = 60  # 🌟 የቆይታ ጊዜ ወደ 60 ሰከንድ (1 ደቂቃ)
+game_timer = 60  
 game_active = False
 sold_cards_in_round = []
 drawn_balls = []
@@ -64,7 +64,6 @@ available_numbers = list(range(1, 76))
 
 OTP_STORAGE = {}
 
-# አሸናፊዎችን ለመሰብሰብ የሚያገለግሉ ግሎባል ተለዋዋጮች
 round_winners = []
 winner_lock = threading.Lock()
 winner_timer = None
@@ -84,15 +83,13 @@ def background_game_loop():
           winner_timer = None
 
       game_active = False
-      game_timer = 60  # 🌟 አዲስ ዙር ሲጀምር ወደ 60 ሰከንድ ይመለሳል
+      game_timer = 60
       
-      # 🌟 እዚህ ጋር የካርቴላ ማህደረ ትውስታን ሙሉ በሙሉ እናጸዳለን
       taken_cards_global = []
       sold_cards_in_round = []
       drawn_balls = []
       available_numbers = list(range(1, 76))
 
-      # 🌟 ለሁሉም ክላየንቶች ካርቴላዎቹ ንጹህ መሆናቸውን እናሳውቃለን
       socketio.emit('reset_game', {})
       socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
 
@@ -122,7 +119,7 @@ def background_game_loop():
         socketio.emit('number_drawn', {'number': ball})
         socketio.sleep(10)
 
-      socketio.sleep(10)
+      socketio.sleep(5) # 🌟 ከጨዋታ ማብቂያ በኋላ 5 ሰከንድ መጠበቂያ (Winner Display & Confetti Duration)
     except Exception as e:
       print('Background Game Loop Error:', e)
       socketio.sleep(1)
@@ -1157,7 +1154,6 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
     return
 
-  # 🌟 ዝቅተኛው ገደብ ወደ 10 ብር ተስተካክሏል
   if float(user.balance) < 10.00:
     emit('error_msg', {'msg': '⚠️ ለመጫወት ቢያንስ 10 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ አለብዎት!'}, room=request.sid)
     return
