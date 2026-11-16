@@ -85,16 +85,12 @@ def background_game_loop():
 
       game_active = False
       game_timer = 60  # 🌟 አዲስ ዙር ሲጀምር ወደ 60 ሰከንድ ይመለሳል
-      
-      # 🌟 እዚህ ጋር የካርቴላ ማህደረ ትውስታን ሙሉ በሙሉ እናጸዳለን
       taken_cards_global = []
       sold_cards_in_round = []
       drawn_balls = []
       available_numbers = list(range(1, 76))
 
-      # 🌟 ለሁሉም ክላየንቶች ካርቴላዎቹ ንጹህ መሆናቸውን እናሳውቃለን
       socketio.emit('reset_game', {})
-      socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
 
       while game_timer > 0:
         socketio.emit(
