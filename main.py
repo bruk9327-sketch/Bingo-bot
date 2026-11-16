@@ -119,7 +119,7 @@ def background_game_loop():
         socketio.emit('number_drawn', {'number': ball})
         socketio.sleep(10)
 
-      socketio.sleep(5) # 🌟 ከጨዋታ ማብቂያ በኋላ 5 ሰከንድ መጠበቂያ (Winner Display & Confetti Duration)
+      socketio.sleep(5) 
     except Exception as e:
       print('Background Game Loop Error:', e)
       socketio.sleep(1)
@@ -294,6 +294,7 @@ def handle_get_user_active_cards(data):
     }, room=request.sid)
 
 
+# 🌟 የተስተካከለ የ SocketIO Login Handler (Session ጋር የተገናኘ)
 @socketio.on('login_user')
 def handle_login_user(data):
   identifier = str(data.get('identifier') or '').strip()
@@ -316,6 +317,11 @@ def handle_login_user(data):
     if user.is_suspended:
       emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
       return
+    
+    # Session ውስጥ መረጃውን እንይዛለን
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
+
     emit('auth_response', {
         'success': True,
         'msg': 'እንኳን ደህና መጡ!',
@@ -325,6 +331,43 @@ def handle_login_user(data):
     }, room=request.sid)
   else:
     emit('auth_response', {'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ/ዩዘርኔም ወይም የይለፍ ቃል!'}, room=request.sid)
+
+
+# 🌟 አማራጭ የ HTTP POST Login Route (Frontend ከ Form Post ጋር የሚጠቀም ከሆነ)
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json() or request.form
+    identifier = str(data.get('identifier') or '').strip()
+    password = str(data.get('password') or '').strip()
+
+    if not identifier or not password:
+        return jsonify({'success': False, 'msg': 'እባክዎ መግቢያ መረጃዎን ሙሉ በሙሉ ይሙሉ!'}), 400
+
+    user = User.query.filter(
+        sa.or_(
+            User.email == identifier,
+            User.phone == identifier,
+            User.username == identifier,
+            User.user_id == identifier
+        )
+    ).first()
+
+    if user and user.password == password:
+        if user.is_suspended:
+            return jsonify({'success': False, 'msg': 'አካውንትዎ ታግዷል!'}), 403
+            
+        session['user_id'] = user.user_id
+        session['logged_in'] = True
+        
+        return jsonify({
+            'success': True,
+            'msg': 'እንኳን ደህና መጡ!',
+            'user_id': user.user_id,
+            'balance': user.balance,
+            'full_name': user.full_name
+        }), 200
+    else:
+        return jsonify({'success': False, 'msg': 'የተሳሳተ ኢሜይል/ስልክ/ዩዘርኔም ወይም የይለፍ ቃል!'}), 401
 
 
 @socketio.on('register_user')
@@ -368,6 +411,9 @@ def handle_register_user(data):
     )
     db.session.add(user)
     db.session.commit()
+
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
 
     emit('auth_response', {
         'success': True,
@@ -424,6 +470,9 @@ def handle_telegram_login(data):
         emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
         return
 
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
+
     emit('auth_response', {
         'success': True,
         'msg': f'እንኳን ደህና መጡ {full_name}!',
@@ -475,6 +524,9 @@ def handle_link_telegram_account(data):
 
         existing_user.user_id = tg_id
         db.session.commit()
+
+        session['user_id'] = existing_user.user_id
+        session['logged_in'] = True
 
         emit('auth_response', {
             'success': True,
@@ -545,6 +597,9 @@ def handle_telegram_auto_register(data):
     if user.is_suspended:
         emit('auth_response', {'success': False, 'msg': 'አካውንትዎ ታግዷል!'}, room=request.sid)
         return
+
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
 
     emit('auth_response', {
         'success': True,
