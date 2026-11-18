@@ -1479,6 +1479,28 @@
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
+        // 🌟 የተሳሳተ ቢንጎ ሲከሰት የሚመጣ መልዕክት እና ካርቴላውን ማገድ (False Bingo Listener)
+        socket.on('bingo_error_response', (data) => {
+            alert(data.msg);
+            
+            // የዚያን ካርቴላ BINGO ቁልፍ ማሰናከል (disable ማድረግ)
+            const cardId = data.card_id;
+            const cardsContainer = document.getElementById('my-cards-container');
+            if (cardsContainer) {
+                const cardElements = cardsContainer.querySelectorAll('.glass-panel');
+                cardElements.forEach(el => {
+                    if (el.innerHTML.includes(`ካርቴላ #${cardId}`)) {
+                        const btn = el.querySelector('button');
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.className = 'w-full py-2 bg-slate-800 text-slate-500 font-black text-xs rounded-xl border border-slate-700 cursor-not-allowed mt-1';
+                            btn.innerHTML = `🚫 ታግዷል (False Bingo)`;
+                        }
+                    }
+                });
+            }
+        });
+
         socket.on('winner_announced', (data) => {
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const winnersContainer = document.getElementById('winners-list-container');
