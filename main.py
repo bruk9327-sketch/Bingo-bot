@@ -1296,6 +1296,7 @@ def handle_claim_bingo(data):
             winner_timer.start()
 
 
+# 🌟 የተስተካከለው እና አራቱን ማዕዘኖች (Four Corners) የሚጨምረው የአሸናፊነት ሎጂክ
 def check_bingo_win(board, current_drawn_balls):
   if not board or not isinstance(board, list):
     return False
@@ -1322,18 +1323,25 @@ def check_bingo_win(board, current_drawn_balls):
           row_vals.append(False)
       marked_board.append(row_vals)
 
+    # 1. መስመር (Row check)
     for r in range(5):
       if all(marked_board[r][c] for c in range(5)):
         return True
         
+    # 2. ዓምድ (Column check)
     for c in range(5):
       if all(marked_board[r][c] for r in range(5)):
         return True
         
+    # 3. ዲያጎናል (Diagonal checks)
     if all(marked_board[i][i] for i in range(5)):
       return True
       
     if all(marked_board[i][4 - i] for i in range(5)):
+      return True
+
+    # 4. 🌟 አራት ኮርነር (Four Corners check: (0,0), (0,4), (4,0), (4,4))
+    if marked_board[0][0] and marked_board[0][4] and marked_board[4][0] and marked_board[4][4]:
       return True
       
   except Exception as e:
