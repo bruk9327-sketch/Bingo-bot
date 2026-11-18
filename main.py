@@ -65,16 +65,18 @@ available_numbers = list(range(1, 76))
 OTP_STORAGE = {}
 
 round_winners = []
+invalid_claimed_cards = set()  # 🌟 የተሳሳተ ቢንጎ (False Bingo) ያሰሙ ካርቴላዎች መዝገብ
 winner_lock = threading.Lock()
 winner_timer = None
 
 
 def background_game_loop():
-  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers, round_winners, winner_timer
+  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers, round_winners, winner_timer, invalid_claimed_cards
   while True:
     try:
       with winner_lock:
         round_winners = []
+        invalid_claimed_cards = set()  # 🌟 አዲስ ዙር ሲጀምር የታገዱ ካርቴላዎች ማህደር ይጸዳል
         if winner_timer:
           try:
             winner_timer.cancel()
@@ -1273,12 +1275,20 @@ def finalize_round_winners():
 
 @socketio.on('claim_bingo')
 def handle_claim_bingo(data):
-  global game_active, round_winners, winner_timer
+  global game_active, round_winners, winner_timer, invalid_claimed_cards
   user_id = str(data.get('user_id'))
   card_id = data.get('card_id')
   board = data.get('board')
 
   if not game_active:
+    return
+
+  # 🌟 ካርቴላው በዚህ ዙር አስቀድሞ የተሳሳተ ቢንጎ ብሎ ከታገደ እንደገና እንዳይጫን እንከለክላለን
+  if card_id in invalid_claimed_cards:
+    emit('bingo_error_response', {
+        'msg': f'⚠️ ካርቴላ #{card_id} የተሳሳተ ቢንጎ በማለቱ በዚህ ዙር ታግዷል!',
+        'card_id': card_id
+    }, room=request.sid)
     return
 
   if check_bingo_win(board, drawn_balls):
@@ -1291,9 +1301,15 @@ def handle_claim_bingo(data):
             })
 
         if len(round_winners) == 1:
-            # 🌟 ከ 3 ሰከንድ ወደ 5 ሰከንድ እንዲያድግ 
             winner_timer = threading.Timer(5.0, finalize_round_winners)
             winner_timer.start()
+  else:
+    # 🌟 ❌ የተሳሳተ (False) ቢንጎ ሲል ካርቴላውን ለዚሁ ዙር ማገድ
+    invalid_claimed_cards.add(card_id)
+    emit('bingo_error_response', {
+        'msg': f'❌ የተሳሳተ ቢንጎ (False Bingo)! የካርቴላ #{card_id} ማሸነፊያ መስፈርት አላሟላም። ካርቴላው እስከ ዙሩ ማብቂያ ታግዷል!',
+        'card_id': card_id
+    }, room=request.sid)
 
 
 # 🌟 የተስተካከለው እና አራቱን ማዕዘኖች (Four Corners) የሚጨምረው የአሸናፊነት ሎጂክ
