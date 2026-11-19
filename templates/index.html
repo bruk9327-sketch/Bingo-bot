@@ -425,7 +425,7 @@
         </div>
     </div>
 
-    <!-- RULES MODAL (🌟 Updated with Four Corners) -->
+    <!-- RULES MODAL -->
     <div id="rules-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-indigo-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
@@ -435,7 +435,7 @@
             <div class="space-y-2 text-[11px] text-slate-300 leading-relaxed max-h-[220px] overflow-y-auto pr-1">
                 <p>1. <b>ካርቴላ መግዛት:</b> በእያንዳንዱ ዙር ከ1 እስከ 2 ካርቴላዎች መምረጥ ይቻላል (የአንዱ ዋጋ 10 ብር ነው።)</p>
                 <p>2. <b>ዲፖዚት:</b> ለመጫወት ቢያንስ 10 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ ግዴታ ነው።</p>
-                <p>3. <b>አሸናፊነት:</b> ቁጥሮቹ ሲጠሩ በመጀመሪያ መስመር (Row)፣ ዓምድ (Column)፣ ዲያጎናል (Diagonal) <b>ወይም አራት ኮርነር (Four Corners)</b> ሙሉ ፊት የሚሞላ ተጫዋች አሸናፊ ይሆናል።[span_0](start_span)[span_0](end_span)</p>
+                <p>3. <b>አሸናፊነት:</b> ቁጥሮቹ ሲጠሩ በመጀመሪያ መስመር (Row)፣ ዓምድ (Column)፣ ዲያጎናል (Diagonal) <b>ወይም አራት ኮርነር (Four Corners)</b> ሙሉ ፊት የሚሞላ ተጫዋች አሸናፊ ይሆናል።</p>
                 <p>4. <b>ሽልማት:</b> አሸናፊው ከተሰበሰበው ጠቅላላ ገቢ 90% ደራሽ ይወስዳል።</p>
             </div>
             <button onclick="closeRulesModal()" class="w-full mt-3 py-2.5 bg-indigo-500 text-slate-950 font-black text-xs rounded-xl cursor-pointer">እሺ (OK)</button>
@@ -619,6 +619,69 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
         let currentTelegramUser = null;
+
+        let winnerRedirectInterval = null;
+        let winnerTimeout = null;
+
+        function resetCountdownProgressBar() {
+            const progressBar = document.querySelector('.countdown-progress');
+            if (!progressBar) return;
+            progressBar.style.animation = 'none';
+            void progressBar.offsetWidth;
+            progressBar.style.animation = 'countdownAnim 5s linear forwards';
+        }
+
+        function clearWinnerTimers() {
+            if (winnerRedirectInterval) {
+                clearInterval(winnerRedirectInterval);
+                winnerRedirectInterval = null;
+            }
+            if (winnerTimeout) {
+                clearTimeout(winnerTimeout);
+                winnerTimeout = null;
+            }
+        }
+
+        function resetGameStateForNextRound() {
+            mySelectedCards = [];
+            takenCards = [];
+            drawnNumbersSet.clear();
+            drawnNumbersList = [];
+            markedNumbersMap = {};
+            cardsDatabase = {};
+
+            const currentBallEl = document.getElementById('current-ball-circle');
+            if (currentBallEl) currentBallEl.innerText = '--';
+
+            const derashEl = document.getElementById('derash-amount');
+            if (derashEl) derashEl.innerText = '0.00 ETB';
+
+            updateCalledNumbersUI();
+
+            const previewContainer = document.getElementById('preview-cards-container');
+            if (previewContainer) previewContainer.innerHTML = '';
+
+            const myCardsContainer = document.getElementById('my-cards-container');
+            if (myCardsContainer) {
+                myCardsContainer.innerHTML = '';
+                myCardsContainer.style.display = 'none';
+            }
+        }
+
+        function closeWinnerModalAutomatically() {
+            clearWinnerTimers();
+            resetGameStateForNextRound();
+
+            document.getElementById('winner-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('menu-dashboard').classList.add('hidden');
+            document.getElementById('selection-screen').classList.remove('hidden');
+
+            initCartelaGrid();
+            if (window.userId) {
+                socket.emit('get_user_balance', { user_id: window.userId });
+            }
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             if (window.Telegram && window.Telegram.WebApp) {
@@ -1148,37 +1211,6 @@
         function closeDepositModal() { document.getElementById('deposit-modal').classList.add('hidden'); }
         function openWithdrawModal() { document.getElementById('withdraw-modal').classList.remove('hidden'); }
         function closeWithdrawModal() { document.getElementById('withdraw-modal').classList.add('hidden'); }
-        
-        let winnerRedirectInterval = null;
-        let winnerTimeout = null;
-
-        function closeWinnerModalAutomatically() {
-            if(winnerRedirectInterval) clearInterval(winnerRedirectInterval);
-            if(winnerTimeout) clearTimeout(winnerTimeout);
-
-            document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('selection-screen').classList.remove('hidden');
-            
-            // 🌟 ካርቴላዎችን እና ማርክ ማድረጊያዎችን ሙሉ በሙሉ ማጽዳት
-            mySelectedCards = [];
-            markedNumbersMap = {};
-            cardsDatabase = {};
-            
-            const previewContainer = document.getElementById('preview-cards-container');
-            if(previewContainer) previewContainer.innerHTML = '';
-
-            const myCardsContainer = document.getElementById('my-cards-container');
-            if(myCardsContainer) {
-                myCardsContainer.innerHTML = '';
-                myCardsContainer.style.display = 'none';
-            }
-            
-            if(window.userId) {
-                socket.emit('get_user_balance', { user_id: window.userId });
-            }
-            initCartelaGrid();
-        }
 
         function parseReceiptInput() {
             const text = document.getElementById('sms_text_input').value;
@@ -1479,11 +1511,9 @@
             mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
         }
 
-        // 🌟 የተሳሳተ ቢንጎ ሲከሰት የሚመጣ መልዕክት እና ካርቴላውን ማገድ (False Bingo Listener)
         socket.on('bingo_error_response', (data) => {
             alert(data.msg);
             
-            // የዚያን ካርቴላ BINGO ቁልፍ ማሰናከል (disable ማድረግ)
             const cardId = data.card_id;
             const cardsContainer = document.getElementById('my-cards-container');
             if (cardsContainer) {
@@ -1530,16 +1560,14 @@
                 });
             }
 
-            // Show winner modal
             document.getElementById('winner-modal').classList.remove('hidden');
+            resetCountdownProgressBar();
 
-            // 🌟 5-second auto countdown & redirect logic
             let timeLeft = 5;
             const countdownNumEl = document.getElementById('countdown-num');
             if(countdownNumEl) countdownNumEl.innerText = timeLeft;
 
-            if(winnerRedirectInterval) clearInterval(winnerRedirectInterval);
-            if(winnerTimeout) clearTimeout(winnerTimeout);
+            clearWinnerTimers();
 
             winnerRedirectInterval = setInterval(() => {
                 timeLeft--;
@@ -1553,33 +1581,27 @@
             }, 5000);
         });
 
-        // 🌟 ጨዋታው ሲጠናቀቅ የድሮ ምርጫዎችን እና ካርቴላዎችን ሙሉ በሙሉ ባዶ ማድረግ
         socket.on('reset_game', () => {
-            if(winnerRedirectInterval) clearInterval(winnerRedirectInterval);
-            if(winnerTimeout) clearTimeout(winnerTimeout);
+            const winnerModal = document.getElementById('winner-modal');
+            const isWinnerModalVisible = winnerModal && !winnerModal.classList.contains('hidden');
 
-            mySelectedCards = [];
-            takenCards = [];
-            drawnNumbersSet.clear();
-            drawnNumbersList = [];
-            markedNumbersMap = {};
-            cardsDatabase = {};
+            if (!isWinnerModalVisible) {
+                clearWinnerTimers();
+                resetGameStateForNextRound();
 
-            document.getElementById('winner-modal').classList.add('hidden');
-            document.getElementById('game-screen').classList.add('hidden');
-            document.getElementById('selection-screen').classList.remove('hidden');
-            
-            const previewContainer = document.getElementById('preview-cards-container');
-            if(previewContainer) previewContainer.innerHTML = '';
-            
-            const myCardsContainer = document.getElementById('my-cards-container');
-            if(myCardsContainer) {
-                myCardsContainer.innerHTML = '';
-                myCardsContainer.style.display = 'none';
+                document.getElementById('game-screen').classList.add('hidden');
+                if (window.userId && !document.getElementById('menu-dashboard').classList.contains('hidden')) {
+                    document.getElementById('selection-screen').classList.add('hidden');
+                } else if (window.userId) {
+                    document.getElementById('selection-screen').classList.remove('hidden');
+                }
+
+                initCartelaGrid();
+                if(userId) socket.emit('get_user_balance', { user_id: userId });
+            } else {
+                takenCards = [];
+                initCartelaGrid();
             }
-
-            initCartelaGrid();
-            if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
         function sendChatMessage() {
