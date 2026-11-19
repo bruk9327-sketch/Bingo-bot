@@ -276,6 +276,14 @@ def handle_get_user_active_cards(data):
     if not user_id:
         return
 
+    if not game_active and len(drawn_balls) == 0 and len(sold_cards_in_round) == 0:
+        emit('restore_user_cards', {
+            'game_active': False,
+            'cards': [],
+            'drawn_balls': []
+        }, room=request.sid)
+        return
+
     user_cards = []
     for item in sold_cards_in_round:
         if str(item.get('user_id')) == str(user_id):
@@ -1166,6 +1174,11 @@ def handle_select_card(data):
     emit('error_msg', {'msg': 'የተሳሳተ የካርቴላ ቁጥር! (ከ 1 እስከ 500 ይምረጡ)'}, room=request.sid)
     return
 
+  user_cards_count = sum(1 for item in sold_cards_in_round if str(item.get('user_id')) == user_id)
+  if user_cards_count >= 2:
+    emit('error_msg', {'msg': '⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!'}, room=request.sid)
+    return
+
   user = User.query.filter_by(user_id=user_id).first()
   if not user:
     emit('error_msg', {'msg': 'ተጠቃሚው አልተገኘም!'}, room=request.sid)
@@ -1223,7 +1236,7 @@ def generate_bingo_matrix(seed_val):
 
 
 def finalize_round_winners():
-    global game_active, round_winners, sold_cards_in_round
+    global game_active, round_winners, sold_cards_in_round, drawn_balls
     with app.app_context():
         with winner_lock:
             if not round_winners:
@@ -1271,6 +1284,8 @@ def finalize_round_winners():
             })
 
             round_winners = []
+            sold_cards_in_round = []
+            drawn_balls = []
 
 
 @socketio.on('claim_bingo')
@@ -1283,7 +1298,6 @@ def handle_claim_bingo(data):
   if not game_active:
     return
 
-  # 🌟 ካርቴላው በዚህ ዙር አስቀድሞ የተሳሳተ ቢንጎ ብሎ ከታገደ እንደገና እንዳይጫን እንከለክላለን
   if card_id in invalid_claimed_cards:
     emit('bingo_error_response', {
         'msg': f'⚠️ ካርቴላ #{card_id} የተሳሳተ ቢንጎ በማለቱ በዚህ ዙር ታግዷል!',
@@ -1304,7 +1318,6 @@ def handle_claim_bingo(data):
             winner_timer = threading.Timer(5.0, finalize_round_winners)
             winner_timer.start()
   else:
-    # 🌟 ❌ የተሳሳተ (False) ቢንጎ ሲል ካርቴላውን ለዚሁ ዙር ማገድ
     invalid_claimed_cards.add(card_id)
     emit('bingo_error_response', {
         'msg': f'❌ የተሳሳተ ቢንጎ (False Bingo)! የካርቴላ #{card_id} ማሸነፊያ መስፈርት አላሟላም። ካርቴላው እስከ ዙሩ ማብቂያ ታግዷል!',
@@ -1312,7 +1325,6 @@ def handle_claim_bingo(data):
     }, room=request.sid)
 
 
-# 🌟 የተስተካከለው እና አራቱን ማዕዘኖች (Four Corners) የሚጨምረው የአሸናፊነት ሎጂክ
 def check_bingo_win(board, current_drawn_balls):
   if not board or not isinstance(board, list):
     return False
@@ -1339,24 +1351,20 @@ def check_bingo_win(board, current_drawn_balls):
           row_vals.append(False)
       marked_board.append(row_vals)
 
-    # 1. መስመር (Row check)
     for r in range(5):
       if all(marked_board[r][c] for c in range(5)):
         return True
         
-    # 2. ዓምድ (Column check)
     for c in range(5):
       if all(marked_board[r][c] for r in range(5)):
         return True
         
-    # 3. ዲያጎናል (Diagonal checks)
     if all(marked_board[i][i] for i in range(5)):
       return True
       
     if all(marked_board[i][4 - i] for i in range(5)):
       return True
 
-    # 4. 🌟 አራት ኮርነር (Four Corners check: (0,0), (0,4), (4,0), (4,4))
     if marked_board[0][0] and marked_board[0][4] and marked_board[4][0] and marked_board[4][4]:
       return True
       
