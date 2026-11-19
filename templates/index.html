@@ -656,6 +656,18 @@
             const derashEl = document.getElementById('derash-amount');
             if (derashEl) derashEl.innerText = '0.00 ETB';
 
+            const selectionDrawnCount = document.getElementById('selection-drawn-count');
+            if (selectionDrawnCount) selectionDrawnCount.innerText = '0/75';
+
+            const gameBallsCount = document.getElementById('game-balls-count');
+            if (gameBallsCount) gameBallsCount.innerText = '0/75';
+
+            const soldCount1 = document.getElementById('sold-count');
+            if (soldCount1) soldCount1.innerText = '0';
+
+            const soldCount2 = document.getElementById('sold-count-game');
+            if (soldCount2) soldCount2.innerText = '0';
+
             updateCalledNumbersUI();
 
             const previewContainer = document.getElementById('preview-cards-container');
@@ -666,6 +678,8 @@
                 myCardsContainer.innerHTML = '';
                 myCardsContainer.style.display = 'none';
             }
+
+            initCartelaGrid();
         }
 
         function closeWinnerModalAutomatically() {
@@ -677,7 +691,6 @@
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
 
-            initCartelaGrid();
             if (window.userId) {
                 socket.emit('get_user_balance', { user_id: window.userId });
             }
@@ -1585,23 +1598,19 @@
             const winnerModal = document.getElementById('winner-modal');
             const isWinnerModalVisible = winnerModal && !winnerModal.classList.contains('hidden');
 
+            resetGameStateForNextRound();
+
             if (!isWinnerModalVisible) {
                 clearWinnerTimers();
-                resetGameStateForNextRound();
-
                 document.getElementById('game-screen').classList.add('hidden');
                 if (window.userId && !document.getElementById('menu-dashboard').classList.contains('hidden')) {
                     document.getElementById('selection-screen').classList.add('hidden');
                 } else if (window.userId) {
                     document.getElementById('selection-screen').classList.remove('hidden');
                 }
-
-                initCartelaGrid();
-                if(userId) socket.emit('get_user_balance', { user_id: userId });
-            } else {
-                takenCards = [];
-                initCartelaGrid();
             }
+
+            if(userId) socket.emit('get_user_balance', { user_id: userId });
         });
 
         function sendChatMessage() {
