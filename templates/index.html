@@ -35,15 +35,15 @@
             cursor: pointer;
         }
 
-        /* 🎱 3D Bingo Ball Styles (Inspired by Classic Glossy Lottery Balls) */
+        /* 🎱 Oversized 3D Bingo Ball Styles */
         @keyframes ballDropPop {
             0% { transform: scale(0.45) rotate(-25deg); opacity: 0.2; }
-            60% { transform: scale(1.12) rotate(6deg); opacity: 1; }
+            60% { transform: scale(1.14) rotate(6deg); opacity: 1; }
             100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
         @keyframes ballFloatGlow {
-            0%, 100% { box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.45); }
-            50% { box-shadow: 0 14px 32px rgba(250, 204, 21, 0.32), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.55); }
+            0%, 100% { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.45); }
+            50% { box-shadow: 0 14px 34px rgba(250, 204, 21, 0.42), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.6); }
         }
 
         .bingo-3d-ball {
@@ -65,7 +65,7 @@
             width: 48%;
             height: 24%;
             border-radius: 9999px;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.05) 100%);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.05) 100%);
             transform: rotate(-18deg);
             pointer-events: none;
             z-index: 2;
@@ -73,59 +73,60 @@
         .bingo-ball-badge {
             position: relative;
             z-index: 3;
-            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f1f5f9 85%);
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f8fafc 88%);
             color: #090d16;
             border-radius: 9999px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.25), 0 2px 6px rgba(0, 0, 0, 0.35);
-            line-height: 1;
+            box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.25), 0 3px 8px rgba(0, 0, 0, 0.4);
+            line-height: 0.95;
         }
 
         /* Column Letter Themes */
-        .ball-theme-default { background: radial-gradient(circle at 32% 28%, #818cf8 0%, #4f46e5 55%, #1e1b4b 100%); border: 2px solid rgba(165, 180, 252, 0.65); }
-        .ball-theme-B { background: radial-gradient(circle at 32% 28%, #ff6b6b 0%, #e11d48 58%, #4c0519 100%); border: 2px solid #fda4af; }
-        .ball-theme-I { background: radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #172554 100%); border: 2px solid #93c5fd; }
-        .ball-theme-N { background: radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #052e16 100%); border: 2px solid #86efac; }
-        .ball-theme-G { background: radial-gradient(circle at 32% 28%, #fb923c 0%, #ea580c 58%, #431407 100%); border: 2px solid #fdba74; }
-        .ball-theme-O { background: radial-gradient(circle at 32% 28%, #fde047 0%, #eab308 58%, #422006 100%); border: 2px solid #fef08a; }
+        .ball-theme-default { background: radial-gradient(circle at 32% 28%, #818cf8 0%, #4f46e5 55%, #1e1b4b 100%); border: 2.5px solid rgba(165, 180, 252, 0.75); }
+        .ball-theme-B { background: radial-gradient(circle at 32% 28%, #ff6b6b 0%, #e11d48 58%, #4c0519 100%); border: 2.5px solid #fda4af; }
+        .ball-theme-I { background: radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #172554 100%); border: 2.5px solid #93c5fd; }
+        .ball-theme-N { background: radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #052e16 100%); border: 2.5px solid #86efac; }
+        .ball-theme-G { background: radial-gradient(circle at 32% 28%, #fb923c 0%, #ea580c 58%, #431407 100%); border: 2.5px solid #fdba74; }
+        .ball-theme-O { background: radial-gradient(circle at 32% 28%, #fde047 0%, #eab308 58%, #422006 100%); border: 2.5px solid #fef08a; }
 
         .called-ball-pill {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 6px;
-            padding: 5px 8px;
+            gap: 4px;
+            padding: 6px 8px;
             border-radius: 12px;
-            font-weight: 800;
-            font-size: 11px;
+            font-weight: 900;
+            white-space: nowrap;
             transition: all 0.25s ease;
         }
         .called-ball-latest {
-            background: linear-gradient(135deg, rgba(250, 204, 21, 0.24) 0%, rgba(234, 88, 12, 0.22) 100%);
-            border: 1.5px solid #facc15;
+            background: linear-gradient(135deg, rgba(250, 204, 21, 0.3) 0%, rgba(234, 88, 12, 0.28) 100%);
+            border: 2px solid #facc15;
             color: #fef08a;
-            box-shadow: 0 0 14px rgba(250, 204, 21, 0.28);
+            box-shadow: 0 0 16px rgba(250, 204, 21, 0.35);
         }
         .called-ball-history {
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            color: #e2e8f0;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            color: #f8fafc;
         }
         .mini-ball-dot {
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             border-radius: 9999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 9px;
+            font-size: 11px;
             font-weight: 900;
             color: #ffffff;
             flex-shrink: 0;
-            box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), 0 2px 4px rgba(0,0,0,0.4);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.55), 0 2px 5px rgba(0,0,0,0.45);
         }
 
         /* 🏆 Winning Bingo Button & Card Highlight */
@@ -427,7 +428,7 @@
             </div>
         </div>
 
-        <!-- 🌟 Highlighted Live Draw Showcase (Prize + 3D Called Bingo Ball) -->
+        <!-- 🌟 Highlighted Live Draw Showcase (Prize + Oversized 3D Called Bingo Ball) -->
         <div class="grid grid-cols-12 gap-2 items-center">
             <div class="col-span-5 glass-panel p-3 rounded-2xl border border-emerald-500/40 flex flex-col justify-center h-full">
                 <div class="text-[8px] text-emerald-300 font-bold uppercase tracking-wider">የአሸናፊው ደራሽ</div>
@@ -435,26 +436,26 @@
                 <div id="derash-amount" class="text-base font-black text-emerald-400 tracking-tight">0.00 ETB</div>
             </div>
 
-            <div class="col-span-7 glass-panel p-2.5 rounded-2xl border border-amber-400/50 bg-gradient-to-r from-slate-900/95 via-indigo-950/60 to-slate-900/95 flex items-center justify-between px-3 shadow-xl">
+            <div class="col-span-7 glass-panel p-2.5 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-slate-900/95 via-indigo-950/70 to-slate-900/95 flex items-center justify-between px-3 shadow-xl">
                 <div class="space-y-0.5">
                     <span class="inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">LIVE CALL</span>
-                    <div class="text-[10px] font-bold text-slate-200 pt-0.5">የተጠራው ቁጥር</div>
-                    <div id="current-ball-column-label" class="text-[9px] font-extrabold text-amber-400">በመጠባበቅ ላይ...</div>
+                    <div class="text-[11px] font-extrabold text-slate-100 pt-0.5">የተጠራው ቁጥር</div>
+                    <div id="current-ball-column-label" class="text-[10px] font-black text-amber-400">በመጠባበቅ ላይ...</div>
                 </div>
 
-                <div id="current-ball-circle" class="bingo-3d-ball ball-theme-default w-16 h-16 shrink-0">
-                    <div class="bingo-ball-badge w-11 h-11">
-                        <span class="text-[8px] font-black text-slate-500 uppercase">BALL</span>
-                        <span class="text-xs font-black text-slate-950">--</span>
+                <div id="current-ball-circle" class="bingo-3d-ball ball-theme-default w-20 h-20 shrink-0">
+                    <div class="bingo-ball-badge w-14 h-14">
+                        <span class="text-[9px] font-black text-slate-500 uppercase">BALL</span>
+                        <span class="text-lg font-black text-slate-950">--</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="grid grid-cols-12 gap-2 items-start">
-            <div class="col-span-4 glass-panel p-2 rounded-2xl border border-amber-500/35">
+            <div class="col-span-4 glass-panel p-2 rounded-2xl border border-amber-500/40">
                 <div class="text-[10px] font-black text-amber-300 mb-1.5 text-center tracking-wide">🎱 የወጡ ቁጥሮች</div>
-                <div class="max-h-[320px] overflow-y-auto space-y-1.5 pr-0.5" id="called-numbers-board"></div>
+                <div class="max-h-[340px] overflow-y-auto space-y-1.5 pr-0.5" id="called-numbers-board"></div>
             </div>
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
         </div>
@@ -783,11 +784,11 @@
             if (!circle) return;
 
             if (!num) {
-                circle.className = 'bingo-3d-ball ball-theme-default w-16 h-16 shrink-0';
+                circle.className = 'bingo-3d-ball ball-theme-default w-20 h-20 shrink-0';
                 circle.innerHTML = `
-                    <div class="bingo-ball-badge w-11 h-11">
-                        <span class="text-[8px] font-black text-slate-500 uppercase">BALL</span>
-                        <span class="text-xs font-black text-slate-950">--</span>
+                    <div class="bingo-ball-badge w-14 h-14">
+                        <span class="text-[9px] font-black text-slate-500 uppercase">BALL</span>
+                        <span class="text-lg font-black text-slate-950">--</span>
                     </div>
                 `;
                 if (colLabel) colLabel.innerText = 'በመጠባበቅ ላይ...';
@@ -795,11 +796,11 @@
             }
 
             const letter = getLetterForNum(num);
-            circle.className = `bingo-3d-ball ball-theme-${letter} w-16 h-16 shrink-0`;
+            circle.className = `bingo-3d-ball ball-theme-${letter} w-20 h-20 shrink-0`;
             circle.innerHTML = `
-                <div class="bingo-ball-badge w-11 h-11">
-                    <span class="text-[9px] font-black text-slate-600">${letter}</span>
-                    <span class="text-sm font-black text-slate-950">${num}</span>
+                <div class="bingo-ball-badge w-14 h-14">
+                    <span class="text-xs font-black text-rose-600 tracking-wider">${letter}</span>
+                    <span class="text-2xl font-black text-slate-950 tracking-tight">${num}</span>
                 </div>
             `;
             if (colLabel) colLabel.innerText = getColumnTitle(letter);
@@ -1668,7 +1669,7 @@
                 itemDiv.innerHTML = `
                     <div class="flex items-center gap-1.5 min-w-0">
                         <span class="mini-ball-dot" style="background: ${getMiniBallGradient(letter)}">${letter}</span>
-                        <span class="font-black tracking-tight">${letter}-${num}</span>
+                        <span class="${isLatest ? 'text-base' : 'text-sm'} font-black tracking-tight">${letter}-${num}</span>
                     </div>
                     ${isLatest ? '<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 uppercase shrink-0">NEW</span>' : ''}
                 `;
