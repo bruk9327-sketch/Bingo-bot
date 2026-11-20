@@ -391,6 +391,26 @@
             <p class="text-[9px] text-slate-400 mt-2 text-center">💡 የመረጡትን ካርቴላ መቀየር ከፈለጉ የተመረጠውን ቁጥር እንደገና ይንኩት።</p>
         </div>
 
+        <!-- 🎁 Promo Banner Below Cartela Grid ("ካርቴላዎን ይያዙ ይሸለሙ") -->
+        <div id="cartela-promo-banner" class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-900/90 via-indigo-950/90 to-amber-950/80 border border-amber-400/45 p-3 shadow-lg">
+            <div class="flex items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center font-black text-base shrink-0 shadow">
+                        🏆
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-black text-amber-300 tracking-wide">ካርቴላዎን ይያዙ ይሸለሙ!</div>
+                        <p class="text-[10px] text-slate-200 leading-snug">
+                            አሁኑኑ ዕድልዎን ይምረጡ — ደራሹ ይጠብቅዎታል! 🔥
+                        </p>
+                    </div>
+                </div>
+                <span class="text-[9px] font-black uppercase px-2 py-1 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/40 shrink-0">
+                    90% ደራሽ
+                </span>
+            </div>
+        </div>
+
         <div id="preview-cards-container" class="space-y-3"></div>
     </div>
 
@@ -858,6 +878,9 @@
             const previewContainer = document.getElementById('preview-cards-container');
             if (previewContainer) previewContainer.innerHTML = '';
 
+            const promoBanner = document.getElementById('cartela-promo-banner');
+            if (promoBanner) promoBanner.classList.remove('hidden');
+
             const myCardsContainer = document.getElementById('my-cards-container');
             if (myCardsContainer) {
                 myCardsContainer.innerHTML = '';
@@ -918,6 +941,7 @@
             }
 
             initCartelaGrid();
+            renderPreviewCards();
         });
 
         socket.on('connect', () => {
@@ -935,6 +959,7 @@
                 socket.emit('get_user_active_cards', { user_id: userId });
             }
             initCartelaGrid();
+            renderPreviewCards();
         });
 
         socket.on('restore_user_cards', (data) => {
@@ -1807,8 +1832,18 @@
 
         function renderPreviewCards() {
             const container = document.getElementById('preview-cards-container');
+            const promoBanner = document.getElementById('cartela-promo-banner');
             if(!container) return;
             container.innerHTML = '';
+
+            if (promoBanner) {
+                if (mySelectedCards.length > 0) {
+                    promoBanner.classList.add('hidden');
+                } else {
+                    promoBanner.classList.remove('hidden');
+                }
+            }
+
             mySelectedCards.forEach(cid => {
                 if (cardsDatabase[cid]) {
                     container.appendChild(createCardHTML(cid, cardsDatabase[cid], false));
