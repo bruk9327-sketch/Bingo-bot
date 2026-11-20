@@ -424,7 +424,9 @@ def handle_register_user(data):
           'auth_response',
           {
               'success': False,
-              'msg': 'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!',
+              'msg': (
+                  'ይህ ኢሜይል፣ ስልክ ቁጥር ወይም ዩዘርኔም አስቀድሞ ተመዝግቧል!'
+              ),
           },
           room=request.sid,
       )
@@ -1608,6 +1610,67 @@ def handle_select_card(data):
           'new_balance': float(user.balance),
       },
       room=request.sid,
+  )
+  socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
+  socketio.emit(
+      'timer_update',
+      {'time_left': game_timer, 'sold_count': len(sold_cards_in_round)},
+  )
+
+
+@socketio.on('unselect_card')
+def handle_unselect_card(data):
+  global game_active, taken_cards_global, sold_cards_in_round, game_timer
+  user_id = str(data.get('user_id') or '').strip()
+  try:
+    card_id = int(data.get('card_id', 0))
+  except Exception:
+    card_id = 0
+
+  if not user_id or card_id < 1 or card_id > 500:
+    return
+
+  if game_active:
+    emit(
+        'card_unselected',
+        {
+            'success': False,
+            'msg': 'ጨዋታው ስለጀመረ ካርቴላ መቀየር አይቻልም!',
+        },
+        room=request.sid,
+    )
+    return
+
+  owns_card = any(
+      int(c.get('card_id')) == card_id and str(c.get('user_id')) == user_id
+      for c in sold_cards_in_round
+  )
+
+  if not owns_card and card_id not in taken_cards_global:
+    return
+
+  if card_id in taken_cards_global:
+    taken_cards_global.remove(card_id)
+
+  sold_cards_in_round[:] = [
+      c for c in sold_cards_in_round if int(c.get('card_id')) != card_id
+  ]
+
+  user = User.query.filter_by(user_id=user_id).first()
+  new_bal = None
+  if user:
+    user.balance = float(user.balance or 0.0) + 10.00
+    db.session.commit()
+    new_bal = float(user.balance)
+
+  socketio.emit(
+      'card_unselected',
+      {
+          'success': True,
+          'user_id': user_id,
+          'card_id': card_id,
+          'new_balance': new_bal,
+      },
   )
   socketio.emit('update_selected_cards', {'taken_cards': taken_cards_global})
   socketio.emit(
