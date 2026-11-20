@@ -26,9 +26,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bkbingo_secret_key_2026')
 
 # SMTP (Flask-Mail) Configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER', 'your_email@gmail.com')
 app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS', 'your_app_password')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER', 'your_email@gmail.com')
@@ -45,14 +45,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent')
 
-TELEGRAM_BOT_TOKEN = os.environ.get(
-    'TELEGRAM_BOT_TOKEN', '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM'
-)
-TELEGRAM_ADMIN_CHAT_ID = os.environ.get(
-    'TELEGRAM_ADMIN_CHAT_ID', '8912812512'
-)
-
-ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Biruk@123456')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '')
+ADMIN_SECRET_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 
 PROCESSED_TIDS = set()
 
@@ -269,7 +264,7 @@ with app.app_context():
 
 
 def send_telegram_notification(message, reply_markup=None):
-  if TELEGRAM_BOT_TOKEN == '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM':
+  if not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID:
     return
   try:
     url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
@@ -474,14 +469,11 @@ def handle_register_user(data):
     )
 
 
+@socketio.on('telegram_auto_login')
 @socketio.on('telegram_login')
-def handle_telegram_login(data):
-  tg_user = data.get('telegram_user', {})
-  tg_id = str(tg_user.get('id', ''))
-  first_name = tg_user.get('first_name', '')
-  last_name = tg_user.get('last_name', '')
-  username = tg_user.get('username', f'user_{tg_id}')
-  full_name = f'{first_name} {last_name}'.strip() or username
+def handle_telegram_auto_login(data):
+  tg_user = data.get('telegram_user') or {}
+  tg_id = str(tg_user.get('id') or '').strip()
 
   if not tg_id:
     emit(
@@ -491,50 +483,77 @@ def handle_telegram_login(data):
     )
     return
 
-  user = User.query.filter_by(user_id=tg_id).first()
+  first_name = str(tg_user.get('first_name') or '').strip()
+  last_name = str(tg_user.get('last_name') or '').strip()
+  username = str(tg_user.get('username') or f'tg_user_{tg_id}').strip()
+  full_name = f'{first_name} {last_name}'.strip() or username
 
-  if not user:
-    user = User.query.filter(
-        sa.or_(User.username == username, User.phone == f'TG_{tg_id}')
-    ).first()
+  try:
+    user = User.query.filter_by(user_id=tg_id).first()
 
-  if not user:
-    user = User(
-        user_id=tg_id,
-        full_name=full_name,
-        username=username,
-        phone=f'TG_{tg_id}',
-        password=f'tg_pass_{tg_id}',
-        balance=0.00,
-        is_active=True,
-        is_suspended=False,
-        kyc_verified=False,
-    )
-    db.session.add(user)
+    if not user:
+      existing_by_uname = User.query.filter_by(username=username).first()
+      if existing_by_uname and str(existing_by_uname.phone or '').startswith('TG_'):
+        old_uid = existing_by_uname.user_id
+        existing_by_uname.user_id = tg_id
+        existing_by_uname.full_name = full_name
+        if old_uid and old_uid != tg_id:
+          Deposit.query.filter_by(user_id=old_uid).update({'user_id': tg_id})
+          Transaction.query.filter_by(user_id=old_uid).update({'user_id': tg_id})
+          SupportTicket.query.filter_by(user_id=old_uid).update({'user_id': tg_id})
+        user = existing_by_uname
+      else:
+        user = User(
+            user_id=tg_id,
+            full_name=full_name,
+            username=username,
+            phone=f'TG_{tg_id}',
+            password=f'tg_pass_{tg_id}',
+            balance=0.00,
+            is_active=True,
+            is_suspended=False,
+            kyc_verified=False,
+        )
+        db.session.add(user)
+    else:
+      if full_name:
+        user.full_name = full_name
+      if tg_user.get('username'):
+        user.username = username
+
     db.session.commit()
 
-  if user.is_suspended:
+    if user.is_suspended:
+      emit(
+          'auth_response',
+          {'success': False, 'msg': 'አካውንትዎ ታግዷል!'},
+          room=request.sid,
+      )
+      return
+
+    session['user_id'] = user.user_id
+    session['logged_in'] = True
+
     emit(
         'auth_response',
-        {'success': False, 'msg': 'አካውንትዎ ታግዷል!'},
+        {
+            'success': True,
+            'msg': f'እንኳን ደህና መጡ {user.full_name or username}!',
+            'user_id': user.user_id,
+            'balance': float(user.balance or 0.0),
+            'full_name': user.full_name,
+        },
         room=request.sid,
     )
-    return
 
-  session['user_id'] = user.user_id
-  session['logged_in'] = True
-
-  emit(
-      'auth_response',
-      {
-          'success': True,
-          'msg': f'እንኳን ደህና መጡ {full_name}!',
-          'user_id': user.user_id,
-          'balance': user.balance,
-          'full_name': user.full_name,
-      },
-      room=request.sid,
-  )
+  except Exception as e:
+    db.session.rollback()
+    print('Telegram Auto Login Error:', e)
+    emit(
+        'auth_response',
+        {'success': False, 'msg': 'በራስ-ሰር መመዝገብ አልተቻለም፤ እንደገና ይሞክሩ!'},
+        room=request.sid,
+    )
 
 
 @socketio.on('link_telegram_account')
@@ -579,7 +598,7 @@ def handle_link_telegram_account(data):
   already_linked = User.query.filter(
       User.user_id == tg_id, User.id != existing_user.id
   ).first()
-  if already_linked and not str(already_linked.user_id).startswith('TG_'):
+  if already_linked and not str(already_linked.phone or '').startswith('TG_'):
     emit(
         'auth_response',
         {
@@ -594,15 +613,31 @@ def handle_link_telegram_account(data):
     tg_temp_user = User.query.filter_by(user_id=tg_id).first()
 
     if tg_temp_user and tg_temp_user.id != existing_user.id:
-      if tg_temp_user.balance > 0:
-        existing_user.balance = float(existing_user.balance) + float(
+      if tg_temp_user.balance and tg_temp_user.balance > 0:
+        existing_user.balance = float(existing_user.balance or 0.0) + float(
             tg_temp_user.balance
         )
 
-      db.session.delete(tg_temp_user)
-      db.session.commit()
+      Deposit.query.filter_by(user_id=tg_temp_user.user_id).update(
+          {'user_id': existing_user.user_id}
+      )
+      Transaction.query.filter_by(user_id=tg_temp_user.user_id).update(
+          {'user_id': existing_user.user_id}
+      )
+      SupportTicket.query.filter_by(user_id=tg_temp_user.user_id).update(
+          {'user_id': existing_user.user_id}
+      )
 
+      db.session.delete(tg_temp_user)
+      db.session.flush()
+
+    old_existing_uid = existing_user.user_id
     existing_user.user_id = tg_id
+    if old_existing_uid and old_existing_uid != tg_id:
+      Deposit.query.filter_by(user_id=old_existing_uid).update({'user_id': tg_id})
+      Transaction.query.filter_by(user_id=old_existing_uid).update({'user_id': tg_id})
+      SupportTicket.query.filter_by(user_id=old_existing_uid).update({'user_id': tg_id})
+
     db.session.commit()
 
     session['user_id'] = existing_user.user_id
@@ -617,7 +652,7 @@ def handle_link_telegram_account(data):
                 f' {existing_user.balance} ETB'
             ),
             'user_id': existing_user.user_id,
-            'balance': existing_user.balance,
+            'balance': float(existing_user.balance or 0.0),
             'full_name': existing_user.full_name,
         },
         room=request.sid,
@@ -639,11 +674,11 @@ def handle_link_telegram_account(data):
 @socketio.on('telegram_auto_register')
 def handle_telegram_auto_register(data):
   tg_user = data.get('telegram_user', {})
-  tg_id = str(tg_user.get('id', ''))
+  tg_id = str(tg_user.get('id', '')).strip()
   identifier = str(data.get('identifier') or '').strip()
-  first_name = tg_user.get('first_name', '')
-  last_name = tg_user.get('last_name', '')
-  username = tg_user.get('username', f'user_{tg_id}')
+  first_name = str(tg_user.get('first_name') or '').strip()
+  last_name = str(tg_user.get('last_name') or '').strip()
+  username = str(tg_user.get('username') or f'tg_user_{tg_id}').strip()
   full_name = f'{first_name} {last_name}'.strip() or username
 
   if not tg_id:
@@ -713,7 +748,7 @@ def handle_telegram_auto_register(data):
           'success': True,
           'msg': f'እንኳን ደህና መጡ {full_name}! አዲስ አካውንትዎ ተፈጥሯል።',
           'user_id': user.user_id,
-          'balance': user.balance,
+          'balance': float(user.balance or 0.0),
           'full_name': user.full_name,
       },
       room=request.sid,
@@ -2097,10 +2132,7 @@ def admin_broadcast_api():
     if message:
       socketio.emit('receive_broadcast', {'text': message})
 
-    if (
-        TELEGRAM_BOT_TOKEN
-        and TELEGRAM_BOT_TOKEN != '8623843462:AAG7e74RbOdQF5N4lsT2EsO8XJ0Hy5TYjkM'
-    ):
+    if TELEGRAM_BOT_TOKEN:
       all_users = User.query.all()
 
       for u in all_users:
@@ -2195,7 +2227,7 @@ def admin_login():
     username = request.form.get('username')
     password = request.form.get('password')
 
-    if password == ADMIN_SECRET_PASSWORD and (
+    if ADMIN_SECRET_PASSWORD and password == ADMIN_SECRET_PASSWORD and (
         username == 'admin' or username == 'Biruk'
     ):
       session['admin_logged'] = True
