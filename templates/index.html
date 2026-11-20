@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Poppins', sans-serif; background: #0f172a; color: #fff; min-height: 100vh; }
         .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
@@ -33,6 +33,99 @@
             font-weight: 700;
             padding: 10px 0;
             cursor: pointer;
+        }
+
+        /* 🎱 3D Bingo Ball Styles (Inspired by Classic Glossy Lottery Balls) */
+        @keyframes ballDropPop {
+            0% { transform: scale(0.45) rotate(-25deg); opacity: 0.2; }
+            60% { transform: scale(1.12) rotate(6deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes ballFloatGlow {
+            0%, 100% { box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.45); }
+            50% { box-shadow: 0 14px 32px rgba(250, 204, 21, 0.32), inset -6px -8px 14px rgba(0, 0, 0, 0.35), inset 6px 6px 12px rgba(255, 255, 255, 0.55); }
+        }
+
+        .bingo-3d-ball {
+            position: relative;
+            border-radius: 9999px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            overflow: hidden;
+            animation: ballDropPop 0.45s cubic-bezier(0.22, 1, 0.36, 1), ballFloatGlow 2.4s infinite ease-in-out;
+        }
+        .bingo-3d-ball::before {
+            content: '';
+            position: absolute;
+            top: 7%;
+            left: 15%;
+            width: 48%;
+            height: 24%;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.05) 100%);
+            transform: rotate(-18deg);
+            pointer-events: none;
+            z-index: 2;
+        }
+        .bingo-ball-badge {
+            position: relative;
+            z-index: 3;
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f1f5f9 85%);
+            color: #090d16;
+            border-radius: 9999px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.25), 0 2px 6px rgba(0, 0, 0, 0.35);
+            line-height: 1;
+        }
+
+        /* Column Letter Themes */
+        .ball-theme-default { background: radial-gradient(circle at 32% 28%, #818cf8 0%, #4f46e5 55%, #1e1b4b 100%); border: 2px solid rgba(165, 180, 252, 0.65); }
+        .ball-theme-B { background: radial-gradient(circle at 32% 28%, #ff6b6b 0%, #e11d48 58%, #4c0519 100%); border: 2px solid #fda4af; }
+        .ball-theme-I { background: radial-gradient(circle at 32% 28%, #60a5fa 0%, #2563eb 58%, #172554 100%); border: 2px solid #93c5fd; }
+        .ball-theme-N { background: radial-gradient(circle at 32% 28%, #4ade80 0%, #16a34a 58%, #052e16 100%); border: 2px solid #86efac; }
+        .ball-theme-G { background: radial-gradient(circle at 32% 28%, #fb923c 0%, #ea580c 58%, #431407 100%); border: 2px solid #fdba74; }
+        .ball-theme-O { background: radial-gradient(circle at 32% 28%, #fde047 0%, #eab308 58%, #422006 100%); border: 2px solid #fef08a; }
+
+        .called-ball-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 5px 8px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 11px;
+            transition: all 0.25s ease;
+        }
+        .called-ball-latest {
+            background: linear-gradient(135deg, rgba(250, 204, 21, 0.24) 0%, rgba(234, 88, 12, 0.22) 100%);
+            border: 1.5px solid #facc15;
+            color: #fef08a;
+            box-shadow: 0 0 14px rgba(250, 204, 21, 0.28);
+        }
+        .called-ball-history {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            color: #e2e8f0;
+        }
+        .mini-ball-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 900;
+            color: #ffffff;
+            flex-shrink: 0;
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), 0 2px 4px rgba(0,0,0,0.4);
         }
 
         /* 🏆 Winning Bingo Button & Card Highlight */
@@ -334,24 +427,34 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-1.5">
-            <div class="glass-panel p-2.5 rounded-xl border border-emerald-500/40 flex flex-col justify-center">
-                <div class="text-[8px] text-emerald-300 font-bold">የአሸናፊው ደራሽ (PRIZE)</div>
-                <div id="derash-amount" class="text-sm font-black text-emerald-400">0.00 ETB</div>
+        <!-- 🌟 Highlighted Live Draw Showcase (Prize + 3D Called Bingo Ball) -->
+        <div class="grid grid-cols-12 gap-2 items-center">
+            <div class="col-span-5 glass-panel p-3 rounded-2xl border border-emerald-500/40 flex flex-col justify-center h-full">
+                <div class="text-[8px] text-emerald-300 font-bold uppercase tracking-wider">የአሸናፊው ደራሽ</div>
+                <div class="text-[9px] text-slate-400 font-semibold mb-1">(PRIZE POOL)</div>
+                <div id="derash-amount" class="text-base font-black text-emerald-400 tracking-tight">0.00 ETB</div>
             </div>
-            <div class="glass-panel p-2.5 rounded-xl border border-purple-500/50 flex items-center justify-between px-3">
-                <div>
-                    <div class="text-[7px] text-slate-400">የተጠራው ቁጥር</div>
-                    <div class="text-[9px] text-purple-300 font-bold">የወጣ</div>
+
+            <div class="col-span-7 glass-panel p-2.5 rounded-2xl border border-amber-400/50 bg-gradient-to-r from-slate-900/95 via-indigo-950/60 to-slate-900/95 flex items-center justify-between px-3 shadow-xl">
+                <div class="space-y-0.5">
+                    <span class="inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">LIVE CALL</span>
+                    <div class="text-[10px] font-bold text-slate-200 pt-0.5">የተጠራው ቁጥር</div>
+                    <div id="current-ball-column-label" class="text-[9px] font-extrabold text-amber-400">በመጠባበቅ ላይ...</div>
                 </div>
-                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-700 to-indigo-500 border-2 border-purple-400 flex items-center justify-center font-black text-sm shadow-xl text-white" id="current-ball-circle">--</div>
+
+                <div id="current-ball-circle" class="bingo-3d-ball ball-theme-default w-16 h-16 shrink-0">
+                    <div class="bingo-ball-badge w-11 h-11">
+                        <span class="text-[8px] font-black text-slate-500 uppercase">BALL</span>
+                        <span class="text-xs font-black text-slate-950">--</span>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="grid grid-cols-12 gap-2 items-start">
-            <div class="col-span-4 glass-panel p-1.5 rounded-xl border border-purple-500/30">
-                <div class="text-[10px] font-bold text-slate-300 mb-1 text-center">የወጡ ቁጥሮች</div>
-                <div class="max-h-[300px] overflow-y-auto space-y-1 pr-0.5" id="called-numbers-board"></div>
+            <div class="col-span-4 glass-panel p-2 rounded-2xl border border-amber-500/35">
+                <div class="text-[10px] font-black text-amber-300 mb-1.5 text-center tracking-wide">🎱 የወጡ ቁጥሮች</div>
+                <div class="max-h-[320px] overflow-y-auto space-y-1.5 pr-0.5" id="called-numbers-board"></div>
             </div>
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
         </div>
@@ -602,9 +705,7 @@
             <h3 id="winner-title" class="text-lg font-black text-amber-400 mb-1 font-orbitron tracking-wide">ቢንጎ አሸናፊ(ዎች) ተገኙ!</h3>
             <p class="text-xs text-slate-300 mb-4">ጠቅላላ ሽልማት: <span id="winner-total-prize" class="font-black text-emerald-400 text-sm">0.00 ETB</span></p>
             
-            <div id="winners-list-container" class="space-y-3 mb-3 text-left">
-                <!-- Multi-winners details rendered dynamically here -->
-            </div>
+            <div id="winners-list-container" class="space-y-3 mb-3 text-left"></div>
 
             <!-- 5 Seconds Auto Countdown Bar -->
             <div class="mt-4 pt-3 border-t border-slate-800">
@@ -650,6 +751,60 @@
         let winnerRedirectInterval = null;
         let winnerTimeout = null;
 
+        function getLetterForNum(num) {
+            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+        }
+
+        function getColumnTitle(letter) {
+            const names = {
+                'B': 'B ዓምድ (1-15)',
+                'I': 'I ዓምድ (16-30)',
+                'N': 'N ዓምድ (31-45)',
+                'G': 'G ዓምድ (46-60)',
+                'O': 'O ዓምድ (61-75)'
+            };
+            return names[letter] || 'BINGO';
+        }
+
+        function getMiniBallGradient(letter) {
+            const map = {
+                'B': 'linear-gradient(135deg, #ff6b6b 0%, #e11d48 100%)',
+                'I': 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)',
+                'N': 'linear-gradient(135deg, #4ade80 0%, #16a34a 100%)',
+                'G': 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)',
+                'O': 'linear-gradient(135deg, #fde047 0%, #ca8a04 100%)'
+            };
+            return map[letter] || 'linear-gradient(135deg, #818cf8 0%, #4f46e5 100%)';
+        }
+
+        function renderMainCalledBall(num) {
+            const circle = document.getElementById('current-ball-circle');
+            const colLabel = document.getElementById('current-ball-column-label');
+            if (!circle) return;
+
+            if (!num) {
+                circle.className = 'bingo-3d-ball ball-theme-default w-16 h-16 shrink-0';
+                circle.innerHTML = `
+                    <div class="bingo-ball-badge w-11 h-11">
+                        <span class="text-[8px] font-black text-slate-500 uppercase">BALL</span>
+                        <span class="text-xs font-black text-slate-950">--</span>
+                    </div>
+                `;
+                if (colLabel) colLabel.innerText = 'በመጠባበቅ ላይ...';
+                return;
+            }
+
+            const letter = getLetterForNum(num);
+            circle.className = `bingo-3d-ball ball-theme-${letter} w-16 h-16 shrink-0`;
+            circle.innerHTML = `
+                <div class="bingo-ball-badge w-11 h-11">
+                    <span class="text-[9px] font-black text-slate-600">${letter}</span>
+                    <span class="text-sm font-black text-slate-950">${num}</span>
+                </div>
+            `;
+            if (colLabel) colLabel.innerText = getColumnTitle(letter);
+        }
+
         function resetCountdownProgressBar() {
             const progressBar = document.querySelector('.countdown-progress');
             if (!progressBar) return;
@@ -678,8 +833,7 @@
             markedNumbersMap = {};
             cardsDatabase = {};
 
-            const currentBallEl = document.getElementById('current-ball-circle');
-            if (currentBallEl) currentBallEl.innerText = '--';
+            renderMainCalledBall(null);
 
             const derashEl = document.getElementById('derash-amount');
             if (derashEl) derashEl.innerText = '0.00 ETB';
@@ -782,6 +936,7 @@
                         drawnNumbersSet.add(num);
                         drawnNumbersList.push(num);
                     });
+                    renderMainCalledBall(drawnNumbersList[drawnNumbersList.length - 1]);
                 }
 
                 if (data.game_active) {
@@ -953,9 +1108,6 @@
             }
         });
 
-        // ==========================================
-        // TELEGRAM ACCOUNT LINKING & AUTO-REGISTRATION
-        // ==========================================
         function promptTelegramLinkingIfNeeded() {
             if (currentTelegramUser && currentTelegramUser.id) {
                 const modal = document.getElementById('telegram-link-modal');
@@ -1443,6 +1595,7 @@
             winningCardIds.clear();
             markedNumbersMap = {};
             mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
+            renderMainCalledBall(null);
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -1469,10 +1622,7 @@
                 drawnNumbersList.push(num);
             }
             
-            const letter = getLetterForNum(num);
-            const circle = document.getElementById('current-ball-circle');
-            if(circle) circle.innerText = `${letter}-${num}`;
-
+            renderMainCalledBall(num);
             updateCalledNumbersUI();
 
             const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
@@ -1493,10 +1643,6 @@
             }
         });
 
-        function getLetterForNum(num) {
-            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
-        }
-
         function updateCalledNumbersUI() {
             const boardContainer = document.getElementById('called-numbers-board');
             const gameBallsCount = document.getElementById('game-balls-count');
@@ -1509,10 +1655,23 @@
             if(!boardContainer) return;
             boardContainer.innerHTML = '';
 
+            if (drawnNumbersList.length === 0) {
+                boardContainer.innerHTML = `<div class="text-[9px] text-slate-400 text-center py-4 italic">ቁጥሮች ገና አልወጡም...</div>`;
+                return;
+            }
+
             drawnNumbersList.slice().reverse().forEach((num, index) => {
+                const letter = getLetterForNum(num);
+                const isLatest = index === 0;
                 const itemDiv = document.createElement('div');
-                itemDiv.className = index === 0 ? 'py-1 px-1.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-lg text-center shadow' : 'py-1 px-1.5 bg-slate-900 text-slate-300 font-bold text-[10px] rounded-lg text-center border border-slate-800';
-                itemDiv.innerText = `${getLetterForNum(num)}-${num}`;
+                itemDiv.className = `called-ball-pill ${isLatest ? 'called-ball-latest' : 'called-ball-history'}`;
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="mini-ball-dot" style="background: ${getMiniBallGradient(letter)}">${letter}</span>
+                        <span class="font-black tracking-tight">${letter}-${num}</span>
+                    </div>
+                    ${isLatest ? '<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 uppercase shrink-0">NEW</span>' : ''}
+                `;
                 boardContainer.appendChild(itemDiv);
             });
         }
