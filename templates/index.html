@@ -34,6 +34,31 @@
             padding: 10px 0;
             cursor: pointer;
         }
+
+        /* 🏆 Winning Bingo Button & Card Highlight */
+        @keyframes winButtonPulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 18px rgba(250, 204, 21, 0.75), 0 0 36px rgba(245, 158, 11, 0.45);
+            }
+            50% {
+                transform: scale(1.03);
+                box-shadow: 0 0 28px rgba(254, 240, 138, 1), 0 0 48px rgba(234, 179, 8, 0.75);
+            }
+        }
+        .bingo-winner-btn {
+            background: linear-gradient(135deg, #fef08a 0%, #facc15 45%, #ea580c 100%) !important;
+            color: #090d16 !important;
+            border: 2px solid #fef9c3 !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.4px;
+            animation: winButtonPulse 1.1s infinite ease-in-out !important;
+        }
+        .bingo-winner-card {
+            border: 2px solid #facc15 !important;
+            box-shadow: 0 0 25px rgba(250, 204, 21, 0.35) !important;
+        }
+
         /* 🌟 Winner Modal Animations & 5s Countdown Bar */
         @keyframes confettiPop {
             0% { transform: scale(0.8); opacity: 0; }
@@ -269,6 +294,7 @@
 
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80">
             <div id="cartela-grid" class="number-grid"></div>
+            <p class="text-[9px] text-slate-400 mt-2 text-center">💡 የመረጡትን ካርቴላ መቀየር ከፈለጉ የተመረጠውን ቁጥር እንደገና ይንኩት።</p>
         </div>
 
         <div id="preview-cards-container" class="space-y-3"></div>
@@ -619,6 +645,7 @@
         let markedNumbersMap = {};
         let cardsDatabase = {};
         let currentTelegramUser = null;
+        let winningCardIds = new Set();
 
         let winnerRedirectInterval = null;
         let winnerTimeout = null;
@@ -645,6 +672,7 @@
         function resetGameStateForNextRound() {
             mySelectedCards = [];
             takenCards = [];
+            winningCardIds.clear();
             drawnNumbersSet.clear();
             drawnNumbersList = [];
             markedNumbersMap = {};
@@ -1001,6 +1029,7 @@
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             initCartelaGrid();
+            renderPreviewCards();
             socket.emit('get_user_balance', { user_id: userId });
             socket.emit('get_user_active_cards', { user_id: userId });
         }
@@ -1314,6 +1343,16 @@
             }
         });
 
+        function removeCardFromMySelection(cardId) {
+            const numericId = Number(cardId);
+            mySelectedCards = mySelectedCards.filter(id => Number(id) !== numericId);
+            takenCards = takenCards.filter(id => Number(id) !== numericId);
+            delete cardsDatabase[numericId];
+            delete markedNumbersMap[numericId];
+            initCartelaGrid();
+            renderPreviewCards();
+        }
+
         function initCartelaGrid() {
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
@@ -1327,10 +1366,14 @@
                 if (isTaken) {
                     btn.className = 'number-cell bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed';
                 } else if (isSelected) {
-                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg';
-                    btn.onclick = () => socket.emit('select_card', { user_id: window.userId, card_id: i });
+                    btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg ring-2 ring-amber-300/70 hover:bg-rose-600 hover:border-rose-300 transition-all';
+                    btn.title = `ካርቴላ #${i} ለመልቀቅ/ለማጥፋት ይጫኑ`;
+                    btn.onclick = () => {
+                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        socket.emit('unselect_card', { user_id: window.userId, card_id: i });
+                    };
                 } else {
-                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 active:scale-95';
+                    btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 hover:border-purple-400 active:scale-95 transition-all';
                     btn.onclick = () => {
                         if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
@@ -1342,9 +1385,29 @@
             }
         }
 
+        socket.on('card_unselected', (data) => {
+            if (!data) return;
+            if (!data.success && data.msg) {
+                alert("⚠️ " + data.msg);
+                return;
+            }
+            const releasedId = Number(data.card_id);
+            if (String(data.user_id) === String(window.userId) || !data.user_id) {
+                removeCardFromMySelection(releasedId);
+            } else {
+                takenCards = takenCards.filter(id => Number(id) !== releasedId);
+                initCartelaGrid();
+            }
+            if (data.new_balance !== undefined && String(data.user_id) === String(window.userId)) {
+                updateBalanceDisplays(data.new_balance);
+            }
+        });
+
         socket.on('update_selected_cards', (data) => {
             takenCards = data.taken_cards || [];
+            mySelectedCards = mySelectedCards.filter(id => takenCards.includes(id));
             initCartelaGrid();
+            renderPreviewCards();
         });
 
         socket.on('card_confirmed', (data) => {
@@ -1377,6 +1440,7 @@
         socket.on('game_started', (data) => {
             drawnNumbersSet.clear();
             drawnNumbersList = [];
+            winningCardIds.clear();
             markedNumbersMap = {};
             mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
             document.getElementById('menu-dashboard').classList.add('hidden');
@@ -1453,10 +1517,29 @@
             });
         }
 
+        function applyWinnerStyleToMyCards() {
+            const cardsContainer = document.getElementById('my-cards-container');
+            if (!cardsContainer) return;
+            const cardElements = cardsContainer.querySelectorAll('[data-card-id]');
+            cardElements.forEach(el => {
+                const cid = Number(el.getAttribute('data-card-id'));
+                if (winningCardIds.has(cid)) {
+                    el.classList.add('bingo-winner-card');
+                    const btn = el.querySelector('button');
+                    if (btn) {
+                        btn.className = 'w-full py-2.5 text-xs rounded-xl cursor-pointer mt-1 bingo-winner-btn';
+                        btn.innerHTML = `👑 BINGO WINNER! ካርቴላ #${cid}`;
+                    }
+                }
+            });
+        }
+
         function createCardHTML(cid, matrix, isPlayMode = false) {
+            const isWonCard = winningCardIds.has(Number(cid));
             const cardDiv = document.createElement('div');
-            cardDiv.className = 'glass-panel p-2.5 rounded-2xl w-full border border-slate-700';
-            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid}</div>`;
+            cardDiv.setAttribute('data-card-id', cid);
+            cardDiv.className = `glass-panel p-2.5 rounded-2xl w-full border border-slate-700 transition-all ${isWonCard ? 'bingo-winner-card' : ''}`;
+            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid} ${isWonCard ? '👑' : ''}</div>`;
 
             const mGrid = document.createElement('div');
             mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950 p-2 rounded-xl mb-2';
@@ -1494,8 +1577,13 @@
 
             if (isPlayMode) {
                 const claimBtn = document.createElement('button');
-                claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1';
-                claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
+                if (isWonCard) {
+                    claimBtn.className = 'w-full py-2.5 text-xs rounded-xl cursor-pointer mt-1 bingo-winner-btn';
+                    claimBtn.innerHTML = `👑 BINGO WINNER! ካርቴላ #${cid}`;
+                } else {
+                    claimBtn.className = 'w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black text-xs rounded-xl shadow-lg border border-emerald-400/50 active:scale-95 cursor-pointer mt-1 transition-all';
+                    claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
+                }
                 claimBtn.onclick = () => {
                     if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
@@ -1521,7 +1609,11 @@
             const container = document.getElementById('preview-cards-container');
             if(!container) return;
             container.innerHTML = '';
-            mySelectedCards.forEach(cid => container.appendChild(createCardHTML(cid, cardsDatabase[cid], false)));
+            mySelectedCards.forEach(cid => {
+                if (cardsDatabase[cid]) {
+                    container.appendChild(createCardHTML(cid, cardsDatabase[cid], false));
+                }
+            });
         }
 
         socket.on('bingo_error_response', (data) => {
@@ -1530,9 +1622,9 @@
             const cardId = data.card_id;
             const cardsContainer = document.getElementById('my-cards-container');
             if (cardsContainer) {
-                const cardElements = cardsContainer.querySelectorAll('.glass-panel');
+                const cardElements = cardsContainer.querySelectorAll('[data-card-id]');
                 cardElements.forEach(el => {
-                    if (el.innerHTML.includes(`ካርቴላ #${cardId}`)) {
+                    if (Number(el.getAttribute('data-card-id')) === Number(cardId)) {
                         const btn = el.querySelector('button');
                         if (btn) {
                             btn.disabled = true;
@@ -1550,21 +1642,32 @@
             
             if(totalPrizeEl) totalPrizeEl.innerText = `${parseFloat(data.total_prize || 0).toFixed(2)} ETB`;
             
+            const winnersList = data.winners || [{
+                user_id: data.user_id,
+                winner_name: data.winner_name,
+                prize: data.prize,
+                card_id: data.card_id,
+                card_matrix: data.card_matrix
+            }];
+
+            winnersList.forEach(w => {
+                const isMe = w.user_id && String(w.user_id) === String(window.userId);
+                const ownsThisCard = mySelectedCards.includes(Number(w.card_id));
+                if (isMe || ownsThisCard) {
+                    winningCardIds.add(Number(w.card_id));
+                }
+            });
+            applyWinnerStyleToMyCards();
+
             if(winnersContainer) {
                 winnersContainer.innerHTML = '';
-                const winnersList = data.winners || [{
-                    winner_name: data.winner_name,
-                    prize: data.prize,
-                    card_id: data.card_id,
-                    card_matrix: data.card_matrix
-                }];
-
                 winnersList.forEach(w => {
+                    const isMe = w.user_id && String(w.user_id) === String(window.userId);
                     const wBox = document.createElement('div');
-                    wBox.className = "bg-slate-900/90 p-3 rounded-2xl border border-amber-500/30 space-y-1.5 shadow-inner";
+                    wBox.className = `p-3 rounded-2xl border space-y-1.5 shadow-inner ${isMe ? 'bg-amber-950/50 border-amber-400' : 'bg-slate-900/90 border-amber-500/30'}`;
                     wBox.innerHTML = `
                         <div class="flex justify-between items-center text-xs">
-                            <span class="font-black text-amber-400 flex items-center gap-1">🏆 ${w.winner_name}</span>
+                            <span class="font-black text-amber-400 flex items-center gap-1">🏆 ${w.winner_name} ${isMe ? '(እርስዎ!)' : ''}</span>
                             <span class="font-extrabold text-emerald-400">${parseFloat(w.prize || 0).toFixed(2)} ETB</span>
                         </div>
                         <div class="text-[10px] text-purple-300 font-semibold bg-purple-950/40 px-2 py-0.5 rounded-lg inline-block">ካርቴላ #${w.card_id}</div>
