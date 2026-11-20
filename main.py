@@ -57,6 +57,7 @@ game_active = False
 sold_cards_in_round = []
 drawn_balls = []
 available_numbers = list(range(1, 76))
+DRAW_INTERVAL = 5  # 🌟 የቁጥር መጥሪያ ፍጥነት (5 ሰከንድ)
 
 OTP_STORAGE = {}
 
@@ -114,19 +115,25 @@ def background_game_loop():
       derash = total_pool * 0.90
 
       socketio.emit('game_started', {'derash': derash})
-      random.shuffle(available_numbers)
 
-      for ball in available_numbers:
+      # 🌟 በእያንዳንዱ ዙር አዲስ random shuffle (global random state ሳይበላሽ)
+      round_rng = random.Random()
+      round_balls = list(range(1, 76))
+      round_rng.shuffle(round_balls)
+      available_numbers = list(round_balls)
+
+      for ball in round_balls:
         if not game_active or round_finished_event.is_set():
           break
         drawn_balls.append(ball)
 
         socketio.emit('number_drawn', {'number': ball})
 
-        for _ in range(10):
+        steps = int(DRAW_INTERVAL * 10)
+        for _ in range(steps):
           if not game_active or round_finished_event.is_set():
             break
-          socketio.sleep(1)
+          socketio.sleep(0.1)
 
       if not round_finished_event.is_set():
         socketio.sleep(5)
@@ -136,8 +143,7 @@ def background_game_loop():
 
 
 def start_background_loop():
-  t = threading.Thread(target=background_game_loop, daemon=True)
-  t.start()
+  socketio.start_background_task(background_game_loop)
 
 
 start_background_loop()
@@ -1721,16 +1727,18 @@ def generate_bingo_matrix(seed_val):
       seed_int = 1
     elif seed_int > 500:
       seed_int = 500
-    random.seed(seed_int)
   except Exception:
-    random.seed(1)
+    seed_int = 1
 
-  b = random.sample(range(1, 16), 5)
-  i = random.sample(range(16, 31), 5)
-  n = random.sample(range(31, 46), 4)
+  # 🌟 የራሱን Random instance መጠቀም — global random state እንዳይበላሽ
+  card_rng = random.Random(seed_int)
+
+  b = card_rng.sample(range(1, 16), 5)
+  i = card_rng.sample(range(16, 31), 5)
+  n = card_rng.sample(range(31, 46), 4)
   n.insert(2, 'FREE')
-  g = random.sample(range(46, 61), 5)
-  o = random.sample(range(61, 76), 5)
+  g = card_rng.sample(range(46, 61), 5)
+  o = card_rng.sample(range(61, 76), 5)
 
   matrix = []
   for row in range(5):
