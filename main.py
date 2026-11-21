@@ -1745,6 +1745,24 @@ def generate_bingo_matrix(seed_val):
   return matrix
 
 
+def format_bingo_ball(ball_num):
+  try:
+    num = int(ball_num)
+    if 1 <= num <= 15:
+      return f'B-{num}'
+    elif 16 <= num <= 30:
+      return f'I-{num}'
+    elif 31 <= num <= 45:
+      return f'N-{num}'
+    elif 46 <= num <= 60:
+      return f'G-{num}'
+    elif 61 <= num <= 75:
+      return f'O-{num}'
+    return str(num)
+  except Exception:
+    return str(ball_num)
+
+
 def _delayed_finalize_winners():
   socketio.sleep(5.0)
   finalize_round_winners()
@@ -1760,6 +1778,10 @@ def finalize_round_winners():
 
       winners_snapshot = list(round_winners)
       sold_count_snapshot = len(sold_cards_in_round)
+      last_drawn_ball = drawn_balls[-1] if drawn_balls else None
+      formatted_closing_ball = (
+          format_bingo_ball(last_drawn_ball) if last_drawn_ball else 'N/A'
+      )
 
       game_active = False
       round_winners = []
@@ -1779,6 +1801,7 @@ def finalize_round_winners():
     for winner in winners_snapshot:
       uid = winner['user_id']
       cid = winner['card_id']
+      w_ball = winner.get('winning_ball') or formatted_closing_ball
 
       user = User.query.filter_by(user_id=uid).first()
       if user:
@@ -1798,12 +1821,21 @@ def finalize_round_winners():
           'card_id': cid,
           'card_matrix': matrix,
           'prize': prize_per_winner,
+          'winning_ball': w_ball,
+          'closed_msg': f'አሸናፊው {full_name} በቁጥር {w_ball} ተዘግቷል!',
       })
 
     winners_names = ', '.join([w['winner_name'] for w in winner_details])
+    closing_summary = (
+        f'🏆 አሸናፊው {winners_names} በቁጥር {formatted_closing_ball} ተዘግቷል!'
+    )
+
     send_telegram_notification(
-        f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው'
-        f' ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር'
+        f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n'
+        f'- አሸናፊዎች: `{winners_names}`\n'
+        f'- የተዘጋበት ቁጥር: *{formatted_closing_ball}*\n'
+        f'- የሰው ብዛት: {num_winners}\n'
+        f'- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር'
     )
 
     socketio.emit(
@@ -1813,6 +1845,8 @@ def finalize_round_winners():
             'total_prize': total_prize,
             'prize_per_winner': prize_per_winner,
             'winner_count': num_winners,
+            'closing_ball': formatted_closing_ball,
+            'closing_message': closing_summary,
         },
     )
     socketio.emit('update_selected_cards', {'taken_cards': []})
@@ -1847,13 +1881,20 @@ def handle_claim_bingo(data):
 
   if check_bingo_win(board, drawn_balls):
     should_schedule = False
+    current_last_ball = (
+        format_bingo_ball(drawn_balls[-1]) if drawn_balls else 'N/A'
+    )
     with winner_lock:
       already_claimed = any(
           w['user_id'] == user_id and w['card_id'] == card_id
           for w in round_winners
       )
       if not already_claimed:
-        round_winners.append({'user_id': user_id, 'card_id': card_id})
+        round_winners.append({
+            'user_id': user_id,
+            'card_id': card_id,
+            'winning_ball': current_last_ball,
+        })
 
       if not winner_finalize_scheduled:
         winner_finalize_scheduled = True
