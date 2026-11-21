@@ -726,7 +726,10 @@
             <div class="text-4xl mb-2 animate-bounce">🎉🎊</div>
             
             <h3 id="winner-title" class="text-lg font-black text-amber-400 mb-1 font-orbitron tracking-wide">ቢንጎ አሸናፊ(ዎች) ተገኙ!</h3>
-            <p class="text-xs text-slate-300 mb-4">ጠቅላላ ሽልማት: <span id="winner-total-prize" class="font-black text-emerald-400 text-sm">0.00 ETB</span></p>
+            <p class="text-xs text-slate-300 mb-3">ጠቅላላ ሽልማት: <span id="winner-total-prize" class="font-black text-emerald-400 text-sm">0.00 ETB</span></p>
+
+            <!-- 🔒 Closing Ball & Winner Banner -->
+            <div id="winner-closing-banner" class="hidden mb-3 px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-emerald-500/25 border border-amber-400/60 text-xs font-black text-amber-200 shadow-md"></div>
             
             <div id="winners-list-container" class="space-y-3 mb-3 text-left"></div>
 
@@ -989,6 +992,12 @@
             cardsDatabase = {};
             lastAnnouncedNumber = null;
 
+            const closingBanner = document.getElementById('winner-closing-banner');
+            if (closingBanner) {
+                closingBanner.innerText = '';
+                closingBanner.classList.add('hidden');
+            }
+
             try {
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
@@ -1121,7 +1130,6 @@
                         drawnNumbersSet.add(n);
                         drawnNumbersList.push(n);
                     });
-                    // ቀድመው የወጡ ቁጥሮችን ላለመድገም የመጨረሻውን እንደተጠራ መዝግብ
                     lastAnnouncedNumber = drawnNumbersList[drawnNumbersList.length - 1];
                     renderMainCalledBall(lastAnnouncedNumber);
                 }
@@ -2028,6 +2036,7 @@
         socket.on('winner_announced', (data) => {
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const winnersContainer = document.getElementById('winners-list-container');
+            const closingBanner = document.getElementById('winner-closing-banner');
             
             if(totalPrizeEl) totalPrizeEl.innerText = `${parseFloat(data.total_prize || 0).toFixed(2)} ETB`;
             
@@ -2036,8 +2045,22 @@
                 winner_name: data.winner_name,
                 prize: data.prize,
                 card_id: data.card_id,
-                card_matrix: data.card_matrix
+                card_matrix: data.card_matrix,
+                winning_ball: data.closing_ball
             }];
+
+            const fallbackClosingBall = data.closing_ball || (
+                drawnNumbersList.length > 0
+                    ? `${getLetterForNum(drawnNumbersList[drawnNumbersList.length - 1])}-${drawnNumbersList[drawnNumbersList.length - 1]}`
+                    : 'N/A'
+            );
+            const winnerNames = winnersList.map(w => w.winner_name || 'አሸናፊ').join(', ');
+            const closingText = data.closing_message || `🏆 አሸናፊው ${winnerNames} በቁጥር ${fallbackClosingBall} ተዘግቷል!`;
+
+            if (closingBanner) {
+                closingBanner.innerText = closingText;
+                closingBanner.classList.remove('hidden');
+            }
 
             winnersList.forEach(w => {
                 const isMe = w.user_id && String(w.user_id) === String(window.userId);
@@ -2052,6 +2075,8 @@
                 winnersContainer.innerHTML = '';
                 winnersList.forEach(w => {
                     const isMe = w.user_id && String(w.user_id) === String(window.userId);
+                    const wBall = w.winning_ball || fallbackClosingBall;
+                    const individualClosedMsg = w.closed_msg || `አሸናፊው ${w.winner_name} በቁጥር ${wBall} ተዘግቷል!`;
                     const wBox = document.createElement('div');
                     wBox.className = `p-3 rounded-2xl border space-y-1.5 shadow-inner ${isMe ? 'bg-amber-950/50 border-amber-400' : 'bg-slate-900/90 border-amber-500/30'}`;
                     wBox.innerHTML = `
@@ -2059,10 +2084,18 @@
                             <span class="font-black text-amber-400 flex items-center gap-1">🏆 ${w.winner_name} ${isMe ? '(እርስዎ!)' : ''}</span>
                             <span class="font-extrabold text-emerald-400">${parseFloat(w.prize || 0).toFixed(2)} ETB</span>
                         </div>
-                        <div class="text-[10px] text-purple-300 font-semibold bg-purple-950/40 px-2 py-0.5 rounded-lg inline-block">ካርቴላ #${w.card_id}</div>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] text-purple-300 font-semibold bg-purple-950/40 px-2 py-0.5 rounded-lg inline-block">ካርቴላ #${w.card_id}</span>
+                            <span class="text-[10px] text-amber-300 font-bold bg-amber-950/50 border border-amber-500/30 px-2 py-0.5 rounded-lg inline-block">🔒 ${wBall}</span>
+                        </div>
+                        <p class="text-[11px] font-bold text-emerald-300 pt-0.5">${individualClosedMsg}</p>
                     `;
                     winnersContainer.appendChild(wBox);
                 });
+            }
+
+            if (soundEnabled) {
+                speakText(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
             }
 
             document.getElementById('winner-modal').classList.remove('hidden');
