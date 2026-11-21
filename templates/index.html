@@ -342,7 +342,7 @@
     <div id="selection-screen" class="hidden space-y-3 my-2">
         <div class="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex justify-between items-center shadow-lg">
             <span>🔊 ድምፅ ለማግኘት እዚህ ይጫኑ!</span>
-            <button onclick="toggleAudio()" id="audio-toggle-btn" class="bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] cursor-pointer">ክፈት</button>
+            <button onclick="toggleAudio()" id="audio-toggle-btn" class="bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] font-black cursor-pointer">ክፈት</button>
         </div>
 
         <div class="relative overflow-hidden rounded-2xl border border-purple-500/35 glass-panel p-3 flex items-center justify-between">
@@ -424,8 +424,9 @@
                     <p class="text-[7px] text-purple-300/80">LIVE CASINO BINGO</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="backToMenuFromGame()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2.5 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleAudio()" id="game-audio-toggle-btn" class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-1.5 rounded-xl cursor-pointer">🔇 ድምፅ</button>
+                <button onclick="backToMenuFromGame()" class="bg-slate-800 border border-slate-700 text-purple-300 text-[10px] font-bold px-2 py-1.5 rounded-xl cursor-pointer">← ወደ ሜኑ</button>
                 <div class="bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 rounded-xl text-right">
                     <div class="text-[7px] text-emerald-300">ሕሳብ (BAL)</div>
                     <div id="user-balance-disp-3" class="text-[11px] font-black text-emerald-400">0.00 ETB</div>
@@ -744,11 +745,146 @@
 
     <script>
         let soundEnabled = false;
+        let audioCtx = null;
+        let lastAnnouncedNumber = null;
+
+        function getLetterForNum(num) {
+            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+        }
+
+        function updateAudioButtonsUI() {
+            const btn = document.getElementById('audio-toggle-btn');
+            if (btn) {
+                btn.innerText = soundEnabled ? "በርቷል" : "ክፈት";
+                btn.className = soundEnabled
+                    ? "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] font-black cursor-pointer"
+                    : "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] font-black cursor-pointer";
+            }
+
+            const gameBtn = document.getElementById('game-audio-toggle-btn');
+            if (gameBtn) {
+                gameBtn.innerText = soundEnabled ? "🔊 በርቷል" : "🔇 ድምፅ";
+                gameBtn.className = soundEnabled
+                    ? "bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-1.5 rounded-xl cursor-pointer"
+                    : "bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-1.5 rounded-xl cursor-pointer";
+            }
+        }
+
+        function unlockAudioSystem() {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    if (!audioCtx) {
+                        audioCtx = new AudioContextClass();
+                    }
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                }
+            } catch (e) {
+                console.warn('AudioContext unlock notice:', e);
+            }
+
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.getVoices();
+                }
+            } catch (e) {
+                console.warn('speechSynthesis unlock notice:', e);
+            }
+        }
+
+        function playBallChime() {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                if (!audioCtx) audioCtx = new AudioContextClass();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(660, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.19);
+            } catch (e) {
+                // ignore audio chime failure
+            }
+        }
+
+        function speakText(spokenPhrase) {
+            if (!soundEnabled) return;
+            playBallChime();
+
+            if (!('speechSynthesis' in window)) return;
+
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(spokenPhrase);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.95;
+                utterance.pitch = 1.05;
+                utterance.volume = 1.0;
+
+                const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+                if (voices && voices.length > 0) {
+                    const preferredVoice = voices.find(v => /en/i.test(v.lang)) || voices[0];
+                    if (preferredVoice) {
+                        utterance.voice = preferredVoice;
+                    }
+                }
+
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn('Speech synthesis error:', e);
+            }
+        }
+
+        function announceBingoBall(num) {
+            if (!soundEnabled || num === null || num === undefined) return;
+            const letter = getLetterForNum(Number(num));
+            speakText(`${letter} ${Number(num)}`);
+        }
+
         function toggleAudio() {
             soundEnabled = !soundEnabled;
-            const btn = document.getElementById('audio-toggle-btn');
-            btn.innerText = soundEnabled ? "በርቷል" : "ክፈት";
-            btn.className = soundEnabled ? "bg-emerald-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] cursor-pointer" : "bg-slate-950 text-amber-400 px-3 py-1 rounded-xl text-[10px] cursor-pointer";
+            updateAudioButtonsUI();
+
+            if (soundEnabled) {
+                unlockAudioSystem();
+                const latestNum = drawnNumbersList.length > 0
+                    ? drawnNumbersList[drawnNumbersList.length - 1]
+                    : null;
+                if (latestNum !== null) {
+                    const letter = getLetterForNum(Number(latestNum));
+                    speakText(`${letter} ${Number(latestNum)}`);
+                } else {
+                    speakText("Sound on");
+                }
+            } else {
+                try {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                    }
+                } catch (e) {}
+            }
+        }
+
+        if ('speechSynthesis' in window && window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
         }
 
         const socket = io({
@@ -773,10 +909,6 @@
 
         let winnerRedirectInterval = null;
         let winnerTimeout = null;
-
-        function getLetterForNum(num) {
-            return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
-        }
 
         function getColumnTitle(letter) {
             const names = {
@@ -855,6 +987,13 @@
             drawnNumbersList = [];
             markedNumbersMap = {};
             cardsDatabase = {};
+            lastAnnouncedNumber = null;
+
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+            } catch (e) {}
 
             renderMainCalledBall(null);
 
@@ -905,7 +1044,6 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // ሁልጊዜ መጀመሪያ የጨዋታ ስክሪኖችን እና linking modal ን ደብቅ
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('telegram-link-modal').classList.add('hidden');
@@ -922,7 +1060,6 @@
                 currentTelegramUser = tgUser;
                 isTelegramAutoAuthInProgress = true;
 
-                // በቴሌግራም መረጃ በራስ-ሰር መዝግብ/አስገባ እና ቀጥታ ወደ Main Dashboard ውሰድ
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('menu-dashboard').classList.remove('hidden');
 
@@ -942,6 +1079,7 @@
 
             initCartelaGrid();
             renderPreviewCards();
+            updateAudioButtonsUI();
         });
 
         socket.on('connect', () => {
@@ -979,16 +1117,20 @@
                     drawnNumbersSet.clear();
                     drawnNumbersList = [];
                     data.drawn_balls.forEach(num => {
-                        drawnNumbersSet.add(num);
-                        drawnNumbersList.push(num);
+                        const n = Number(num);
+                        drawnNumbersSet.add(n);
+                        drawnNumbersList.push(n);
                     });
-                    renderMainCalledBall(drawnNumbersList[drawnNumbersList.length - 1]);
+                    // ቀድመው የወጡ ቁጥሮችን ላለመድገም የመጨረሻውን እንደተጠራ መዝግብ
+                    lastAnnouncedNumber = drawnNumbersList[drawnNumbersList.length - 1];
+                    renderMainCalledBall(lastAnnouncedNumber);
                 }
 
                 if (data.game_active) {
                     document.getElementById('menu-dashboard').classList.add('hidden');
                     document.getElementById('selection-screen').classList.add('hidden');
                     document.getElementById('game-screen').classList.remove('hidden');
+                    updateAudioButtonsUI();
 
                     const container = document.getElementById('my-cards-container');
                     if (container) {
@@ -1157,7 +1299,6 @@
                 socket.emit('get_user_balance', { user_id: userId });
                 socket.emit('get_user_active_cards', { user_id: userId });
             } else {
-                // የቴሌግራም አውቶ-ሎጊን በሚሞከርበት ጊዜ በቀጥታ ወደ auth-screen መልስ
                 if (isTelegramAutoAuthInProgress) {
                     isTelegramAutoAuthInProgress = false;
                     document.getElementById('menu-dashboard').classList.add('hidden');
@@ -1243,11 +1384,13 @@
         }
 
         function openGameSelection() {
+            unlockAudioSystem();
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             initCartelaGrid();
             renderPreviewCards();
+            updateAudioButtonsUI();
             socket.emit('get_user_balance', { user_id: userId });
             socket.emit('get_user_active_cards', { user_id: userId });
         }
@@ -1256,6 +1399,7 @@
             if (!window.userId) {
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
+            unlockAudioSystem();
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
@@ -1266,6 +1410,7 @@
                 container.style.display = 'none';
             }
             updateCalledNumbersUI();
+            updateAudioButtonsUI();
             socket.emit('get_user_balance', { user_id: userId });
         }
 
@@ -1660,11 +1805,13 @@
             drawnNumbersList = [];
             winningCardIds.clear();
             markedNumbersMap = {};
+            lastAnnouncedNumber = null;
             mySelectedCards.forEach(cid => markedNumbersMap[cid] = new Set());
             renderMainCalledBall(null);
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
+            updateAudioButtonsUI();
             const derashEl = document.getElementById('derash-amount');
             if(derashEl) derashEl.innerText = `${parseFloat(data.derash || 8).toFixed(2)} ETB`;
             
@@ -1682,14 +1829,21 @@
         });
 
         socket.on('number_drawn', (data) => {
-            const num = data.number;
-            if(!drawnNumbersSet.has(num)) {
+            const num = Number(data.number);
+            const isNewDraw = !drawnNumbersSet.has(num);
+
+            if (isNewDraw) {
                 drawnNumbersSet.add(num);
                 drawnNumbersList.push(num);
             }
             
             renderMainCalledBall(num);
             updateCalledNumbersUI();
+
+            if (isNewDraw && lastAnnouncedNumber !== num) {
+                lastAnnouncedNumber = num;
+                announceBingoBall(num);
+            }
 
             const autoDaubEnabled = document.getElementById('auto-check') ? document.getElementById('auto-check').checked : true;
             if (autoDaubEnabled) {
