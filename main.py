@@ -64,12 +64,12 @@ OTP_STORAGE = {}
 round_winners = []
 invalid_claimed_cards = set()  # 🌟 የተሳሳተ ቢንጎ (False Bingo) ያሰሙ ካርቴላዎች መዝገብ
 winner_lock = threading.Lock()
-winner_timer = None
+winner_finalize_scheduled = False
 round_finished_event = threading.Event()  # 🌟 ዙሩ ሲጠናቀቅ loop ወዲያውኑ ወደ አዲስ ዙር እንዲሸጋገር
 
 
 def background_game_loop():
-  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers, round_winners, winner_timer, invalid_claimed_cards
+  global game_timer, game_active, taken_cards_global, sold_cards_in_round, drawn_balls, available_numbers, round_winners, invalid_claimed_cards, winner_finalize_scheduled
   while True:
     try:
       round_finished_event.clear()
@@ -77,12 +77,7 @@ def background_game_loop():
       with winner_lock:
         round_winners = []
         invalid_claimed_cards = set()  # 🌟 አዲስ ዙር ሲጀምር የታገዱ ካርቴላዎች ማህደር ይጸዳል
-        if winner_timer:
-          try:
-            winner_timer.cancel()
-          except Exception:
-            pass
-          winner_timer = None
+        winner_finalize_scheduled = False
 
       game_active = False
       game_timer = 60
@@ -900,7 +895,7 @@ def handle_verify_otp_and_reset(data):
 
   user.password = new_password
   db.session.commit()
-  del OTP_STORAGE[target_key]
+  OTP_STORAGE.pop(target_key, None)
 
   emit(
       'password_reset_response',
@@ -1281,6 +1276,7 @@ def receive_sms():
 
     return 'success', 200
   except Exception as e:
+    db.session.rollback()
     print('Webhook Error:', str(e))
     return 'error', 500
 
@@ -1386,8 +1382,6 @@ def handle_request_deposit(data):
       )
       return
 
-    PROCESSED_TIDS.add(extracted_tid)
-
     user = User.query.filter_by(user_id=user_id).first()
     if not user:
       emit(
@@ -1397,6 +1391,7 @@ def handle_request_deposit(data):
       )
       return
 
+    PROCESSED_TIDS.add(extracted_tid)
     user.balance = float(user.balance) + float(actual_amount)
 
     deposit = Deposit(
@@ -1410,7 +1405,11 @@ def handle_request_deposit(data):
     db.session.add(deposit)
 
     tx_record = Transaction(
-        user_id=user_id, type='deposit', amount=actual_amount, status='completed'
+        user_id=user_id,
+        type='deposit',
+        amount=actual_amount,
+        method=method,
+        status='completed',
     )
     db.session.add(tx_record)
     db.session.commit()
@@ -1746,77 +1745,88 @@ def generate_bingo_matrix(seed_val):
   return matrix
 
 
+def _delayed_finalize_winners():
+  socketio.sleep(5.0)
+  finalize_round_winners()
+
+
 def finalize_round_winners():
-  global game_active, round_winners, sold_cards_in_round, drawn_balls, taken_cards_global
+  global game_active, round_winners, sold_cards_in_round, drawn_balls, taken_cards_global, winner_finalize_scheduled
   with app.app_context():
     with winner_lock:
+      winner_finalize_scheduled = False
       if not round_winners:
         return
 
+      winners_snapshot = list(round_winners)
+      sold_count_snapshot = len(sold_cards_in_round)
+
       game_active = False
-      total_pool = len(sold_cards_in_round) * 10.00
-      total_prize = max(total_pool * 0.90, 8)
-
-      num_winners = len(round_winners)
-      prize_per_winner = round(total_prize / num_winners, 2)
-
-      winner_details = []
-
-      for winner in round_winners:
-        uid = winner['user_id']
-        cid = winner['card_id']
-
-        user = User.query.filter_by(user_id=uid).first()
-        if user:
-          user.balance = float(user.balance) + float(prize_per_winner)
-          db.session.commit()
-          full_name = user.full_name or f'ተጫዋች {uid}'
-          socketio.emit(
-              'balance_update', {'user_id': uid, 'balance': float(user.balance)}
-          )
-        else:
-          full_name = f'ተጫዋች {uid}'
-
-        matrix = generate_bingo_matrix(cid)
-        winner_details.append({
-            'user_id': uid,
-            'winner_name': full_name,
-            'card_id': cid,
-            'card_matrix': matrix,
-            'prize': prize_per_winner,
-        })
-
-      winners_names = ', '.join([w['winner_name'] for w in winner_details])
-      send_telegram_notification(
-          f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው'
-          f' ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር'
-      )
-
-      socketio.emit(
-          'winner_announced',
-          {
-              'winners': winner_details,
-              'total_prize': total_prize,
-              'prize_per_winner': prize_per_winner,
-              'winner_count': num_winners,
-          },
-      )
-
-      # 🌟 ሁሉንም የዙር መረጃዎች እና የተያዙ ካርቴላዎች ሙሉ በሙሉ ማጽዳት
       round_winners = []
       sold_cards_in_round = []
       drawn_balls = []
       taken_cards_global = []
-
-      socketio.emit('update_selected_cards', {'taken_cards': []})
       round_finished_event.set()
+
+    total_pool = sold_count_snapshot * 10.00
+    total_prize = max(total_pool * 0.90, 8)
+
+    num_winners = len(winners_snapshot)
+    prize_per_winner = round(total_prize / num_winners, 2)
+
+    winner_details = []
+
+    for winner in winners_snapshot:
+      uid = winner['user_id']
+      cid = winner['card_id']
+
+      user = User.query.filter_by(user_id=uid).first()
+      if user:
+        user.balance = float(user.balance) + float(prize_per_winner)
+        db.session.commit()
+        full_name = user.full_name or f'ተጫዋች {uid}'
+        socketio.emit(
+            'balance_update', {'user_id': uid, 'balance': float(user.balance)}
+        )
+      else:
+        full_name = f'ተጫዋች {uid}'
+
+      matrix = generate_bingo_matrix(cid)
+      winner_details.append({
+          'user_id': uid,
+          'winner_name': full_name,
+          'card_id': cid,
+          'card_matrix': matrix,
+          'prize': prize_per_winner,
+      })
+
+    winners_names = ', '.join([w['winner_name'] for w in winner_details])
+    send_telegram_notification(
+        f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n- አሸናፊዎች: `{winners_names}`\n- የሰው'
+        f' ብዛት: {num_winners}\n- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር'
+    )
+
+    socketio.emit(
+        'winner_announced',
+        {
+            'winners': winner_details,
+            'total_prize': total_prize,
+            'prize_per_winner': prize_per_winner,
+            'winner_count': num_winners,
+        },
+    )
+    socketio.emit('update_selected_cards', {'taken_cards': []})
 
 
 @socketio.on('claim_bingo')
 def handle_claim_bingo(data):
-  global game_active, round_winners, winner_timer, invalid_claimed_cards
+  global game_active, round_winners, winner_finalize_scheduled, invalid_claimed_cards
   user_id = str(data.get('user_id'))
-  card_id = data.get('card_id')
+  raw_card_id = data.get('card_id')
+  try:
+    card_id = int(raw_card_id)
+  except Exception:
+    card_id = raw_card_id
   board = data.get('board')
 
   if not game_active:
@@ -1836,6 +1846,7 @@ def handle_claim_bingo(data):
     return
 
   if check_bingo_win(board, drawn_balls):
+    should_schedule = False
     with winner_lock:
       already_claimed = any(
           w['user_id'] == user_id and w['card_id'] == card_id
@@ -1844,9 +1855,12 @@ def handle_claim_bingo(data):
       if not already_claimed:
         round_winners.append({'user_id': user_id, 'card_id': card_id})
 
-      if len(round_winners) == 1:
-        winner_timer = threading.Timer(5.0, finalize_round_winners)
-        winner_timer.start()
+      if not winner_finalize_scheduled:
+        winner_finalize_scheduled = True
+        should_schedule = True
+
+    if should_schedule:
+      socketio.start_background_task(_delayed_finalize_winners)
   else:
     invalid_claimed_cards.add(card_id)
     emit(
@@ -2021,9 +2035,9 @@ def admin_update_user_status(user_id):
   data = request.get_json() or {}
   new_status = data.get('status')
 
-  user = User.query.filter_by(id=user_id).first() or User.query.filter_by(
-      user_id=user_id
-  ).first()
+  user = User.query.filter_by(user_id=user_id).first()
+  if not user and str(user_id).isdigit():
+    user = User.query.filter_by(id=int(user_id)).first()
   if not user:
     return jsonify({'success': False, 'message': 'ተጠቃሚው አልተገኘም'})
 
@@ -2080,6 +2094,8 @@ def admin_transaction_action(tx_id):
 
   if action == 'approve' or action == 'complete':
     if tx.type == 'withdrawal':
+      if tx.status == 'completed':
+        return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አስቀድሞ ጸድቋል!'})
       if not user:
         return jsonify({'success': False, 'message': 'ተጠቃሚው አልተገኘም'})
       if float(user.balance) < float(tx.amount):
@@ -2100,6 +2116,8 @@ def admin_transaction_action(tx_id):
       )
 
     elif tx.type == 'deposit':
+      if tx.status == 'completed':
+        return jsonify({'success': False, 'message': 'ትራንዛክሽኑ አስቀድሞ ጸድቋል!'})
       tx.status = 'completed'
       if user:
         user.balance = float(user.balance) + float(tx.amount)
@@ -2244,10 +2262,7 @@ def admin_login():
     else:
       error_msg = 'የተሳሳተ መግቢያ ስም ወይም የይለፍ ቃል!'
 
-  render_template_obj = render_template(
-      'admin_login.html', error_msg=error_msg
-  )
-  return render_template_obj
+  return render_template('admin_login.html', error_msg=error_msg)
 
 
 if __name__ == '__main__':
