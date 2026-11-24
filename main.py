@@ -76,7 +76,7 @@ def background_game_loop():
 
       with winner_lock:
         round_winners = []
-        invalid_claimed_cards = set()  # 🌟 አዲስ ዙር ሲጀምር የታገዱ ካርቴላዎች ማህደር ይጸዳል
+        invalid_claimed_cards = set()
         winner_finalize_scheduled = False
 
       game_active = False
@@ -111,7 +111,6 @@ def background_game_loop():
 
       socketio.emit('game_started', {'derash': derash})
 
-      # 🌟 በእያንዳንዱ ዙር አዲስ random shuffle (global random state ሳይበላሽ)
       round_rng = random.Random()
       round_balls = list(range(1, 76))
       round_rng.shuffle(round_balls)
@@ -244,7 +243,6 @@ with app.app_context():
     db.session.execute(
         sa.text('ALTER TABLE deposits ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;')
     )
-
     db.session.execute(
         sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);')
     )
@@ -257,7 +255,6 @@ with app.app_context():
     db.session.execute(
         sa.text('ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS admin_reply TEXT;')
     )
-
     db.session.commit()
   except Exception as e:
     db.session.rollback()
@@ -941,7 +938,7 @@ def get_user_history():
       })
 
     for t in transactions:
-      sign = '+' if t.type == 'deposit' else '-'
+      sign = '+' if t.type in ('deposit', 'win') else '-'
       history_list.append({
           'type': f"{t.type.capitalize()} ({t.method or 'N/A'})",
           'amount': f'{sign}{t.amount} ETB',
@@ -1729,7 +1726,6 @@ def generate_bingo_matrix(seed_val):
   except Exception:
     seed_int = 1
 
-  # 🌟 የራሱን Random instance መጠቀም — global random state እንዳይበላሽ
   card_rng = random.Random(seed_int)
 
   b = card_rng.sample(range(1, 16), 5)
@@ -1764,8 +1760,7 @@ def format_bingo_ball(ball_num):
 
 
 def _delayed_finalize_winners():
-  # በአንድ ጊዜ (within 1.2s) ቢንጎ ያሉ ተጫዋቾችን ብቻ ለመሰብሰብ አጭር ጊዜ
-  socketio.sleep(1.2)
+  socketio.sleep(0.5)
   finalize_round_winners()
 
 
@@ -1780,7 +1775,6 @@ def finalize_round_winners():
       winners_snapshot = list(round_winners)
       sold_count_snapshot = len(sold_cards_in_round)
       drawn_balls_snapshot = list(drawn_balls)
-      # የመጀመሪያው አሸናፊ ቢንጎ ያለበት ትክክለኛ ቁጥር
       closing_ball_str = winners_snapshot[0].get('winning_ball') or (
           format_bingo_ball(drawn_balls_snapshot[-1])
           if drawn_balls_snapshot
@@ -1795,42 +1789,63 @@ def finalize_round_winners():
       round_finished_event.set()
 
     total_pool = sold_count_snapshot * 10.00
-    total_prize = max(total_pool * 0.90, 8)
+    total_prize = max(round(total_pool * 0.90, 2), 8.00)
 
     num_winners = len(winners_snapshot)
     prize_per_winner = round(total_prize / num_winners, 2)
 
     winner_details = []
 
-    for winner in winners_snapshot:
-      uid = winner['user_id']
-      cid = winner['card_id']
-      w_ball = winner.get('winning_ball') or closing_ball_str
-      w_ball_num = winner.get('winning_ball_num')
+    try:
+      for winner in winners_snapshot:
+        uid = str(winner['user_id'])
+        cid = winner['card_id']
+        w_ball = winner.get('winning_ball') or closing_ball_str
+        w_ball_num = winner.get('winning_ball_num')
 
-      user = User.query.filter_by(user_id=uid).first()
-      if user:
-        user.balance = float(user.balance) + float(prize_per_winner)
-        db.session.commit()
-        full_name = user.full_name or f'ተጫዋች {uid}'
-        socketio.emit(
-            'balance_update', {'user_id': uid, 'balance': float(user.balance)}
-        )
-      else:
-        full_name = f'ተጫዋች {uid}'
+        user = User.query.filter_by(user_id=uid).first()
+        if user:
+          current_bal = float(user.balance or 0.0)
+          new_bal = round(current_bal + float(prize_per_winner), 2)
+          user.balance = new_bal
 
-      matrix = generate_bingo_matrix(cid)
-      winner_details.append({
-          'user_id': uid,
-          'winner_name': full_name,
-          'card_id': cid,
-          'card_matrix': matrix,
-          'drawn_balls': drawn_balls_snapshot,
-          'prize': prize_per_winner,
-          'winning_ball': w_ball,
-          'winning_ball_num': w_ball_num,
-          'closed_msg': f'አሸናፊው {full_name} በቁጥር {w_ball} ተዘግቷል!',
-      })
+          win_tx = Transaction(
+              user_id=uid,
+              type='win',
+              amount=prize_per_winner,
+              account=f'Card #{cid}',
+              method='Bingo Prize',
+              status='completed',
+          )
+          db.session.add(win_tx)
+          db.session.flush()
+
+          full_name = user.full_name or user.username or f'ተጫዋች {uid}'
+          socketio.emit(
+              'balance_update',
+              {'user_id': uid, 'balance': new_bal},
+          )
+        else:
+          full_name = f'ተጫዋች {uid}'
+
+        matrix = generate_bingo_matrix(cid)
+        winner_details.append({
+            'user_id': uid,
+            'winner_name': full_name,
+            'card_id': cid,
+            'card_matrix': matrix,
+            'drawn_balls': drawn_balls_snapshot,
+            'prize': prize_per_winner,
+            'winning_ball': w_ball,
+            'winning_ball_num': w_ball_num,
+            'closed_msg': f'አሸናፊው {full_name} በቁጥር {w_ball} ተዘግቷል!',
+        })
+
+      db.session.commit()
+    except Exception as e:
+      db.session.rollback()
+      print('Error awarding winner balance:', e)
+      traceback.print_exc()
 
     winners_names = ', '.join([w['winner_name'] for w in winner_details])
     closing_summary = (
@@ -1862,15 +1877,13 @@ def finalize_round_winners():
 @socketio.on('claim_bingo')
 def handle_claim_bingo(data):
   global game_active, round_winners, winner_finalize_scheduled, invalid_claimed_cards
-  user_id = str(data.get('user_id'))
+  user_id = str(data.get('user_id') or '').strip()
   raw_card_id = data.get('card_id')
   try:
     card_id = int(raw_card_id)
   except Exception:
     card_id = raw_card_id
-  board = data.get('board')
 
-  # ጨዋታው ካልጀመረ ወይም ቀድሞውኑ አሸናፊ ተገኝቶ ዙሩ ከተዘጋ ችላ በል
   if not game_active and not winner_finalize_scheduled:
     return
 
@@ -1887,18 +1900,21 @@ def handle_claim_bingo(data):
     )
     return
 
-  if check_bingo_win(board, drawn_balls):
+  # 🌟 የካርቴላውን ትክክለኛ ማትሪክስ በቀጥታ ከሰርቨር በመውሰድ በወጡ ቁጥሮች ብቻ ማረጋገጥ
+  server_matrix = generate_bingo_matrix(card_id)
+  is_valid_win = check_bingo_win(server_matrix, drawn_balls)
+
+  if is_valid_win:
     should_schedule = False
     last_num = drawn_balls[-1] if drawn_balls else None
     current_last_ball = format_bingo_ball(last_num) if last_num else 'N/A'
 
     with winner_lock:
-      # 1. ወዲያውኑ ተጨማሪ ቁጥር እንዳይወጣ አቁም!
       game_active = False
       round_finished_event.set()
 
       already_claimed = any(
-          w['user_id'] == user_id and w['card_id'] == card_id
+          str(w['user_id']) == user_id and w['card_id'] == card_id
           for w in round_winners
       )
       if not already_claimed:
@@ -1913,7 +1929,6 @@ def handle_claim_bingo(data):
         winner_finalize_scheduled = True
         should_schedule = True
 
-    # ለሁሉም ተጫዋቾች ዙሩ በዚህ ቁጥር መቆሙን ወዲያውኑ አሳውቅ
     socketio.emit(
         'bingo_claimed_lock',
         {'closing_ball': current_last_ball, 'card_id': card_id},
@@ -1936,28 +1951,28 @@ def handle_claim_bingo(data):
     )
 
 
-def check_bingo_win(board, current_drawn_balls):
-  if not board or not isinstance(board, list):
+def check_bingo_win(matrix_or_board, current_drawn_balls):
+  if not matrix_or_board or not isinstance(matrix_or_board, list):
     return False
   try:
-    if len(board) != 5:
+    if len(matrix_or_board) != 5:
       return False
 
     marked_board = []
     drawn_set = {int(b) for b in current_drawn_balls}
 
     for r in range(5):
+      if not isinstance(matrix_or_board[r], list) or len(matrix_or_board[r]) != 5:
+        return False
       row_vals = []
       for c in range(5):
-        val = board[r][c]
-        if val == 'FREE' or val is True or val == 1 or val == 'True':
+        val = matrix_or_board[r][c]
+        if val == 'FREE':
           row_vals.append(True)
-        elif isinstance(val, (int, float, str)) and str(val).isdigit():
-          num = int(val)
-          if num in drawn_set:
-            row_vals.append(True)
-          else:
-            row_vals.append(False)
+        elif isinstance(val, (int, float)) and not isinstance(val, bool):
+          row_vals.append(int(val) in drawn_set)
+        elif isinstance(val, str) and val.isdigit():
+          row_vals.append(int(val) in drawn_set)
         else:
           row_vals.append(False)
       marked_board.append(row_vals)
@@ -1986,7 +2001,6 @@ def check_bingo_win(board, current_drawn_balls):
 
   except Exception as e:
     print('Check Bingo Error:', e)
-    pass
   return False
 
 
