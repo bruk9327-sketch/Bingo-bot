@@ -1763,6 +1763,55 @@ def format_bingo_ball(ball_num):
     return str(ball_num)
 
 
+def get_winning_cells(matrix, current_drawn_balls):
+  """በካርቴላው ውስጥ ቢንጎ ያስመዘገቡ ሴሎችን [r, c] ዝርዝር ይመልሳል።"""
+  if not matrix or len(matrix) != 5:
+    return []
+  drawn_set = {int(b) for b in (current_drawn_balls or [])}
+  marked = [[False] * 5 for _ in range(5)]
+
+  for r in range(5):
+    for c in range(5):
+      val = matrix[r][c]
+      if val == 'FREE':
+        marked[r][c] = True
+      else:
+        try:
+          if int(val) in drawn_set:
+            marked[r][c] = True
+        except Exception:
+          pass
+
+  # Rows
+  for r in range(5):
+    if all(marked[r][c] for c in range(5)):
+      return [[r, c] for c in range(5)]
+
+  # Columns
+  for c in range(5):
+    if all(marked[r][c] for r in range(5)):
+      return [[r, c] for r in range(5)]
+
+  # Main diagonal
+  if all(marked[i][i] for i in range(5)):
+    return [[i, i] for i in range(5)]
+
+  # Anti-diagonal
+  if all(marked[i][4 - i] for i in range(5)):
+    return [[i, 4 - i] for i in range(5)]
+
+  # Four corners
+  if (
+      marked[0][0]
+      and marked[0][4]
+      and marked[4][0]
+      and marked[4][4]
+  ):
+    return [[0, 0], [0, 4], [4, 0], [4, 4]]
+
+  return []
+
+
 def _delayed_finalize_winners():
   socketio.sleep(5.0)
   finalize_round_winners()
@@ -1778,7 +1827,8 @@ def finalize_round_winners():
 
       winners_snapshot = list(round_winners)
       sold_count_snapshot = len(sold_cards_in_round)
-      last_drawn_ball = drawn_balls[-1] if drawn_balls else None
+      drawn_snapshot = list(drawn_balls)
+      last_drawn_ball = drawn_snapshot[-1] if drawn_snapshot else None
       formatted_closing_ball = (
           format_bingo_ball(last_drawn_ball) if last_drawn_ball else 'N/A'
       )
@@ -1815,11 +1865,15 @@ def finalize_round_winners():
         full_name = f'ተጫዋች {uid}'
 
       matrix = generate_bingo_matrix(cid)
+      win_cells = get_winning_cells(matrix, drawn_snapshot)
+
       winner_details.append({
           'user_id': uid,
           'winner_name': full_name,
           'card_id': cid,
           'card_matrix': matrix,
+          'winning_cells': win_cells,
+          'drawn_balls': drawn_snapshot,
           'prize': prize_per_winner,
           'winning_ball': w_ball,
           'closed_msg': f'አሸናፊው {full_name} በቁጥር {w_ball} ተዘግቷል!',
