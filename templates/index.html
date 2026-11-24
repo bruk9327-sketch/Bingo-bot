@@ -1060,7 +1060,10 @@
             updateCalledNumbersUI();
 
             const previewContainer = document.getElementById('preview-cards-container');
-            if (previewContainer) previewContainer.innerHTML = '';
+            if (previewContainer) {
+                previewContainer.innerHTML = '';
+                previewContainer.className = 'space-y-3';
+            }
 
             const promoBanner = document.getElementById('cartela-promo-banner');
             if (promoBanner) promoBanner.classList.remove('hidden');
@@ -2071,19 +2074,19 @@
             });
         }
 
-        function createCardHTML(cid, matrix, isPlayMode = false) {
+        function createCardHTML(cid, matrix, isPlayMode = false, isSideBySide = false) {
             const isWonCard = winningCardIds.has(Number(cid));
             const cardDiv = document.createElement('div');
             cardDiv.setAttribute('data-card-id', cid);
-            cardDiv.className = `glass-panel p-2.5 rounded-2xl w-full border border-slate-700 transition-all ${isWonCard ? 'bingo-winner-card' : ''}`;
-            cardDiv.innerHTML = `<div class="text-xs font-black text-amber-400 mb-1.5 text-center">ካርቴላ #${cid} ${isWonCard ? '👑' : ''}</div>`;
+            cardDiv.className = `glass-panel ${isSideBySide ? 'p-1.5' : 'p-2.5'} rounded-2xl w-full border border-slate-700 transition-all ${isWonCard ? 'bingo-winner-card' : ''}`;
+            cardDiv.innerHTML = `<div class="${isSideBySide ? 'text-[11px] mb-1' : 'text-xs mb-1.5'} font-black text-amber-400 text-center">ካርቴላ #${cid} ${isWonCard ? '👑' : ''}</div>`;
 
             const mGrid = document.createElement('div');
-            mGrid.className = 'grid grid-cols-5 gap-1 text-center font-bold text-xs bg-slate-950 p-2 rounded-xl mb-2';
+            mGrid.className = `grid grid-cols-5 ${isSideBySide ? 'gap-0.5 p-1' : 'gap-1 p-2'} text-center font-bold text-xs bg-slate-950 rounded-xl ${isPlayMode ? 'mb-2' : ''}`;
 
             ['B','I','N','G','O'].forEach(h => {
                 const hCell = document.createElement('div');
-                hCell.className = 'p-1 rounded-lg font-black text-[11px] bg-slate-900 text-purple-400';
+                hCell.className = `${isSideBySide ? 'py-0.5 text-[9px]' : 'p-1 text-[11px]'} rounded-lg font-black bg-slate-900 text-purple-400`;
                 hCell.innerText = h;
                 mGrid.appendChild(hCell);
             });
@@ -2095,7 +2098,11 @@
                         const isFree = val === 'FREE';
                         const isMarked = isFree || (markedNumbersMap[cid] && markedNumbersMap[cid].has(val));
 
-                        cell.className = `p-2 rounded-lg text-xs font-black ${isFree ? 'bg-amber-500 text-slate-950 text-[10px]' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
+                        const cellSizing = isSideBySide
+                            ? (isFree ? 'py-1.5 text-[8px]' : 'py-1.5 text-[10px]')
+                            : (isFree ? 'p-2 text-[10px]' : 'p-2 text-xs');
+
+                        cell.className = `${cellSizing} rounded-lg font-black ${isFree ? 'bg-amber-500 text-slate-950' : isMarked ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-200 cursor-pointer'}`;
                         cell.innerText = val;
 
                         if (isPlayMode && !isFree) {
@@ -2104,7 +2111,7 @@
                                 if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
-                                cell.className = 'p-2 rounded-lg text-xs font-black bg-emerald-500 text-slate-950 shadow-lg';
+                                cell.className = `${cellSizing} rounded-lg font-black bg-emerald-500 text-slate-950 shadow-lg`;
                             };
                         }
                         mGrid.appendChild(cell);
@@ -2158,10 +2165,15 @@
                 }
             }
 
-            mySelectedCards.forEach(cid => {
-                if (cardsDatabase[cid]) {
-                    container.appendChild(createCardHTML(cid, cardsDatabase[cid], false));
-                }
+            const validCards = mySelectedCards.filter(cid => Boolean(cardsDatabase[cid]));
+            const isTwoCardsSideBySide = validCards.length >= 2;
+
+            container.className = isTwoCardsSideBySide
+                ? 'grid grid-cols-2 gap-2 items-start'
+                : 'space-y-3';
+
+            validCards.forEach(cid => {
+                container.appendChild(createCardHTML(cid, cardsDatabase[cid], false, isTwoCardsSideBySide));
             });
         }
 
