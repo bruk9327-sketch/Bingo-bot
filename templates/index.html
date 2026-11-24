@@ -778,7 +778,7 @@
             <!-- Carousel Dots (for multiple winners) -->
             <div id="winner-carousel-dots" class="flex items-center justify-center gap-1.5 mt-3 hidden"></div>
 
-            <!-- Next Round Countdown Footer -->
+            <!-- Next Round Countdown Footer (5 Seconds) -->
             <div class="mt-3 pt-2 text-center">
                 <p id="redirect-timer-text" class="text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     NEXT ROUND: <span id="countdown-num" class="text-slate-800">5</span>S
@@ -789,6 +789,8 @@
     </div>
 
     <script>
+        const NEXT_ROUND_COUNTDOWN_SECONDS = 5;
+
         let soundEnabled = false;
         let audioCtx = null;
         let lastAnnouncedNumber = null;
@@ -2258,22 +2260,26 @@
 
             document.getElementById('winner-modal').classList.remove('hidden');
 
-            let timeLeft = 5;
+            let timeLeft = NEXT_ROUND_COUNTDOWN_SECONDS;
             const countdownNumEl = document.getElementById('countdown-num');
-            if(countdownNumEl) countdownNumEl.innerText = timeLeft;
+            if (countdownNumEl) countdownNumEl.innerText = timeLeft;
 
             clearWinnerTimers();
 
             winnerRedirectInterval = setInterval(() => {
                 timeLeft--;
-                if(countdownNumEl && timeLeft >= 0) {
+                if (timeLeft <= 0) {
+                    if (countdownNumEl) countdownNumEl.innerText = 0;
+                    clearInterval(winnerRedirectInterval);
+                    winnerRedirectInterval = null;
+                } else if (countdownNumEl) {
                     countdownNumEl.innerText = timeLeft;
                 }
             }, 1000);
 
             winnerTimeout = setTimeout(() => {
                 closeWinnerModalAutomatically();
-            }, 5000);
+            }, NEXT_ROUND_COUNTDOWN_SECONDS * 1000);
         });
 
         socket.on('reset_game', () => {
