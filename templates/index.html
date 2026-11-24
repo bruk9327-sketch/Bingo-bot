@@ -155,16 +155,13 @@
 
         /* 🌟 Winner Modal Animations & 5s Countdown Bar */
         @keyframes confettiPop {
-            0% { transform: scale(0.8); opacity: 0; }
-            50% { transform: scale(1.05); opacity: 1; }
+            0% { transform: scale(0.85); opacity: 0; }
+            60% { transform: scale(1.03); opacity: 1; }
             100% { transform: scale(1); opacity: 1; }
         }
-        @keyframes pulseGlow {
-            0%, 100% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
-            50% { box-shadow: 0 0 35px rgba(234, 179, 8, 0.8); }
-        }
         .winner-modal-animation {
-            animation: confettiPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, pulseGlow 2s infinite;
+            animation: confettiPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            box-shadow: 0 0 30px rgba(234, 179, 8, 0.55);
         }
         .countdown-bar {
             width: 100%;
@@ -533,8 +530,8 @@
         </div>
     </div>
 
-    <!-- TELEGRAM ACCOUNT LINKING & AUTO-REGISTRATION MODAL (OPTIONAL MANUAL USE ONLY) -->
-    <div id="telegram-link-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <!-- TELEGRAM ACCOUNT LINKING & AUTO-REGISTRATION MODAL -->
+    <div id="telegram-link-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-purple-500 shadow-2xl text-center space-y-3">
             <div class="text-3xl mb-1">🔗</div>
             <h3 class="text-sm font-black text-purple-400">አካውንት ማስተሳሰር ወይም መመዝገብ</h3>
@@ -552,7 +549,7 @@
     </div>
 
     <!-- FORGOT PASSWORD & OTP RECOVERY MODAL -->
-    <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="indexForgotModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl text-center">
             <h3 class="text-sm font-black text-amber-400 mb-2">🔑 የይለፍ ቃል ማግኛ (Password Recovery)</h3>
             
@@ -580,7 +577,7 @@
     </div>
 
     <!-- HISTORY MODAL -->
-    <div id="history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-sky-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-black text-sky-400">📜 የጨዋታና ክፍያ ታሪክ (History)</h3>
@@ -599,7 +596,7 @@
     </div>
 
     <!-- RULES MODAL -->
-    <div id="rules-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="rules-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-indigo-500 shadow-2xl text-left">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-black text-indigo-400">📖 የጨዋታ መመሪያዎች (Rules)</h3>
@@ -616,7 +613,7 @@
     </div>
 
     <!-- SUPPORT MODAL -->
-    <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="support-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-md border-2 border-purple-500 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
@@ -687,7 +684,7 @@
     </div>
 
     <!-- DEPOSIT MODAL -->
-    <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="deposit-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-black text-emerald-400">📥 ሒሳብ ገቢ ማድረግ (Deposit Validation)</h3>
@@ -712,7 +709,7 @@
     </div>
 
     <!-- BALANCE MODAL -->
-    <div id="balance-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="balance-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-emerald-500 shadow-2xl text-center">
             <div class="text-3xl mb-2">💰</div>
             <h3 class="text-xs font-bold text-slate-300 mb-1">የአካውንትዎ ቀሪ ሂሳብ (Balance)</h3>
@@ -722,7 +719,7 @@
     </div>
 
     <!-- WITHDRAW MODAL -->
-    <div id="withdraw-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="withdraw-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-5 w-full max-w-sm border-2 border-amber-500 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-black text-amber-400">📤 ገንዘብ ማውጣት (Withdraw)</h3>
@@ -741,7 +738,7 @@
     </div>
 
     <!-- WINNER MODAL -->
-    <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
+    <div id="winner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden z-[9999]">
         <div class="glass-panel text-white rounded-3xl p-6 w-full max-w-md border-2 border-amber-500 shadow-2xl text-center max-h-[90vh] overflow-y-auto winner-modal-animation relative">
             
             <div class="text-4xl mb-2 animate-bounce">🎉🎊</div>
@@ -1108,8 +1105,9 @@
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
 
-            if (window.userId) {
-                socket.emit('get_user_balance', { user_id: window.userId });
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (activeUid) {
+                socket.emit('get_user_balance', { user_id: activeUid });
             }
         }
 
@@ -1155,6 +1153,7 @@
         socket.on('connect', () => {
             const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
             const tgUser = tg?.initDataUnsafe?.user;
+            const savedUid = window.userId || localStorage.getItem('bk_user_id');
 
             if (tgUser && tgUser.id) {
                 currentTelegramUser = tgUser;
@@ -1162,7 +1161,9 @@
                     telegram_user: tgUser,
                     init_data: tg.initData || ''
                 });
-            } else if (userId) {
+            } else if (savedUid) {
+                userId = String(savedUid);
+                window.userId = userId;
                 socket.emit('get_user_balance', { user_id: userId });
                 socket.emit('get_user_active_cards', { user_id: userId });
             }
@@ -1454,18 +1455,22 @@
 
         function openGameSelection() {
             unlockAudioSystem();
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
             document.getElementById('menu-dashboard').classList.add('hidden');
             document.getElementById('selection-screen').classList.remove('hidden');
             document.getElementById('game-screen').classList.add('hidden');
             initCartelaGrid();
             renderPreviewCards();
             updateAudioButtonsUI();
-            socket.emit('get_user_balance', { user_id: userId });
-            socket.emit('get_user_active_cards', { user_id: userId });
+            if (activeUid) {
+                socket.emit('get_user_balance', { user_id: activeUid });
+                socket.emit('get_user_active_cards', { user_id: activeUid });
+            }
         }
 
         function openWatchLiveScreen() {
-            if (!window.userId) {
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (!activeUid) {
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
             unlockAudioSystem();
@@ -1480,7 +1485,7 @@
             }
             updateCalledNumbersUI();
             updateAudioButtonsUI();
-            socket.emit('get_user_balance', { user_id: userId });
+            socket.emit('get_user_balance', { user_id: activeUid });
         }
 
         function backToMenu() {
@@ -1667,7 +1672,8 @@
         }
 
         socket.on('support_reply_received', (data) => {
-            if (String(data.user_id) === String(window.userId)) {
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (String(data.user_id) === String(activeUid)) {
                 alert('📩 ከአድሚኑ አዲስ የድጋፍ ምላሽ ደርሶዎታል!');
                 const supportModal = document.getElementById('support-modal');
                 if (!supportModal.classList.contains('hidden')) {
@@ -1677,7 +1683,8 @@
         });
 
         function openBalanceModal() { 
-            socket.emit('get_user_balance', { user_id: userId });
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (activeUid) socket.emit('get_user_balance', { user_id: activeUid });
             document.getElementById('balance-modal').classList.remove('hidden'); 
         }
         function closeBalanceModal() { document.getElementById('balance-modal').classList.add('hidden'); }
@@ -1699,8 +1706,9 @@
             const amount = parseFloat(document.getElementById('deposit_amount').value);
             const smsInput = document.getElementById('sms_text_input').value.trim();
             const method = document.getElementById('deposit-method').value;
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
 
-            if (!window.userId) {
+            if (!activeUid) {
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
@@ -1718,7 +1726,7 @@
             }
 
             socket.emit('request_deposit', { 
-                user_id: window.userId, 
+                user_id: activeUid, 
                 amount: amount, 
                 tx_ref: txRef, 
                 sms_text: smsInput, 
@@ -1742,8 +1750,9 @@
             const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const account = document.getElementById('withdraw-account').value.trim();
             const method = document.getElementById('withdraw-method').value;
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
 
-            if (!window.userId) {
+            if (!activeUid) {
                 return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
             }
 
@@ -1756,7 +1765,7 @@
             }
 
             socket.emit('request_withdrawal', { 
-                user_id: window.userId, 
+                user_id: activeUid, 
                 amount: amount, 
                 account: account, 
                 method: method 
@@ -1789,6 +1798,7 @@
             const gridContainer = document.getElementById('cartela-grid');
             if(!gridContainer) return;
             gridContainer.innerHTML = '';
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
             
             for (let i = 1; i <= 500; i++) {
                 const btn = document.createElement('div');
@@ -1801,15 +1811,15 @@
                     btn.className = 'number-cell bg-purple-600 text-white border-purple-400 shadow-lg ring-2 ring-amber-300/70 hover:bg-rose-600 hover:border-rose-300 transition-all';
                     btn.title = `ካርቴላ #${i} ለመልቀቅ/ለማጥፋት ይጫኑ`;
                     btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
-                        socket.emit('unselect_card', { user_id: window.userId, card_id: i });
+                        if (!activeUid) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        socket.emit('unselect_card', { user_id: activeUid, card_id: i });
                     };
                 } else {
                     btn.className = 'number-cell bg-slate-800 text-slate-200 border-slate-700 hover:border-purple-400 active:scale-95 transition-all';
                     btn.onclick = () => {
-                        if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                        if (!activeUid) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                         if (mySelectedCards.length >= 2) return alert("⚠️ በአንድ ዙር ቢበዛ 2 ካርቴላ ብቻ መግዛት ይቻላል!");
-                        socket.emit('select_card', { user_id: window.userId, card_id: i });
+                        socket.emit('select_card', { user_id: activeUid, card_id: i });
                     };
                 }
                 btn.innerText = i;
@@ -1824,13 +1834,14 @@
                 return;
             }
             const releasedId = Number(data.card_id);
-            if (String(data.user_id) === String(window.userId) || !data.user_id) {
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (String(data.user_id) === String(activeUid) || !data.user_id) {
                 removeCardFromMySelection(releasedId);
             } else {
                 takenCards = takenCards.filter(id => Number(id) !== releasedId);
                 initCartelaGrid();
             }
-            if (data.new_balance !== undefined && String(data.user_id) === String(window.userId)) {
+            if (data.new_balance !== undefined && String(data.user_id) === String(activeUid)) {
                 updateBalanceDisplays(data.new_balance);
             }
         });
@@ -1852,14 +1863,18 @@
         });
 
         function updateBalanceDisplays(bal) {
-            const bStr = `${parseFloat(bal).toFixed(2)} ETB`;
+            const numBal = parseFloat(bal || 0);
+            const bStr = `${numBal.toFixed(2)} ETB`;
             const modalBal = document.getElementById('modal-balance-amount');
             if(modalBal) modalBal.innerText = bStr;
             document.querySelectorAll('#user-balance-disp-2, #user-balance-disp-3').forEach(el => { if(el) el.innerText = bStr; });
         }
 
         socket.on('balance_update', (data) => {
-            if(String(data.user_id) === String(window.userId)) updateBalanceDisplays(data.balance);
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (data && String(data.user_id) === String(activeUid)) {
+                updateBalanceDisplays(data.balance);
+            }
         });
 
         socket.on('timer_update', (data) => {
@@ -2044,16 +2059,17 @@
                     claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
                 }
                 claimBtn.onclick = () => {
-                    if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
+                    const activeUid = window.userId || localStorage.getItem('bk_user_id');
+                    if (!activeUid) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
                     
-                    let boardValidationMatrix = matrixData.map(row => 
+                    let boardValidationMatrix = matrixData ? matrixData.map(row => 
                         row.map(val => val === 'FREE' || markedSet.has(val) || markedSet.has(String(val)))
-                    );
+                    ) : [];
                     
                     socket.emit('claim_bingo', { 
-                        user_id: window.userId, 
+                        user_id: activeUid, 
                         card_id: cid, 
                         board: boardValidationMatrix 
                     });
@@ -2151,30 +2167,41 @@
 
         socket.on('winner_announced', (data) => {
             isRoundLocked = true;
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const winnersContainer = document.getElementById('winners-list-container');
             const closingBanner = document.getElementById('winner-closing-banner');
-            
-            if(totalPrizeEl) totalPrizeEl.innerText = `${parseFloat(data.total_prize || 0).toFixed(2)} ETB`;
-            
-            const winnersList = data.winners || [{
-                user_id: data.user_id,
-                winner_name: data.winner_name,
-                prize: data.prize,
-                card_id: data.card_id,
-                card_matrix: data.card_matrix,
-                drawn_balls: data.drawn_balls || drawnNumbersList,
-                winning_ball: data.closing_ball,
-                winning_ball_num: data.winning_ball_num
-            }];
+            const winnerModal = document.getElementById('winner-modal');
 
-            const fallbackClosingBall = data.closing_ball || (
+            const winnersList = (data && Array.isArray(data.winners) && data.winners.length > 0)
+                ? data.winners
+                : [{
+                    user_id: data?.user_id || activeUid,
+                    winner_name: data?.winner_name || 'አሸናፊ',
+                    prize: data?.prize ?? data?.total_prize ?? 0,
+                    card_id: data?.card_id || (mySelectedCards[0] || 'N/A'),
+                    card_matrix: data?.card_matrix || null,
+                    drawn_balls: data?.drawn_balls || drawnNumbersList,
+                    winning_ball: data?.closing_ball || null,
+                    winning_ball_num: data?.winning_ball_num || null
+                }];
+
+            const totalPrizeVal = (data && data.total_prize !== undefined)
+                ? parseFloat(data.total_prize || 0)
+                : winnersList.reduce((sum, w) => sum + parseFloat(w.prize || 0), 0);
+
+            if (totalPrizeEl) {
+                totalPrizeEl.innerText = `${totalPrizeVal.toFixed(2)} ETB`;
+            }
+
+            const fallbackClosingBall = (data && data.closing_ball) || (
                 drawnNumbersList.length > 0
                     ? `${getLetterForNum(drawnNumbersList[drawnNumbersList.length - 1])}-${drawnNumbersList[drawnNumbersList.length - 1]}`
                     : 'N/A'
             );
             const winnerNames = winnersList.map(w => w.winner_name || 'አሸናፊ').join(', ');
-            const closingText = data.closing_message || `🏆 አሸናፊው ${winnerNames} በቁጥር ${fallbackClosingBall} ተዘግቷል!`;
+            const closingText = (data && data.closing_message) || `🏆 አሸናፊው ${winnerNames} በቁጥር ${fallbackClosingBall} ተዘግቷል!`;
 
             if (closingBanner) {
                 closingBanner.innerText = closingText;
@@ -2182,7 +2209,7 @@
             }
 
             winnersList.forEach(w => {
-                const isMe = w.user_id && String(w.user_id) === String(window.userId);
+                const isMe = w.user_id && String(w.user_id) === String(activeUid);
                 const ownsThisCard = mySelectedCards.includes(Number(w.card_id));
                 if (isMe || ownsThisCard) {
                     winningCardIds.add(Number(w.card_id));
@@ -2190,10 +2217,10 @@
             });
             applyWinnerStyleToMyCards();
 
-            if(winnersContainer) {
+            if (winnersContainer) {
                 winnersContainer.innerHTML = '';
                 winnersList.forEach(w => {
-                    const isMe = w.user_id && String(w.user_id) === String(window.userId);
+                    const isMe = w.user_id && String(w.user_id) === String(activeUid);
                     const wBall = w.winning_ball || fallbackClosingBall;
                     const parsedBallNum = w.winning_ball_num !== undefined && w.winning_ball_num !== null
                         ? w.winning_ball_num
@@ -2223,13 +2250,20 @@
                 });
             }
 
+            if (activeUid) {
+                socket.emit('get_user_balance', { user_id: activeUid });
+            }
+
             if (soundEnabled) {
                 setTimeout(() => {
                     speakText(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
                 }, 60);
             }
 
-            document.getElementById('winner-modal').classList.remove('hidden');
+            if (winnerModal) {
+                winnerModal.classList.remove('hidden');
+                winnerModal.style.display = 'flex';
+            }
             resetCountdownProgressBar();
 
             let timeLeft = 5;
@@ -2246,6 +2280,9 @@
             }, 1000);
 
             winnerTimeout = setTimeout(() => {
+                if (winnerModal) {
+                    winnerModal.style.display = '';
+                }
                 closeWinnerModalAutomatically();
             }, 5000);
         });
@@ -2266,14 +2303,16 @@
                 }
             }
 
-            if(userId) socket.emit('get_user_balance', { user_id: userId });
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if(activeUid) socket.emit('get_user_balance', { user_id: activeUid });
         });
 
         function sendChatMessage() {
             const inputEl = document.getElementById('chat-input-msg');
             const msg = inputEl.value.trim();
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
 
-            if (!window.userId) {
+            if (!activeUid) {
                 alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                 return;
             }
@@ -2281,7 +2320,7 @@
             if (!msg) return;
 
             socket.emit('send_chat_message', {
-                user_id: window.userId,
+                user_id: activeUid,
                 message: msg
             });
 
@@ -2289,13 +2328,14 @@
         }
 
         function sendQuickEmoji(emoji) {
-            if (!window.userId) {
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
+            if (!activeUid) {
                 alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                 return;
             }
 
             socket.emit('send_chat_message', {
-                user_id: window.userId,
+                user_id: activeUid,
                 message: emoji
             });
         }
@@ -2303,8 +2343,9 @@
         socket.on('new_chat_message', (data) => {
             const chatBox = document.getElementById('chat-messages-box');
             if (!chatBox) return;
+            const activeUid = window.userId || localStorage.getItem('bk_user_id');
 
-            const isMyMsg = String(data.user_id) === String(window.userId);
+            const isMyMsg = String(data.user_id) === String(activeUid);
 
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex flex-col ${isMyMsg ? 'items-end' : 'items-start'}`;
