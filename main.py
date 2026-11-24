@@ -1764,7 +1764,8 @@ def format_bingo_ball(ball_num):
 
 
 def _delayed_finalize_winners():
-  socketio.sleep(5.0)
+  # በአንድ ጊዜ (within 1.2s) ቢንጎ ያሉ ተጫዋቾችን ብቻ ለመሰብሰብ አጭር ጊዜ
+  socketio.sleep(1.2)
   finalize_round_winners()
 
 
@@ -1778,9 +1779,12 @@ def finalize_round_winners():
 
       winners_snapshot = list(round_winners)
       sold_count_snapshot = len(sold_cards_in_round)
-      last_drawn_ball = drawn_balls[-1] if drawn_balls else None
-      formatted_closing_ball = (
-          format_bingo_ball(last_drawn_ball) if last_drawn_ball else 'N/A'
+      drawn_balls_snapshot = list(drawn_balls)
+      # የመጀመሪያው አሸናፊ ቢንጎ ያለበት ትክክለኛ ቁጥር
+      closing_ball_str = winners_snapshot[0].get('winning_ball') or (
+          format_bingo_ball(drawn_balls_snapshot[-1])
+          if drawn_balls_snapshot
+          else 'N/A'
       )
 
       game_active = False
@@ -1801,7 +1805,8 @@ def finalize_round_winners():
     for winner in winners_snapshot:
       uid = winner['user_id']
       cid = winner['card_id']
-      w_ball = winner.get('winning_ball') or formatted_closing_ball
+      w_ball = winner.get('winning_ball') or closing_ball_str
+      w_ball_num = winner.get('winning_ball_num')
 
       user = User.query.filter_by(user_id=uid).first()
       if user:
@@ -1820,20 +1825,22 @@ def finalize_round_winners():
           'winner_name': full_name,
           'card_id': cid,
           'card_matrix': matrix,
+          'drawn_balls': drawn_balls_snapshot,
           'prize': prize_per_winner,
           'winning_ball': w_ball,
+          'winning_ball_num': w_ball_num,
           'closed_msg': f'አሸናፊው {full_name} በቁጥር {w_ball} ተዘግቷል!',
       })
 
     winners_names = ', '.join([w['winner_name'] for w in winner_details])
     closing_summary = (
-        f'🏆 አሸናፊው {winners_names} በቁጥር {formatted_closing_ball} ተዘግቷል!'
+        f'🏆 አሸናፊው {winners_names} በቁጥር {closing_ball_str} ተዘግቷል!'
     )
 
     send_telegram_notification(
         f'🏆 *ቢንጎ አሸናፊ(ዎች) ተገኙ!*\n'
         f'- አሸናፊዎች: `{winners_names}`\n'
-        f'- የተዘጋበት ቁጥር: *{formatted_closing_ball}*\n'
+        f'- የተዘጋበት ቁጥር: *{closing_ball_str}*\n'
         f'- የሰው ብዛት: {num_winners}\n'
         f'- የነፍስ ወከፍ ድርሻ: {prize_per_winner} ብር'
     )
@@ -1845,7 +1852,7 @@ def finalize_round_winners():
             'total_prize': total_prize,
             'prize_per_winner': prize_per_winner,
             'winner_count': num_winners,
-            'closing_ball': formatted_closing_ball,
+            'closing_ball': closing_ball_str,
             'closing_message': closing_summary,
         },
     )
@@ -1863,7 +1870,8 @@ def handle_claim_bingo(data):
     card_id = raw_card_id
   board = data.get('board')
 
-  if not game_active:
+  # ጨዋታው ካልጀመረ ወይም ቀድሞውኑ አሸናፊ ተገኝቶ ዙሩ ከተዘጋ ችላ በል
+  if not game_active and not winner_finalize_scheduled:
     return
 
   if card_id in invalid_claimed_cards:
@@ -1881,10 +1889,14 @@ def handle_claim_bingo(data):
 
   if check_bingo_win(board, drawn_balls):
     should_schedule = False
-    current_last_ball = (
-        format_bingo_ball(drawn_balls[-1]) if drawn_balls else 'N/A'
-    )
+    last_num = drawn_balls[-1] if drawn_balls else None
+    current_last_ball = format_bingo_ball(last_num) if last_num else 'N/A'
+
     with winner_lock:
+      # 1. ወዲያውኑ ተጨማሪ ቁጥር እንዳይወጣ አቁም!
+      game_active = False
+      round_finished_event.set()
+
       already_claimed = any(
           w['user_id'] == user_id and w['card_id'] == card_id
           for w in round_winners
@@ -1894,11 +1906,18 @@ def handle_claim_bingo(data):
             'user_id': user_id,
             'card_id': card_id,
             'winning_ball': current_last_ball,
+            'winning_ball_num': last_num,
         })
 
       if not winner_finalize_scheduled:
         winner_finalize_scheduled = True
         should_schedule = True
+
+    # ለሁሉም ተጫዋቾች ዙሩ በዚህ ቁጥር መቆሙን ወዲያውኑ አሳውቅ
+    socketio.emit(
+        'bingo_claimed_lock',
+        {'closing_ball': current_last_ball, 'card_id': card_id},
+    )
 
     if should_schedule:
       socketio.start_background_task(_delayed_finalize_winners)
