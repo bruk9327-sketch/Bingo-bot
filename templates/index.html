@@ -474,9 +474,30 @@
         </div>
 
         <div class="grid grid-cols-12 gap-2 items-start">
-            <div class="col-span-4 glass-panel p-2 rounded-2xl border border-amber-500/40">
-                <div class="text-[10px] font-black text-amber-300 mb-1.5 text-center tracking-wide">🎱 የወጡ ቁጥሮች</div>
-                <div class="max-h-[340px] overflow-y-auto space-y-1.5 pr-0.5" id="called-numbers-board"></div>
+            <div class="col-span-4 space-y-2">
+                <!-- የወጡ ቁጥሮች ሳጥን -->
+                <div class="glass-panel p-2 rounded-2xl border border-amber-500/40">
+                    <div class="text-[10px] font-black text-amber-300 mb-1.5 text-center tracking-wide">🎱 የወጡ ቁጥሮች</div>
+                    <div class="max-h-[235px] overflow-y-auto space-y-1.5 pr-0.5" id="called-numbers-board"></div>
+                </div>
+
+                <!-- 🎁 ትንሽ የፕሮሞሽን ፍሬም (ከወጡ ቁጥሮች ስር) -->
+                <div id="live-promo-mini-frame" class="relative overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-br from-purple-950/95 via-slate-900/95 to-amber-950/85 p-2.5 shadow-lg text-center space-y-1.5">
+                    <div class="flex items-center justify-center gap-1">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span id="promo-frame-badge" class="text-[8px] font-black uppercase tracking-wider text-amber-300">BKBINGO PRO PROMO</span>
+                    </div>
+                    <div id="promo-frame-title" class="text-[11px] font-black text-white leading-tight">
+                        🎉 90% ደራሽ ይሸለሙ!
+                    </div>
+                    <p id="promo-frame-desc" class="text-[9px] text-slate-300 leading-snug">
+                        በቀጥታ ይጫወቱ እና አሁኑኑ አሸናፊ ይሁኑ!
+                    </p>
+                    <div class="pt-1 border-t border-white/10 space-y-0.5">
+                        <div class="text-[9px] font-black text-emerald-400 truncate">🌐 wollo.com.et</div>
+                        <div class="text-[8px] font-bold text-purple-300 truncate">🤖 @ETHIOPIANBINGOPRO_bot</div>
+                    </div>
+                </div>
             </div>
             <div id="my-cards-container" class="col-span-8 space-y-2"></div>
         </div>
@@ -910,6 +931,45 @@
         let isTelegramAutoAuthInProgress = false;
         let winningCardIds = new Set();
 
+        let isRoundLocked = false;
+
+        const livePromoSlides = [
+            {
+                badge: '🔥 LIVE JACKPOT',
+                title: '🎉 90% ደራሽ ይሸለሙ!',
+                desc: 'በእያንዳንዱ ዙር ፈጣን ሽልማት በቀጥታ ወደ ሂሳብዎ!'
+            },
+            {
+                badge: '📲 PLAY ANYWHERE',
+                title: '🌐 wollo.com.et',
+                desc: 'በዌብሳይት ወይም በቴሌግራም ቦታችን በቀላሉ ይጫወቱ!'
+            },
+            {
+                badge: '🤖 TELEGRAM BOT',
+                title: '@ETHIOPIANBINGOPRO_bot',
+                desc: 'ጓደኞችዎን ይጋብዙ፣ አብረው ይጫወቱና ያሸንፉ! 🏆'
+            },
+            {
+                badge: '⚡ FAST PAYOUT',
+                title: '💰 Telebirr & CBE',
+                desc: 'ፈጣን ዲፖዚት እና አስተማማኝ የገንዘብ ማውጣት!'
+            }
+        ];
+        let currentPromoSlideIdx = 0;
+
+        setInterval(() => {
+            const badgeEl = document.getElementById('promo-frame-badge');
+            const titleEl = document.getElementById('promo-frame-title');
+            const descEl = document.getElementById('promo-frame-desc');
+            if (!badgeEl || !titleEl || !descEl) return;
+
+            currentPromoSlideIdx = (currentPromoSlideIdx + 1) % livePromoSlides.length;
+            const slide = livePromoSlides[currentPromoSlideIdx];
+            badgeEl.innerText = slide.badge;
+            titleEl.innerText = slide.title;
+            descEl.innerText = slide.desc;
+        }, 6000);
+
         let winnerRedirectInterval = null;
         let winnerTimeout = null;
 
@@ -983,6 +1043,7 @@
         }
 
         function resetGameStateForNextRound() {
+            isRoundLocked = false;
             mySelectedCards = [];
             takenCards = [];
             winningCardIds.clear();
@@ -1809,6 +1870,7 @@
         });
 
         socket.on('game_started', (data) => {
+            isRoundLocked = false;
             drawnNumbersSet.clear();
             drawnNumbersList = [];
             winningCardIds.clear();
@@ -1836,7 +1898,17 @@
             }
         });
 
+        socket.on('bingo_claimed_lock', (data) => {
+            isRoundLocked = true;
+            const colLabel = document.getElementById('current-ball-column-label');
+            if (colLabel && data && data.closing_ball) {
+                colLabel.innerText = `🔒 ቢንጎ! (${data.closing_ball})`;
+            }
+        });
+
         socket.on('number_drawn', (data) => {
+            if (isRoundLocked) return;
+
             const num = Number(data.number);
             const isNewDraw = !drawnNumbersSet.has(num);
 
@@ -2033,7 +2105,52 @@
             }
         });
 
+        function buildWinnerCartelaHTML(matrix, drawnBallsArr, closingBallNum) {
+            if (!Array.isArray(matrix) || matrix.length !== 5) return '';
+            const drawnSet = new Set((drawnBallsArr || []).map(n => Number(n)));
+            const winNum = closingBallNum !== null && closingBallNum !== undefined ? Number(closingBallNum) : null;
+
+            const headers = ['B', 'I', 'N', 'G', 'O']
+                .map(h => `<div class="p-1 rounded bg-slate-950 text-purple-400 font-black text-[10px]">${h}</div>`)
+                .join('');
+
+            let cellsHTML = '';
+            matrix.forEach(row => {
+                row.forEach(val => {
+                    const isFree = val === 'FREE';
+                    const numVal = isFree ? null : Number(val);
+                    const isClosing = !isFree && winNum !== null && numVal === winNum;
+                    const isCalled = isFree || (numVal !== null && drawnSet.has(numVal));
+
+                    let cellClass = 'bg-slate-800/90 text-slate-300 border border-slate-700/60';
+                    if (isFree) {
+                        cellClass = 'bg-amber-500 text-slate-950 font-black text-[9px]';
+                    } else if (isClosing) {
+                        cellClass = 'bg-gradient-to-br from-amber-300 via-yellow-400 to-orange-500 text-slate-950 ring-2 ring-white shadow-lg scale-105 font-black';
+                    } else if (isCalled) {
+                        cellClass = 'bg-emerald-500 text-slate-950 font-black shadow';
+                    }
+
+                    cellsHTML += `<div class="py-1.5 px-1 rounded-md text-[11px] text-center transition-all ${cellClass}">${val}</div>`;
+                });
+            });
+
+            return `
+                <div class="mt-2 bg-slate-950/90 p-2 rounded-xl border border-amber-500/30">
+                    <div class="text-[9px] text-slate-400 font-bold mb-1 flex justify-between items-center">
+                        <span>📋 የዘጋበት ካርቴላ</span>
+                        <span class="text-amber-300">🟡 የተዘጋበት ቁጥር</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1 text-center">
+                        ${headers}
+                        ${cellsHTML}
+                    </div>
+                </div>
+            `;
+        }
+
         socket.on('winner_announced', (data) => {
+            isRoundLocked = true;
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const winnersContainer = document.getElementById('winners-list-container');
             const closingBanner = document.getElementById('winner-closing-banner');
@@ -2046,7 +2163,9 @@
                 prize: data.prize,
                 card_id: data.card_id,
                 card_matrix: data.card_matrix,
-                winning_ball: data.closing_ball
+                drawn_balls: data.drawn_balls || drawnNumbersList,
+                winning_ball: data.closing_ball,
+                winning_ball_num: data.winning_ball_num
             }];
 
             const fallbackClosingBall = data.closing_ball || (
@@ -2076,7 +2195,16 @@
                 winnersList.forEach(w => {
                     const isMe = w.user_id && String(w.user_id) === String(window.userId);
                     const wBall = w.winning_ball || fallbackClosingBall;
+                    const parsedBallNum = w.winning_ball_num !== undefined && w.winning_ball_num !== null
+                        ? w.winning_ball_num
+                        : (String(wBall).includes('-') ? Number(String(wBall).split('-')[1]) : null);
                     const individualClosedMsg = w.closed_msg || `አሸናፊው ${w.winner_name} በቁጥር ${wBall} ተዘግቷል!`;
+                    const cartelaHTML = buildWinnerCartelaHTML(
+                        w.card_matrix,
+                        w.drawn_balls || drawnNumbersList,
+                        parsedBallNum
+                    );
+
                     const wBox = document.createElement('div');
                     wBox.className = `p-3 rounded-2xl border space-y-1.5 shadow-inner ${isMe ? 'bg-amber-950/50 border-amber-400' : 'bg-slate-900/90 border-amber-500/30'}`;
                     wBox.innerHTML = `
@@ -2089,13 +2217,16 @@
                             <span class="text-[10px] text-amber-300 font-bold bg-amber-950/50 border border-amber-500/30 px-2 py-0.5 rounded-lg inline-block">🔒 ${wBall}</span>
                         </div>
                         <p class="text-[11px] font-bold text-emerald-300 pt-0.5">${individualClosedMsg}</p>
+                        ${cartelaHTML}
                     `;
                     winnersContainer.appendChild(wBox);
                 });
             }
 
             if (soundEnabled) {
-                speakText(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
+                setTimeout(() => {
+                    speakText(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
+                }, 60);
             }
 
             document.getElementById('winner-modal').classList.remove('hidden');
