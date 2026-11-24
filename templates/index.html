@@ -794,6 +794,7 @@
         let soundEnabled = false;
         let audioCtx = null;
         let lastAnnouncedNumber = null;
+        let roundEnded = false;
 
         function getLetterForNum(num) {
             return num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
@@ -869,7 +870,7 @@
         }
 
         function speakText(spokenPhrase) {
-            if (!soundEnabled) return;
+            if (!soundEnabled || roundEnded) return;
             playBallChime();
 
             if (!('speechSynthesis' in window)) return;
@@ -897,7 +898,7 @@
         }
 
         function announceBingoBall(num) {
-            if (!soundEnabled || num === null || num === undefined) return;
+            if (!soundEnabled || roundEnded || num === null || num === undefined) return;
             const letter = getLetterForNum(Number(num));
             speakText(`${letter} ${Number(num)}`);
         }
@@ -911,7 +912,7 @@
                 const latestNum = drawnNumbersList.length > 0
                     ? drawnNumbersList[drawnNumbersList.length - 1]
                     : null;
-                if (latestNum !== null) {
+                if (latestNum !== null && !roundEnded) {
                     const letter = getLetterForNum(Number(latestNum));
                     speakText(`${letter} ${Number(latestNum)}`);
                 } else {
@@ -1020,6 +1021,7 @@
         }
 
         function resetGameStateForNextRound() {
+            roundEnded = false;
             mySelectedCards = [];
             takenCards = [];
             winningCardIds.clear();
@@ -1177,7 +1179,6 @@
                 }
             }
 
-            // Update dots
             const dotsContainer = document.getElementById('winner-carousel-dots');
             if (dotsContainer && currentWinnersCarousel.length > 1) {
                 dotsContainer.innerHTML = '';
@@ -1280,6 +1281,7 @@
                 }
 
                 if (data.game_active) {
+                    roundEnded = false;
                     document.getElementById('menu-dashboard').classList.add('hidden');
                     document.getElementById('selection-screen').classList.add('hidden');
                     document.getElementById('game-screen').classList.remove('hidden');
@@ -1954,6 +1956,7 @@
         });
 
         socket.on('game_started', (data) => {
+            roundEnded = false;
             drawnNumbersSet.clear();
             drawnNumbersList = [];
             winningCardIds.clear();
@@ -1982,6 +1985,8 @@
         });
 
         socket.on('number_drawn', (data) => {
+            if (roundEnded) return;
+
             const num = Number(data.number);
             const isNewDraw = !drawnNumbersSet.has(num);
 
@@ -2095,6 +2100,7 @@
 
                         if (isPlayMode && !isFree) {
                             cell.onclick = () => {
+                                if (roundEnded) return;
                                 if (!drawnNumbersSet.has(val)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
                                 if (!markedNumbersMap[cid]) markedNumbersMap[cid] = new Set();
                                 markedNumbersMap[cid].add(val);
@@ -2117,6 +2123,7 @@
                     claimBtn.innerHTML = `🎉 BINGO ለካርቴላ #${cid}`;
                 }
                 claimBtn.onclick = () => {
+                    if (roundEnded) return;
                     if (!window.userId) return alert("⚠️ እባክዎ መጀመሪያ ይግቡ (Sign In)!");
                     const matrixData = cardsDatabase[cid];
                     const markedSet = markedNumbersMap[cid] || new Set();
@@ -2179,6 +2186,13 @@
         });
 
         socket.on('winner_announced', (data) => {
+            roundEnded = true;
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+            } catch (e) {}
+
             const totalPrizeEl = document.getElementById('winner-total-prize');
             const indPrizeEl = document.getElementById('winner-individual-prize');
             const countBadgeEl = document.getElementById('winner-count-badge');
@@ -2255,7 +2269,22 @@
             const winnerNames = winnersList.map(w => w.winner_name || 'አሸናፊ').join(', ');
 
             if (soundEnabled) {
-                speakText(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
+                try {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance(`Bingo! Winner ${winnerNames}. Game closed on ${fallbackClosingBall}`);
+                        utterance.lang = 'en-US';
+                        utterance.rate = 0.95;
+                        utterance.pitch = 1.05;
+                        utterance.volume = 1.0;
+                        const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+                        if (voices && voices.length > 0) {
+                            const preferredVoice = voices.find(v => /en/i.test(v.lang)) || voices[0];
+                            if (preferredVoice) utterance.voice = preferredVoice;
+                        }
+                        window.speechSynthesis.speak(utterance);
+                    }
+                } catch (e) {}
             }
 
             document.getElementById('winner-modal').classList.remove('hidden');
